@@ -1,26 +1,123 @@
 @import "tailwindcss";
 
+/* ============================================================
+   DESIGN TOKENS — Industry Cosmetic ERP (Liquid Glass)
+   Konsep: permukaan kaca buram di atas latar bergradasi lembut.
+   Elemen UI (sidebar, card, modal) transparan + blur, dengan
+   tepi cahaya tipis supaya kelihatan seperti panel kaca.
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #EDE9E0;
+  --foreground: #1C1C1A;
+
+  --color-botanical-900: #16261D;
+  --color-botanical-800: #1E3327;
+  --color-botanical-700: #2F4D3A;
+  --color-botanical-100: #E4ECE2;
+
+  --color-clay-600: #A8502F;
+  --color-clay-500: #C1623D;
+  --color-clay-100: #F3DFD3;
+
+  --color-amber-500: #D9A441;
+  --color-amber-100: #F6E8C9;
+
+  --color-line: rgba(28, 28, 26, 0.08);
+  --color-muted: #7E7972;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-porcelain: var(--background);
+  --color-ink: var(--foreground);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-botanical-900: var(--color-botanical-900);
+  --color-botanical-800: var(--color-botanical-800);
+  --color-botanical-700: var(--color-botanical-700);
+  --color-botanical-100: var(--color-botanical-100);
+
+  --color-clay-600: var(--color-clay-600);
+  --color-clay-500: var(--color-clay-500);
+  --color-clay-100: var(--color-clay-100);
+
+  --color-amber-500: var(--color-amber-500);
+  --color-amber-100: var(--color-amber-100);
+
+  --color-line: var(--color-line);
+  --color-muted: var(--color-muted);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-plex-mono);
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  /* Latar bergradasi — ini yang "terlihat" di balik panel kaca */
+  background:
+    radial-gradient(900px 500px at 5% 0%, rgba(120, 170, 130, 0.35) 0%, transparent 55%),
+    radial-gradient(800px 600px at 95% 5%, rgba(220, 150, 110, 0.28) 0%, transparent 50%),
+    radial-gradient(700px 500px at 70% 100%, rgba(150, 180, 200, 0.25) 0%, transparent 55%),
+    radial-gradient(600px 400px at 20% 90%, rgba(200, 180, 140, 0.25) 0%, transparent 50%),
+    var(--background);
+  background-attachment: fixed;
+}
+
+/* ---------- Utilitas panel kaca ----------
+   .glass       : panel terang (card, tabel, modal)
+   .glass-dark  : panel gelap (sidebar)
+   .glass-input : field input di atas panel kaca
+*/
+@utility glass {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 1px 2px rgba(28, 28, 26, 0.04),
+    0 8px 24px rgba(28, 28, 26, 0.06);
+}
+
+@utility glass-dark {
+  background: rgba(22, 38, 29, 0.72);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@utility glass-input {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(28, 28, 26, 0.1);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(28, 28, 26, 0.15);
+  border-radius: 8px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-botanical-700);
+  outline-offset: 2px;
+}
+
+/* Hormati preferensi "kurangi transparansi" (aksesibilitas macOS/iOS) */
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: #FFFFFF;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .glass-dark {
+    background: #16261D;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
