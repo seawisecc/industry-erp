@@ -14,15 +14,19 @@ export default async function AppLayout({
   const supabase = await createClient();
   const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
 
-  // Company yang belum diaktivasi Super Admin → tampilkan layar tunggu
+  // Company belum aktif / masa aktif habis → tampilkan layar blokir
   if (!isSuperAdmin && organizationId) {
     const { data: org } = await supabase
       .from("organizations")
-      .select("nama, aktif")
+      .select("nama, aktif, aktif_sampai")
       .eq("id", organizationId)
       .single();
 
-    if (org && !org.aktif) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const expired =
+      org?.aktif && org.aktif_sampai !== null && org.aktif_sampai < todayStr;
+
+    if (org && (!org.aktif || expired)) {
       return (
         <div className="min-h-screen flex items-center justify-center p-4">
           <div className="glass rounded-3xl p-10 max-w-md text-center">
@@ -30,12 +34,22 @@ export default async function AppLayout({
               <Logo size={32} />
             </div>
             <h1 className="font-display text-[22px] font-semibold text-ink mb-2">
-              Menunggu Aktivasi
+              {expired ? "Masa Aktif Berakhir" : "Menunggu Aktivasi"}
             </h1>
             <p className="text-muted text-[13.5px] leading-relaxed mb-6">
-              Perusahaan <b>{org.nama}</b> sudah terdaftar tapi belum
-              diaktifkan oleh tim Seawise. Kamu akan bisa menggunakan aplikasi
-              begitu aktivasi selesai.
+              {expired ? (
+                <>
+                  Masa aktif <b>{org.nama}</b> sudah berakhir. Hubungi tim
+                  Seawise untuk perpanjangan supaya bisa lanjut menggunakan
+                  aplikasi.
+                </>
+              ) : (
+                <>
+                  Perusahaan <b>{org.nama}</b> sudah terdaftar tapi belum
+                  diaktifkan oleh tim Seawise. Kamu akan bisa menggunakan
+                  aplikasi begitu aktivasi selesai.
+                </>
+              )}
             </p>
             <SignOutButton variant="solid" />
           </div>

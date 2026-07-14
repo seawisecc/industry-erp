@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+// Next.js 16: konvensi "middleware.ts" berganti nama jadi "proxy.ts".
+// Tugasnya sama: cek session di tiap request, lempar ke /login kalau belum auth.
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

@@ -4,18 +4,33 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 
-export async function setCompanyActive(id: string, aktif: boolean) {
-  const { isSuperAdmin } = await getEffectiveOrg();
-  if (!isSuperAdmin) throw new Error("Hanya Super Admin yang bisa mengelola company.");
+export async function setCompanyActive(
+  id: string,
+  aktif: boolean,
+  aktifSampai: string | null // yyyy-mm-dd, null = tanpa batas
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { isSuperAdmin } = await getEffectiveOrg();
+    if (!isSuperAdmin)
+      throw new Error("Hanya Super Admin yang bisa mengelola company.");
 
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("organizations")
-    .update({ aktif })
-    .eq("id", id);
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("organizations")
+      .update({
+        aktif,
+        aktif_sampai: aktif ? aktifSampai : null,
+      })
+      .eq("id", id);
 
-  if (error) throw new Error(error.message);
+    if (error) throw new Error(error.message);
 
-  revalidatePath("/companies");
-  return { success: true };
+    revalidatePath("/companies");
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Gagal mengubah status",
+    };
+  }
 }

@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import SettingsForm from "./SettingsForm";
+import AccountForm from "./AccountForm";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+  const { profile, organizationId } = await getEffectiveOrg();
 
   const [{ data: settings }, { data: org }] = await Promise.all([
     supabase
@@ -23,8 +24,14 @@ export default async function SettingsPage() {
     <div className="max-w-3xl">
       <h1 className="font-display text-2xl font-semibold text-ink">Pengaturan</h1>
       <p className="text-muted text-sm mt-1 mb-6">
-        {org?.nama} — data perusahaan &amp; pengesahan dokumen
+        {org?.nama} — akun, data perusahaan &amp; pengesahan dokumen
       </p>
+
+      <AccountForm
+        companyNama={org?.nama || ""}
+        adminNama={profile?.nama || ""}
+        email={profile?.email || ""}
+      />
 
       <SettingsForm initial={settings} />
     </div>
