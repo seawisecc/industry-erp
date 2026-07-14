@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
@@ -6,8 +7,11 @@ import { createClient } from "@/lib/supabase/server";
  * - Kalau bukan Super Admin: selalu pakai organisasi sendiri (gak bisa diganti).
  * - Kalau Super Admin: pakai organisasi yang sedang dipilih (disimpan di cookie),
  *   atau kalau belum pernah pilih, default ke organisasi sendiri.
+ *
+ * Dibungkus cache() supaya layout + sidebar + halaman yang memanggil ini
+ * dalam satu request cuma memicu SATU query ke Supabase (lebih cepat).
  */
-export async function getEffectiveOrg() {
+export const getEffectiveOrg = cache(async function getEffectiveOrgImpl() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -33,4 +37,4 @@ export async function getEffectiveOrg() {
     organizationId: selectedOrgId || profile.organization_id,
     isSuperAdmin: true,
   };
-}
+});

@@ -35,14 +35,16 @@ export default function LoginPage() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError("");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       setError("Email atau password salah.");
       return;
     }
+    // loading tetap true selama redirect, biar tombol jelas "sedang bekerja"
     router.push("/dashboard");
     router.refresh();
   }
@@ -136,9 +138,12 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-botanical-700 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-botanical-800 transition-all shadow-sm disabled:opacity-60"
+              className="w-full bg-botanical-700 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-botanical-800 transition-all shadow-sm disabled:opacity-70 flex items-center justify-center gap-2"
             >
-              {loading ? "Masuk..." : "Masuk"}
+              {loading && (
+                <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              )}
+              {loading ? "Sedang masuk..." : "Masuk"}
             </button>
           </form>
 
@@ -267,8 +272,11 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={rLoading}
-                  className="w-full bg-botanical-700 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-botanical-800 transition-all shadow-sm disabled:opacity-60"
+                  className="w-full bg-botanical-700 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-botanical-800 transition-all shadow-sm disabled:opacity-70 flex items-center justify-center gap-2"
                 >
+                  {rLoading && (
+                    <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  )}
                   {rLoading ? "Mendaftarkan..." : "Daftarkan Perusahaan"}
                 </button>
               </form>
