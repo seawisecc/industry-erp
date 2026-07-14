@@ -1,6 +1,7 @@
 import Sidebar from "@/components/Sidebar";
 import AccessGuard from "@/components/AccessGuard";
 import SignOutButton from "@/components/SignOutButton";
+import IdleLogout from "@/components/IdleLogout";
 import Logo from "@/components/Logo";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { createClient } from "@/lib/supabase/server";
@@ -45,8 +46,9 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen">
+      <IdleLogout />
       <Sidebar />
-      <main className="flex-1 p-8 max-w-[1200px] mx-auto w-full">
+      <main className="flex-1 p-4 pt-[72px] sm:p-8 sm:pt-8 max-w-[1200px] mx-auto w-full min-w-0">
         <AccessGuard
           isSuperAdmin={isSuperAdmin}
           role={profile?.role || ""}
