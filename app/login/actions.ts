@@ -9,12 +9,37 @@ export type RegisterInput = {
   password: string;
 };
 
-export async function registerCompany(data: RegisterInput) {
+export type RegisterResult = { ok: true } | { ok: false; error: string };
+
+export async function registerCompany(data: RegisterInput): Promise<RegisterResult> {
+  try {
+    return await doRegister(data);
+  } catch (err) {
+    // Kembalikan pesan asli supaya tetap terbaca di production (tidak dimask Next.js)
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Gagal mendaftar. Coba lagi.",
+    };
+  }
+}
+
+async function doRegister(data: RegisterInput): Promise<RegisterResult> {
   if (!data.company?.trim()) throw new Error("Nama perusahaan wajib diisi");
   if (!data.nama?.trim()) throw new Error("Nama lengkap wajib diisi");
   if (!data.email?.trim()) throw new Error("Email wajib diisi");
   if (!data.password || data.password.length < 6)
     throw new Error("Password minimal 6 karakter");
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      "Konfigurasi server belum lengkap: SUPABASE_SERVICE_ROLE_KEY tidak ditemukan. Cek Environment Variables di Vercel."
+    );
+  }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    throw new Error(
+      "Konfigurasi server belum lengkap: NEXT_PUBLIC_SUPABASE_URL tidak ditemukan."
+    );
+  }
 
   const admin = createAdminClient();
 
@@ -70,5 +95,5 @@ export async function registerCompany(data: RegisterInput) {
     })
     .eq("id", created.user.id);
 
-  return { success: true };
+  return { ok: true };
 }

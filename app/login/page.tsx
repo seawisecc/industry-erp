@@ -56,16 +56,16 @@ export default function LoginPage() {
     }
     setRLoading(true);
     setRError("");
-    try {
-      await registerCompany({
-        company: rCompany,
-        nama: rNama,
-        email: rEmail,
-        password: rPassword,
-      });
+    const result = await registerCompany({
+      company: rCompany,
+      nama: rNama,
+      email: rEmail,
+      password: rPassword,
+    });
+    if (result.ok) {
       setRSuccess(true);
-    } catch (err) {
-      setRError(err instanceof Error ? err.message : "Gagal mendaftar");
+    } else {
+      setRError(result.error);
     }
     setRLoading(false);
   }
