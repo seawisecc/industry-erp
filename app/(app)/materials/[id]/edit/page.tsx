@@ -55,6 +55,8 @@ export default async function EditMaterialPage({
           supplier_id: material.supplier_id,
           origin: material.origin,
           noc: material.noc,
+          kategori: material.kategori || "Bahan Baku",
+          keterangan: material.keterangan,
           inci_rows: (inciRows || []).map((r) => ({
             inci_master_id: r.inci_master_id || "",
             inci_name: r.inci_name,

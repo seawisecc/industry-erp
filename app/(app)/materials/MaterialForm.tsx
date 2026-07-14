@@ -11,7 +11,6 @@ type InciOption = { id: string; inci_name: string; cas_number: string | null };
 type Props = {
   suppliers: SupplierOption[];
   inciOptions: InciOption[];
-  /** kalau diisi, form jadi mode Edit */
   material?: {
     id: string;
     material_code: string;
@@ -19,9 +18,13 @@ type Props = {
     supplier_id: string | null;
     origin: string | null;
     noc: string | null;
+    kategori: "Bahan Baku" | "Kemasan";
+    keterangan: string | null;
     inci_rows: InciRow[];
   };
 };
+
+type RowState = { inci_master_id: string; inci_name: string; percentage: string };
 
 export default function MaterialForm({ suppliers, inciOptions, material }: Props) {
   const router = useRouter();
@@ -30,9 +33,10 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
   const [materialCode, setMaterialCode] = useState(material?.material_code || "");
   const [tradename, setTradename] = useState(material?.tradename || "");
   const [supplierId, setSupplierId] = useState(material?.supplier_id || "");
+  const [kategori, setKategori] = useState<"Bahan Baku" | "Kemasan">(material?.kategori || "Bahan Baku");
+  const [keterangan, setKeterangan] = useState(material?.keterangan || "");
   const [origin, setOrigin] = useState(material?.origin || "");
   const [noc, setNoc] = useState(material?.noc || "");
-  type RowState = { inci_master_id: string; inci_name: string; percentage: string };
   const [rows, setRows] = useState<RowState[]>(
     material?.inci_rows?.length
       ? material.inci_rows.map((r) => ({ ...r, percentage: String(r.percentage) }))
@@ -68,11 +72,16 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
         supplier_id: supplierId || null,
         origin: origin || null,
         noc: noc || null,
-        inci_rows: rows.map((r) => ({
-          inci_master_id: r.inci_master_id,
-          inci_name: r.inci_name,
-          percentage: parseFloat(r.percentage.replace(",", ".")) || 0,
-        })),
+        kategori,
+        keterangan: kategori === "Kemasan" ? keterangan || null : null,
+        inci_rows:
+          kategori === "Kemasan"
+            ? []
+            : rows.map((r) => ({
+                inci_master_id: r.inci_master_id,
+                inci_name: r.inci_name,
+                percentage: parseFloat(r.percentage.replace(",", ".")) || 0,
+              })),
       };
       if (isEdit && material) {
         await updateMaterial(material.id, payload);
@@ -89,14 +98,14 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
 
   return (
     <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">Kode Material</label>
           <input
             value={materialCode}
             onChange={(e) => setMaterialCode(e.target.value)}
             required
-            placeholder="RM001-Sd.ME"
+            placeholder="RM001-Sd.ME / PK001-..."
             className="w-full glass-input rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-botanical-700"
           />
         </div>
@@ -111,100 +120,128 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
         </div>
       </div>
 
-      <div>
-        <label className="block text-[12.5px] font-medium text-muted mb-1.5">Supplier</label>
-        <select
-          value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
-          className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
-        >
-          <option value="">- Pilih Supplier -</option>
-          {suppliers.map((s) => (
-            <option key={s.id} value={s.id}>{s.nama}</option>
-          ))}
-        </select>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[12.5px] font-medium text-muted mb-1.5">Kategori</label>
+          <select
+            value={kategori}
+            onChange={(e) => setKategori(e.target.value as "Bahan Baku" | "Kemasan")}
+            className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+          >
+            <option value="Bahan Baku">Bahan Baku</option>
+            <option value="Kemasan">Kemasan</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-[12.5px] font-medium text-muted mb-1.5">Supplier</label>
+          <select
+            value={supplierId}
+            onChange={(e) => setSupplierId(e.target.value)}
+            className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+          >
+            <option value="">- Pilih Supplier -</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>{s.nama}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-[12.5px] font-medium text-muted">INCI Name & Komposisi (%)</label>
-          <span className={`text-[12px] font-medium ${pctWarning ? "text-clay-600" : "text-botanical-700"}`}>
-            Total: {totalPct.toFixed(2)}%{pctWarning ? " (idealnya 100%)" : ""}
-          </span>
-        </div>
+      {kategori === "Bahan Baku" ? (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-[12.5px] font-medium text-muted">INCI Name & Komposisi (%)</label>
+            <span className={`text-[12px] font-medium ${pctWarning ? "text-clay-600" : "text-botanical-700"}`}>
+              Total: {totalPct.toFixed(2)}%{pctWarning ? " (idealnya 100%)" : ""}
+            </span>
+          </div>
 
-        <div className="flex flex-col gap-2">
-          {rows.map((row, i) => {
-            const query = row.inci_name.toLowerCase();
-            const filtered =
-              activeSearch === i && query && !row.inci_master_id
-                ? inciOptions.filter((o) => o.inci_name.toLowerCase().includes(query)).slice(0, 8)
-                : [];
-            return (
-              <div key={i} className="relative flex items-start gap-2">
-                <div className="flex-1 relative">
+          <div className="flex flex-col gap-2">
+            {rows.map((row, i) => {
+              const query = row.inci_name.toLowerCase();
+              const filtered =
+                activeSearch === i && query && !row.inci_master_id
+                  ? inciOptions.filter((o) => o.inci_name.toLowerCase().includes(query)).slice(0, 8)
+                  : [];
+              return (
+                <div key={i} className="relative flex items-start gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      value={row.inci_name}
+                      onChange={(e) => {
+                        updateRow(i, { inci_name: e.target.value, inci_master_id: "" });
+                        setActiveSearch(i);
+                      }}
+                      onFocus={() => setActiveSearch(i)}
+                      onBlur={() => setTimeout(() => setActiveSearch(null), 150)}
+                      placeholder="Ketik untuk cari INCI Name..."
+                      className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                    />
+                    {filtered.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1 glass rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
+                        {filtered.map((o) => (
+                          <button
+                            key={o.id}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              updateRow(i, { inci_master_id: o.id, inci_name: o.inci_name });
+                              setActiveSearch(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 flex justify-between gap-2"
+                          >
+                            <span>{o.inci_name}</span>
+                            <span className="text-muted text-[11.5px]">{o.cas_number || ""}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <input
-                    value={row.inci_name}
-                    onChange={(e) => {
-                      updateRow(i, { inci_name: e.target.value, inci_master_id: "" });
-                      setActiveSearch(i);
-                    }}
-                    onFocus={() => setActiveSearch(i)}
-                    onBlur={() => setTimeout(() => setActiveSearch(null), 150)}
-                    placeholder="Ketik untuk cari INCI Name..."
-                    className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                    type="text"
+                    inputMode="decimal"
+                    value={row.percentage}
+                    onChange={(e) => updateRow(i, { percentage: e.target.value })}
+                    placeholder="%"
+                    className="w-24 glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                   />
-                  {filtered.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 glass rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
-                      {filtered.map((o) => (
-                        <button
-                          key={o.id}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            updateRow(i, { inci_master_id: o.id, inci_name: o.inci_name });
-                            setActiveSearch(null);
-                          }}
-                          className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 flex justify-between gap-2"
-                        >
-                          <span>{o.inci_name}</span>
-                          <span className="text-muted text-[11.5px]">{o.cas_number || ""}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeRow(i)}
+                    className="p-2.5 text-muted hover:text-clay-600 transition-colors"
+                    title="Hapus baris"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={row.percentage}
-                  onChange={(e) => updateRow(i, { percentage: e.target.value })}
-                  placeholder="%"
-                  className="w-24 glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeRow(i)}
-                  className="p-2.5 text-muted hover:text-clay-600 transition-colors"
-                  title="Hapus baris"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={addRow}
+            className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium text-botanical-700 hover:underline"
+          >
+            <Plus size={14} /> Tambah Komponen INCI
+          </button>
         </div>
+      ) : (
+        <div>
+          <label className="block text-[12.5px] font-medium text-muted mb-1.5">
+            Keterangan Kemasan
+          </label>
+          <textarea
+            value={keterangan}
+            onChange={(e) => setKeterangan(e.target.value)}
+            rows={3}
+            placeholder="Spesifikasi: jenis plastik (PET/HDPE), ukuran, warna, food grade, dst"
+            className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+          />
+        </div>
+      )}
 
-        <button
-          type="button"
-          onClick={addRow}
-          className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium text-botanical-700 hover:underline"
-        >
-          <Plus size={14} /> Tambah Komponen INCI
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">Origin</label>
           <input

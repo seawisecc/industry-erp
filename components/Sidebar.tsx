@@ -22,6 +22,8 @@ export default async function Sidebar() {
     <SidebarNav
       profileNama={profile?.nama || ""}
       isSuperAdmin={isSuperAdmin}
+      role={profile?.role || ""}
+      allowedModules={profile?.allowed_modules ?? null}
       organizations={organizations}
       currentOrgId={organizationId || ""}
       currentOrgNama={currentOrg?.nama || ""}

@@ -8,6 +8,7 @@ export interface Profile {
   aktif: boolean;
   organization_id: string;
   is_super_admin: boolean;
+  allowed_modules: string[] | null;
 }
 
 export interface Organization {

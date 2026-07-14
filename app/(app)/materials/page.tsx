@@ -9,6 +9,8 @@ type MaterialRow = {
   tradename: string;
   origin: string | null;
   noc: string | null;
+  kategori: "Bahan Baku" | "Kemasan";
+  keterangan: string | null;
   suppliers: { nama: string } | null;
   material_inci: { inci_name: string; percentage: number }[];
 };
@@ -19,7 +21,7 @@ export default async function MaterialsPage() {
 
   const { data: materials } = await supabase
     .from("materials")
-    .select("id, material_code, tradename, origin, noc, suppliers(nama), material_inci(inci_name, percentage)")
+    .select("id, material_code, tradename, origin, noc, kategori, keterangan, suppliers(nama), material_inci(inci_name, percentage)")
     .eq("organization_id", organizationId)
     .order("material_code");
 
@@ -48,8 +50,9 @@ export default async function MaterialsPage() {
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
               <th className="px-4 py-2.5 font-semibold">Kode</th>
               <th className="px-4 py-2.5 font-semibold">Tradename</th>
+              <th className="px-4 py-2.5 font-semibold">Kategori</th>
               <th className="px-4 py-2.5 font-semibold">Supplier</th>
-              <th className="px-4 py-2.5 font-semibold">INCI / Komposisi</th>
+              <th className="px-4 py-2.5 font-semibold">INCI / Keterangan</th>
               <th className="px-4 py-2.5 font-semibold">Origin</th>
               <th className="px-4 py-2.5 font-semibold">NOC</th>
               <th className="px-4 py-2.5"></th>
@@ -67,12 +70,19 @@ export default async function MaterialsPage() {
                 <tr key={m.id} className="border-b border-line last:border-0 hover:bg-white/40 transition-colors">
                   <td className="px-4 py-3 font-mono text-[12.5px] font-medium">{m.material_code}</td>
                   <td className="px-4 py-3 font-medium">{m.tradename}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${m.kategori === "Kemasan" ? "bg-amber-100 text-amber-500" : "bg-botanical-100 text-botanical-700"}`}>
+                      {m.kategori}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">{m.suppliers?.nama || "-"}</td>
                   <td className="px-4 py-3 w-[340px] min-w-[260px]">
                     <span className="block text-[12.5px] leading-relaxed">
-                      {m.material_inci.length > 0
-                        ? m.material_inci.map((i) => `${i.inci_name} (${i.percentage}%)`).join(", ")
-                        : "-"}
+                      {m.kategori === "Kemasan"
+                        ? m.keterangan || "-"
+                        : m.material_inci.length > 0
+                          ? m.material_inci.map((i) => `${i.inci_name} (${i.percentage}%)`).join(", ")
+                          : "-"}
                     </span>
                   </td>
                   <td className="px-4 py-3">{m.origin || "-"}</td>

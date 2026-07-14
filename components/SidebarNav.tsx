@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "./Logo";
 import OrgSwitcher from "./OrgSwitcher";
+import SignOutButton from "./SignOutButton";
 import {
   LayoutGrid,
   Boxes,
@@ -15,7 +16,11 @@ import {
   Package,
   LayoutPanelLeft,
   Users,
+  Settings,
+  Building2,
 } from "lucide-react";
+
+import { canAccessModule } from "@/lib/modules";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
@@ -28,6 +33,8 @@ const NAV = [
   { href: "/products", label: "Produk", icon: Package },
   { href: "/production", label: "Produksi", icon: LayoutPanelLeft },
   { href: "/users", label: "Pengguna", icon: Users },
+  { href: "/settings", label: "Pengaturan", icon: Settings },
+  { href: "/companies", label: "Companies", icon: Building2 },
 ];
 
 type OrgOption = { id: string; nama: string; slug: string; aktif: boolean };
@@ -35,17 +42,28 @@ type OrgOption = { id: string; nama: string; slug: string; aktif: boolean };
 export default function SidebarNav({
   profileNama,
   isSuperAdmin,
+  role,
+  allowedModules,
   organizations,
   currentOrgId,
   currentOrgNama,
 }: {
   profileNama: string;
   isSuperAdmin: boolean;
+  role: string;
+  allowedModules: string[] | null;
   organizations: OrgOption[];
   currentOrgId: string;
   currentOrgNama: string;
 }) {
   const pathname = usePathname();
+
+  const visibleNav = NAV.filter((item) =>
+    canAccessModule(
+      { isSuperAdmin, role, allowedModules },
+      item.href.slice(1)
+    )
+  );
 
   return (
    <aside className="w-[230px] flex-shrink-0 glass-dark text-white/80 flex flex-col p-4 min-h-screen sticky top-0 h-screen">
@@ -53,9 +71,9 @@ export default function SidebarNav({
         <Logo size={28} />
         <div>
           <div className="font-display font-semibold text-[15px] text-white leading-tight">
-            Industry Cosmetic
+            Seawise Enterprise
           </div>
-          <div className="text-[11px] text-white/50 tracking-wide">ERP</div>
+          <div className="text-[11px] text-white/50 tracking-wide">Industry Edition</div>
         </div>
       </div>
 
@@ -64,7 +82,7 @@ export default function SidebarNav({
       )}
 
       <nav className="flex flex-col gap-0.5 flex-1">
-        {NAV.map((item) => {
+        {visibleNav.map((item) => {
           const active = pathname?.startsWith(item.href);
           const Icon = item.icon;
           return (
@@ -87,6 +105,7 @@ export default function SidebarNav({
       <div className="border-t border-white/10 pt-3 mt-2 px-2">
         <div className="text-[13px] font-medium text-white">{currentOrgNama}</div>
         <div className="text-[11px] text-white/45">{profileNama}</div>
+        <SignOutButton />
       </div>
     </aside>
   );

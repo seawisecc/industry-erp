@@ -3,7 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 export type InciRow = {
   inci_master_id: string;
@@ -11,14 +10,18 @@ export type InciRow = {
   percentage: number;
 };
 
-export async function createMaterial(data: {
+type MaterialPayload = {
   material_code: string;
   tradename: string;
   supplier_id: string | null;
   origin: string | null;
   noc: string | null;
+  kategori: "Bahan Baku" | "Kemasan";
+  keterangan: string | null;
   inci_rows: InciRow[];
-}) {
+};
+
+export async function createMaterial(data: MaterialPayload) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -30,7 +33,6 @@ export async function createMaterial(data: {
     throw new Error("Kode material & tradename wajib diisi");
   }
 
-  // 1. Simpan material utama
   const { data: material, error } = await supabase
     .from("materials")
     .insert({
@@ -39,6 +41,8 @@ export async function createMaterial(data: {
       supplier_id: data.supplier_id || null,
       origin: data.origin || null,
       noc: data.noc || null,
+      kategori: data.kategori,
+      keterangan: data.keterangan,
       organization_id: organizationId,
     })
     .select()
@@ -48,7 +52,6 @@ export async function createMaterial(data: {
     throw new Error(error.message);
   }
 
-  // 2. Simpan baris komposisi INCI-nya
   const validInci = data.inci_rows.filter((r) => r.inci_name && r.percentage >= 0);
   if (validInci.length > 0) {
     const { error: inciError } = await supabase.from("material_inci").insert(
@@ -70,17 +73,7 @@ export async function createMaterial(data: {
   return { success: true };
 }
 
-export async function updateMaterial(
-  id: string,
-  data: {
-    material_code: string;
-    tradename: string;
-    supplier_id: string | null;
-    origin: string | null;
-    noc: string | null;
-    inci_rows: InciRow[];
-  }
-) {
+export async function updateMaterial(id: string, data: MaterialPayload) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -96,6 +89,8 @@ export async function updateMaterial(
       supplier_id: data.supplier_id || null,
       origin: data.origin || null,
       noc: data.noc || null,
+      kategori: data.kategori,
+      keterangan: data.keterangan,
     })
     .eq("id", id);
 
@@ -103,7 +98,6 @@ export async function updateMaterial(
     throw new Error(error.message);
   }
 
-  // Hapus komposisi lama, tulis ulang dari data terbaru (paling sederhana & aman)
   await supabase.from("material_inci").delete().eq("material_id", id);
 
   const validInci = data.inci_rows.filter((r) => r.inci_name && r.percentage >= 0);
