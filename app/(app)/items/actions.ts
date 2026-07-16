@@ -55,6 +55,72 @@ export async function createItem(data: {
   return { success: true };
 }
 
+export async function createItemsFromMaterials(
+  rows: { material_id: string; satuan: string; stok_minimum: number }[]
+): Promise<{ ok: boolean; error?: string; count?: number }> {
+  try {
+    const supabase = await createClient();
+    const { organizationId } = await getEffectiveOrg();
+
+    if (!organizationId) {
+      throw new Error("Organisasi tidak terdeteksi. Refresh halaman dan login ulang.");
+    }
+    if (!rows || rows.length === 0)
+      throw new Error("Tidak ada material yang dipilih");
+    for (const r of rows) {
+      if (!r.satuan?.trim()) throw new Error("Satuan wajib diisi di semua baris terpilih");
+    }
+
+    // Ambil material terpilih & pastikan belum ter-link ke item
+    const { data: materials, error: mError } = await supabase
+      .from("materials")
+      .select("id, tradename, kategori, item_id")
+      .eq("organization_id", organizationId)
+      .in(
+        "id",
+        rows.map((r) => r.material_id)
+      );
+    if (mError) throw new Error(mError.message);
+
+    let count = 0;
+    for (const r of rows) {
+      const mat = (materials || []).find((m) => m.id === r.material_id);
+      if (!mat) throw new Error("Ada material yang tidak ditemukan");
+      if (mat.item_id) continue; // sudah pernah dibuatkan item — lewati
+
+      const { data: item, error } = await supabase
+        .from("items")
+        .insert({
+          nama: mat.tradename,
+          kategori: mat.kategori,
+          satuan: r.satuan.trim(),
+          stok_minimum: r.stok_minimum || 0,
+          organization_id: organizationId,
+        })
+        .select()
+        .single();
+      if (error) throw new Error(`${mat.tradename}: ${error.message}`);
+
+      const { error: linkError } = await supabase
+        .from("materials")
+        .update({ item_id: item.id })
+        .eq("id", mat.id);
+      if (linkError) throw new Error(linkError.message);
+
+      count++;
+    }
+
+    revalidatePath("/items");
+    revalidatePath("/materials");
+    return { ok: true, count };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Gagal membuat item",
+    };
+  }
+}
+
 export async function updateItem(
   id: string,
   data: {

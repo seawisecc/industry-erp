@@ -9,6 +9,7 @@ export interface Profile {
   organization_id: string;
   is_super_admin: boolean;
   allowed_modules: string[] | null;
+  can_approve_po: boolean;
 }
 
 export interface Organization {

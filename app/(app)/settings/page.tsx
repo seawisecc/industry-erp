@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import SettingsForm from "./SettingsForm";
 import AccountForm from "./AccountForm";
+import SettingsShell from "@/components/SettingsShell";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -21,19 +22,20 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="font-display text-2xl font-semibold text-ink">Pengaturan</h1>
-      <p className="text-muted text-sm mt-1 mb-6">
-        {org?.nama} — akun, data perusahaan &amp; pengesahan dokumen
-      </p>
+    <SettingsShell>
+      <div className="max-w-3xl">
+        <h2 className="font-display text-lg font-semibold text-ink mb-4">
+          Company Profile — {org?.nama}
+        </h2>
 
-      <AccountForm
-        companyNama={org?.nama || ""}
-        adminNama={profile?.nama || ""}
-        email={profile?.email || ""}
-      />
+        <AccountForm
+          companyNama={org?.nama || ""}
+          adminNama={profile?.nama || ""}
+          email={profile?.email || ""}
+        />
 
-      <SettingsForm initial={settings} />
-    </div>
+        <SettingsForm initial={settings} />
+      </div>
+    </SettingsShell>
   );
 }

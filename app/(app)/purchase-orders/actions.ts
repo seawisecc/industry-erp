@@ -90,12 +90,105 @@ async function getEditablePO(id: string) {
     .single();
 
   if (error || !po) throw new Error("PO tidak ditemukan");
-  if (po.status !== "Dikirim") {
+  if (po.status !== "Dibuat") {
     throw new Error(
-      `PO ini statusnya "${po.status}" — sudah tidak bisa diubah/dihapus.`
+      `PO ini statusnya "${po.status}" — hanya PO berstatus "Dibuat" yang bisa diubah/dihapus.`
     );
   }
   return po;
+}
+
+// ===== Alur approval & pengiriman =====
+
+export async function approvePO(
+  id: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { profile, isSuperAdmin } = await getEffectiveOrg();
+
+    const boleh =
+      isSuperAdmin || profile?.role === "Admin" || profile?.can_approve_po;
+    if (!boleh) {
+      throw new Error(
+        "Kamu tidak punya izin menyetujui PO. Minta Admin mengaktifkannya di menu Pengguna."
+      );
+    }
+
+    const { data: po } = await supabase
+      .from("purchase_orders")
+      .select("id, status")
+      .eq("id", id)
+      .single();
+    if (!po) throw new Error("PO tidak ditemukan");
+    if (po.status !== "Dibuat")
+      throw new Error(`PO ini statusnya sudah "${po.status}".`);
+
+    const { error } = await supabase
+      .from("purchase_orders")
+      .update({ status: "Disetujui" })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/purchase-orders");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
+  }
+}
+
+export async function markPOSent(
+  id: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const { data: po } = await supabase
+      .from("purchase_orders")
+      .select("id, status")
+      .eq("id", id)
+      .single();
+    if (!po) throw new Error("PO tidak ditemukan");
+    if (po.status !== "Disetujui")
+      throw new Error(
+        `PO harus berstatus "Disetujui" dulu (sekarang "${po.status}").`
+      );
+
+    const { error } = await supabase
+      .from("purchase_orders")
+      .update({ status: "Dikirim" })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/purchase-orders");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
+  }
+}
+
+export async function setPOTop(
+  id: string,
+  topDays: number | null // null = hapus, 0 = Tunai/CIA
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    if (topDays !== null && (topDays < 0 || topDays > 365)) {
+      throw new Error("TOP harus antara 0-365 hari");
+    }
+
+    const { error } = await supabase
+      .from("purchase_orders")
+      .update({ top_days: topDays })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/purchase-orders");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
+  }
 }
 
 export async function updatePO(id: string, data: POInput) {

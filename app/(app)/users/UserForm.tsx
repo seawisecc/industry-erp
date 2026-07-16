@@ -16,6 +16,7 @@ type Props = {
     aktif: boolean;
     allowed_modules: string[] | null;
     is_super_admin: boolean;
+    can_approve_po: boolean;
   };
 };
 
@@ -31,6 +32,7 @@ export default function UserForm({ user }: Props) {
   const [checked, setChecked] = useState<string[]>(
     user?.allowed_modules ?? MODULES.map((m) => m.key)
   );
+  const [canApprovePO, setCanApprovePO] = useState(user?.can_approve_po ?? false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -54,6 +56,7 @@ export default function UserForm({ user }: Props) {
         role,
         aktif,
         allowed_modules: isAdminRole ? null : checked,
+        can_approve_po: isAdminRole ? true : canApprovePO,
       };
       if (isEdit && user) {
         await updateUser(user.id, {
@@ -179,6 +182,30 @@ export default function UserForm({ user }: Props) {
             </button>
           )}
         </div>
+
+        {!isAdminRole && (
+          <label
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] cursor-pointer border transition-all ${
+              canApprovePO
+                ? "bg-amber-100/60 border-amber-500/40"
+                : "glass-input border-transparent"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={canApprovePO}
+              onChange={(e) => setCanApprovePO(e.target.checked)}
+              className="accent-[#2f4f3e]"
+            />
+            <span>
+              <b>Bisa menyetujui Purchase Order</b>
+              <span className="block text-[11.5px] text-muted">
+                Izin khusus — PO baru harus disetujui sebelum bisa dikirim ke
+                supplier.
+              </span>
+            </span>
+          </label>
+        )}
 
         {!isAdminRole && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

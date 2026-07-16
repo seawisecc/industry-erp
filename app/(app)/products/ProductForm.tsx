@@ -332,7 +332,7 @@ export default function ProductForm({ items, product }: Props) {
                       className={inputCls}
                     />
                     {options.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 glass rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
                         {options.map((it) => (
                           <button
                             key={it.id}
@@ -505,7 +505,7 @@ export default function ProductForm({ items, product }: Props) {
                           className={inputCls}
                         />
                         {options.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-1 glass rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
                             {options.map((it) => (
                               <button
                                 key={it.id}

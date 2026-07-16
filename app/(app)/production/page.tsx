@@ -47,7 +47,7 @@ export default async function ProductionPage() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Produksi</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">Production</h1>
           <p className="text-muted text-sm mt-1">
             {list.length} batch produksi — stok bahan terpotong otomatis (FEFO)
           </p>

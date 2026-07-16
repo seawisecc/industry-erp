@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, ListChecks } from "lucide-react";
+import BahanShell from "@/components/BahanShell";
 
 type ItemRow = {
   id: string;
@@ -29,26 +30,34 @@ export default async function ItemsPage() {
   const list = (items || []) as unknown as ItemRow[];
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
+    <BahanShell>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">
-            Stok Bahan Baku &amp; Kemasan
-          </h1>
-          <p className="text-muted text-sm mt-1">
+          <h2 className="font-display text-lg font-semibold text-ink">
+            Stock Items
+          </h2>
+          <p className="text-muted text-[12.5px] mt-0.5">
             {list.length} item terdaftar — stok masuk lewat menu Receiving
           </p>
         </div>
-        <Link
-          href="/items/new"
-          className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13.5px] font-medium px-4 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
-        >
-          <Plus size={16} /> Tambah Item
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/items/from-material"
+            className="flex items-center gap-1.5 bg-white border border-line text-ink text-[13px] font-medium px-3.5 py-2.5 rounded-sm hover:bg-porcelain transition-colors"
+          >
+            <ListChecks size={15} /> Tambah dari Material
+          </Link>
+          <Link
+            href="/items/new"
+            className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13px] font-medium px-3.5 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
+          >
+            <Plus size={15} /> Tambah Item
+          </Link>
+        </div>
       </div>
 
-      <div className="mt-6 glass rounded-2xl overflow-x-auto">
-        <table className="w-full text-[13.5px]">
+      <div className="mt-4 glass rounded-2xl overflow-x-auto">
+        <table className="w-full min-w-[760px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
               <th className="px-4 py-2.5 font-semibold">Kode</th>
@@ -122,6 +131,6 @@ export default async function ItemsPage() {
           </tbody>
         </table>
       </div>
-    </div>
+    </BahanShell>
   );
 }

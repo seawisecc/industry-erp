@@ -4,14 +4,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import POForm, { ItemOption } from "../../POForm";
+import POStatusActions from "../../POStatusActions";
+
+type POStatus = "Dibuat" | "Disetujui" | "Dikirim" | "Diterima Sebagian" | "Selesai";
 
 type PODetail = {
   id: string;
   no_po: string | null;
   tanggal_po: string;
   supplier_id: string;
-  status: "Dikirim" | "Diterima Sebagian" | "Selesai";
+  status: POStatus;
   ppn_percent: number;
+  top_days: number | null;
   catatan: string | null;
   suppliers: { nama: string } | null;
   po_items: {
@@ -23,10 +27,12 @@ type PODetail = {
   }[];
 };
 
-const STATUS_STYLE: Record<PODetail["status"], string> = {
-  Dikirim: "bg-amber-100 text-amber-500",
-  "Diterima Sebagian": "bg-clay-100 text-clay-600",
-  Selesai: "bg-botanical-100 text-botanical-700",
+const STATUS_STYLE: Record<POStatus, string> = {
+  Dibuat: "bg-white/70 text-muted border border-line",
+  Disetujui: "bg-amber-100 text-amber-500",
+  Dikirim: "bg-clay-100 text-clay-600",
+  "Diterima Sebagian": "bg-botanical-100 text-botanical-700",
+  Selesai: "bg-botanical-700 text-white",
 };
 
 function formatRupiah(n: number) {
@@ -48,12 +54,12 @@ export default async function EditPOPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
 
   const { data } = await supabase
     .from("purchase_orders")
     .select(
-      "id, no_po, tanggal_po, supplier_id, status, ppn_percent, catatan, suppliers(nama), po_items(item_id, qty_pesan, harga_per_unit, qty_diterima, items(kode, nama, satuan))"
+      "id, no_po, tanggal_po, supplier_id, status, ppn_percent, top_days, catatan, suppliers(nama), po_items(item_id, qty_pesan, harga_per_unit, qty_diterima, items(kode, nama, satuan))"
     )
     .eq("id", id)
     .eq("organization_id", organizationId)
@@ -61,7 +67,18 @@ export default async function EditPOPage({
 
   if (!data) notFound();
   const po = data as unknown as PODetail;
-  const editable = po.status === "Dikirim";
+  const editable = po.status === "Dibuat";
+  const canApprove =
+    isSuperAdmin || profile?.role === "Admin" || !!profile?.can_approve_po;
+
+  const statusActions = (
+    <POStatusActions
+      poId={po.id}
+      status={po.status}
+      canApprove={canApprove}
+      topDays={po.top_days == null ? null : Number(po.top_days)}
+    />
+  );
 
   // ============ MODE DETAIL (read-only, PO sudah jalan) ============
   if (!editable) {
@@ -98,6 +115,8 @@ export default async function EditPOPage({
         <p className="text-muted text-sm mb-6">
           PO dengan status &ldquo;{po.status}&rdquo; tidak bisa diubah atau dihapus.
         </p>
+
+        {statusActions}
 
         <div className="glass rounded-2xl p-6 mb-5 grid grid-cols-1 sm:grid-cols-3 gap-4 text-[13.5px]">
           <div>
@@ -222,8 +241,11 @@ export default async function EditPOPage({
         </Link>
       </div>
       <p className="text-muted text-sm mb-6">
-        Masih bisa diubah/dihapus karena statusnya &ldquo;Dikirim&rdquo;.
+        Masih bisa diubah/dihapus karena statusnya &ldquo;Dibuat&rdquo; (belum
+        disetujui).
       </p>
+
+      {statusActions}
 
       <POForm
         suppliers={suppliers || []}

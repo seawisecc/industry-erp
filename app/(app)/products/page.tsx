@@ -32,7 +32,7 @@ export default async function ProductsPage() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Produk</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">Products</h1>
           <p className="text-muted text-sm mt-1">
             {list.length} produk jadi — dipakai sebagai output di modul Produksi
           </p>
@@ -105,10 +105,16 @@ export default async function ProductsPage() {
                       {p.aktif ? "Aktif" : "Nonaktif"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <Link
+                      href={`/products/${p.id}`}
+                      className="text-botanical-700 text-[12.5px] font-medium hover:underline mr-3"
+                    >
+                      Detail
+                    </Link>
                     <Link
                       href={`/products/${p.id}/edit`}
-                      className="text-botanical-700 text-[12.5px] font-medium hover:underline"
+                      className="text-muted text-[12.5px] font-medium hover:underline"
                     >
                       Edit
                     </Link>

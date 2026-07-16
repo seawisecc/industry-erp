@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { MODULES } from "@/lib/modules";
+import SettingsShell from "@/components/SettingsShell";
 
 type UserRow = {
   id: string;
@@ -27,11 +28,11 @@ export default async function UsersPage() {
   const list = (users || []) as UserRow[];
 
   return (
-    <div>
+    <SettingsShell>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Pengguna</h1>
-          <p className="text-muted text-sm mt-1">
+          <h2 className="font-display text-lg font-semibold text-ink">Users</h2>
+          <p className="text-muted text-[12.5px] mt-0.5">
             {list.length} pengguna — atur akses modul per user
           </p>
         </div>
@@ -109,6 +110,6 @@ export default async function UsersPage() {
           </tbody>
         </table>
       </div>
-    </div>
+    </SettingsShell>
   );
 }

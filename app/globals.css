@@ -108,6 +108,24 @@ body {
   outline-offset: 2px;
 }
 
+/* ---------- Progress bar navigasi (components/TopProgress.tsx) ---------- */
+@keyframes topbar-progress {
+  0% {
+    width: 0%;
+  }
+  40% {
+    width: 60%;
+  }
+  100% {
+    width: 92%;
+  }
+}
+
+.topbar-progress {
+  animation: topbar-progress 1.4s ease-out forwards;
+  box-shadow: 0 0 8px rgba(47, 77, 58, 0.5);
+}
+
 /* ---------- Transisi antar halaman ----------
    Dipakai app/(app)/template.tsx — animasi masuk halus tiap navigasi */
 @keyframes page-enter {

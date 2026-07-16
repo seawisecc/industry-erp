@@ -9,6 +9,7 @@ type PORaw = {
   no_po: string | null;
   status: "Dikirim" | "Diterima Sebagian";
   ppn_percent: number;
+  top_days: number | null;
   suppliers: { nama: string } | null;
   po_items: {
     id: string;
@@ -27,10 +28,10 @@ export default async function NewReceivingPage() {
   const { data: pos } = await supabase
     .from("purchase_orders")
     .select(
-      "id, no_po, status, ppn_percent, suppliers(nama), po_items(id, item_id, qty_pesan, qty_diterima, harga_per_unit, items(kode, nama, satuan))"
+      "id, no_po, status, ppn_percent, top_days, suppliers(nama), po_items(id, item_id, qty_pesan, qty_diterima, harga_per_unit, items(kode, nama, satuan))"
     )
     .eq("organization_id", organizationId)
-    .neq("status", "Selesai")
+    .in("status", ["Dikirim", "Diterima Sebagian"])
     .order("created_at", { ascending: false });
 
   const options: POOption[] = ((pos || []) as unknown as PORaw[]).map((po) => ({
@@ -38,6 +39,7 @@ export default async function NewReceivingPage() {
     no_po: po.no_po,
     status: po.status,
     ppn_percent: Number(po.ppn_percent),
+    top_days: po.top_days == null ? null : Number(po.top_days),
     supplier_nama: po.suppliers?.nama || "—",
     items: po.po_items.map((it) => ({
       po_item_id: it.id,

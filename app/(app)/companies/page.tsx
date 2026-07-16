@@ -46,7 +46,7 @@ export default async function CompaniesPage() {
       </p>
 
       <div className="mt-6 glass rounded-2xl overflow-x-auto overflow-y-visible">
-        <table className="w-full text-[13.5px]">
+        <table className="w-full min-w-[880px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
               <th className="px-4 py-2.5 font-semibold">Company</th>
@@ -73,14 +73,18 @@ export default async function CompaniesPage() {
                   className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <div className="font-medium">{o.nama}</div>
-                    <div className="text-[11.5px] text-muted font-mono">{o.slug}</div>
+                    <div className="font-medium max-w-[220px] truncate" title={o.nama}>
+                      {o.nama}
+                    </div>
+                    <div className="text-[11.5px] text-muted font-mono max-w-[220px] truncate">
+                      {o.slug}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {adminUser ? (
                       <>
-                        <div>{adminUser.nama}</div>
-                        <div className="text-[11.5px] text-muted">
+                        <div className="whitespace-nowrap">{adminUser.nama}</div>
+                        <div className="text-[11.5px] text-muted whitespace-nowrap">
                           {adminUser.email}
                         </div>
                       </>
@@ -107,7 +111,7 @@ export default async function CompaniesPage() {
                       <span className="text-muted">Tanpa batas</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
                     <CompanyToggle
                       id={o.id}
                       nama={o.nama}

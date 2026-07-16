@@ -18,8 +18,15 @@ export type ReceivingInput = {
   tanggal_terima: string; // yyyy-mm-dd
   no_invoice: string | null;
   ppn_percent: number;
+  top_days: number | null; // 0 = Tunai/CIA, null = tidak diset
   items: ReceivingItemInput[];
 };
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export async function createReceiving(data: ReceivingInput) {
   const supabase = await createClient();
@@ -79,7 +86,10 @@ export async function createReceiving(data: ReceivingInput) {
   );
   const totalPpn = (subtotal * data.ppn_percent) / 100;
 
-  // ---- 1. Insert header receiving ----
+  // ---- 1. Insert header receiving (faktur) + jatuh tempo dari TOP ----
+  const jatuhTempo =
+    data.top_days == null ? null : addDays(data.tanggal_terima, data.top_days);
+
   const { data: receiving, error: rcvError } = await supabase
     .from("receivings")
     .insert({
@@ -92,6 +102,8 @@ export async function createReceiving(data: ReceivingInput) {
       subtotal,
       total_ppn: totalPpn,
       total_invoice: subtotal + totalPpn,
+      top_days: data.top_days,
+      jatuh_tempo: jatuhTempo,
       dibuat_oleh: profile?.id || null,
       organization_id: organizationId,
     })
@@ -113,6 +125,7 @@ export async function createReceiving(data: ReceivingInput) {
       harga_per_unit: it.harga_per_unit,
       qty_sisa: it.qty_masuk,
       po_id: data.po_id,
+      receiving_id: receiving.id,
       dibuat_oleh: profile?.id || null,
       organization_id: organizationId,
     }))
@@ -150,5 +163,6 @@ export async function createReceiving(data: ReceivingInput) {
   revalidatePath("/receivings");
   revalidatePath("/purchase-orders");
   revalidatePath("/items");
+  revalidatePath("/payments");
   return { success: true };
 }

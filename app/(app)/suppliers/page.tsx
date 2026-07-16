@@ -3,7 +3,6 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import type { Supplier } from "@/lib/types";
-import ImportButton from "./ImportButton";
 
 export default async function SuppliersPage() {
   const supabase = await createClient();
@@ -21,11 +20,10 @@ export default async function SuppliersPage() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Data Supplier</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">Suppliers</h1>
           <p className="text-muted text-sm mt-1">{list.length} supplier terdaftar</p>
         </div>
         <div className="flex items-center gap-2">
-          <ImportButton />
           <Link
             href="/suppliers/new"
             className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13.5px] font-medium px-4 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
@@ -36,7 +34,7 @@ export default async function SuppliersPage() {
       </div>
 
       <div className="mt-6 glass rounded-2xl overflow-x-auto">
-        <table className="w-full text-[13.5px]">
+        <table className="w-full min-w-[860px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
               <th className="px-4 py-2.5 font-semibold">Nama</th>
@@ -58,13 +56,22 @@ export default async function SuppliersPage() {
               list.map((s) => (
                 <tr key={s.id} className="border-b border-line last:border-0 hover:bg-white/40 transition-colors">
                   <td className="px-4 py-3">
-                    <div className="font-medium">{s.nama}</div>
-                    <div className="text-[11.5px] text-muted">{s.alamat}</div>
+                    <div className="font-medium whitespace-nowrap">{s.nama}</div>
+                    <div
+                      className="text-[11.5px] text-muted max-w-[300px] truncate"
+                      title={s.alamat || undefined}
+                    >
+                      {s.alamat}
+                    </div>
                   </td>
-                  <td className="px-4 py-3">{s.nama_kontak || "-"}</td>
-                  <td className="px-4 py-3">{s.no_telp || "-"}</td>
-                  <td className="px-4 py-3">{s.email || "-"}</td>
-                  <td className="px-4 py-3">{s.npwp || "-"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{s.nama_kontak || "-"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap font-mono text-[12.5px]">
+                    {s.no_telp || "-"}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">{s.email || "-"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap font-mono text-[12.5px]">
+                    {s.npwp || "-"}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <Link href={`/suppliers/${s.id}/edit`} className="text-botanical-700 text-[12.5px] font-medium hover:underline">
                       Edit

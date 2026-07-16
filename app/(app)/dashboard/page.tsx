@@ -2,7 +2,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
-import { Wallet, AlertTriangle, CalendarClock, ShoppingCart } from "lucide-react";
+import {
+  Wallet,
+  AlertTriangle,
+  CalendarClock,
+  ShoppingCart,
+  ReceiptText,
+  AlarmClock,
+} from "lucide-react";
 
 function formatRupiah(n: number) {
   if (n >= 1_000_000_000)
@@ -27,7 +34,7 @@ export default async function DashboardPage() {
     year: "numeric",
   });
 
-  const [batchesRes, itemsRes, receivingsRes] = await Promise.all([
+  const [batchesRes, itemsRes, receivingsRes, hutangRes] = await Promise.all([
     supabase
       .from("purchase_batches")
       .select("qty_sisa, harga_per_unit, exp_date")
@@ -42,6 +49,11 @@ export default async function DashboardPage() {
       .select("total_invoice")
       .eq("organization_id", organizationId)
       .gte("tanggal_terima", monthStart),
+    supabase
+      .from("receivings")
+      .select("total_invoice, jatuh_tempo")
+      .eq("organization_id", organizationId)
+      .eq("status_bayar", "Belum Lunas"),
   ]);
 
   const batches = (batchesRes.data || []) as {
@@ -80,6 +92,16 @@ export default async function DashboardPage() {
     0
   );
 
+  // 5. Hutang belum lunas + yang lewat jatuh tempo
+  const hutang = (hutangRes.data || []) as {
+    total_invoice: number;
+    jatuh_tempo: string | null;
+  }[];
+  const totalHutang = hutang.reduce((s, h) => s + Number(h.total_invoice), 0);
+  const fakturTerlambat = hutang.filter(
+    (h) => h.jatuh_tempo !== null && h.jatuh_tempo < todayStr
+  ).length;
+
   return (
     <div>
       <h1 className="font-display text-2xl font-semibold text-ink">Dashboard</h1>
@@ -87,7 +109,7 @@ export default async function DashboardPage() {
         Halo, <b>{profile?.nama}</b> 👋 — ringkasan gudang &amp; pembelian
       </p>
 
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           icon={Wallet}
           label="Nilai Stok"
@@ -118,6 +140,24 @@ export default async function DashboardPage() {
             value={formatRupiah(pembelianBulanIni)}
             sub={monthLabel}
             tone="botanical"
+          />
+        </Link>
+        <Link href="/payments" className="block">
+          <StatCard
+            icon={ReceiptText}
+            label="Hutang Belum Lunas"
+            value={formatRupiah(totalHutang)}
+            sub={`${hutang.length} faktur menunggu pembayaran`}
+            tone={totalHutang > 0 ? "amber" : "botanical"}
+          />
+        </Link>
+        <Link href="/payments" className="block">
+          <StatCard
+            icon={AlarmClock}
+            label="Lewat Jatuh Tempo"
+            value={String(fakturTerlambat)}
+            sub="Faktur yang harus segera dibayar"
+            tone={fakturTerlambat > 0 ? "clay" : "botanical"}
           />
         </Link>
       </div>

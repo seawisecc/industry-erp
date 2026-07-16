@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import PembelianShell from "@/components/PembelianShell";
 
 type ReceivingRow = {
   id: string;
@@ -39,24 +40,24 @@ export default async function ReceivingsPage() {
   const list = (receivings || []) as unknown as ReceivingRow[];
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
+    <PembelianShell>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Receiving</h1>
-          <p className="text-muted text-sm mt-1">
+          <h2 className="font-display text-lg font-semibold text-ink">Receiving</h2>
+          <p className="text-muted text-[12.5px] mt-0.5">
             {list.length} penerimaan — stok bertambah lewat halaman ini
           </p>
         </div>
         <Link
           href="/receivings/new"
-          className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13.5px] font-medium px-4 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
+          className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13px] font-medium px-3.5 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
         >
-          <Plus size={16} /> Terima Barang
+          <Plus size={15} /> Terima Barang
         </Link>
       </div>
 
-      <div className="mt-6 glass rounded-2xl overflow-x-auto">
-        <table className="w-full text-[13.5px]">
+      <div className="mt-4 glass rounded-2xl overflow-x-auto">
+        <table className="w-full min-w-[760px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
               <th className="px-4 py-2.5 font-semibold">Tanggal</th>
@@ -64,12 +65,13 @@ export default async function ReceivingsPage() {
               <th className="px-4 py-2.5 font-semibold">No. Invoice</th>
               <th className="px-4 py-2.5 font-semibold">Supplier</th>
               <th className="px-4 py-2.5 font-semibold text-right">Total Invoice</th>
+              <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
           <tbody>
             {list.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center text-muted py-10 text-sm">
+                <td colSpan={6} className="text-center text-muted py-10 text-sm">
                   Belum ada penerimaan barang.
                 </td>
               </tr>
@@ -96,12 +98,26 @@ export default async function ReceivingsPage() {
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     {formatRupiah(Number(r.total_invoice))}
                   </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <Link
+                      href={`/print/receiving/${r.id}`}
+                      className="text-muted text-[12.5px] font-medium hover:underline mr-3"
+                    >
+                      Cetak
+                    </Link>
+                    <Link
+                      href={`/receivings/${r.id}`}
+                      className="text-botanical-700 text-[12.5px] font-medium hover:underline"
+                    >
+                      Detail
+                    </Link>
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
-    </div>
+    </PembelianShell>
   );
 }

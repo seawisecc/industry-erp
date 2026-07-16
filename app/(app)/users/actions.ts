@@ -10,6 +10,7 @@ export type UserInput = {
   role: "Admin" | "Staff Gudang" | "Staff Produksi";
   allowed_modules: string[] | null; // null = akses semua
   aktif: boolean;
+  can_approve_po: boolean;
 };
 
 async function requireAdmin() {
@@ -68,6 +69,7 @@ export async function createUser(
       aktif: true,
       organization_id: organizationId,
       allowed_modules: modules,
+      can_approve_po: data.can_approve_po,
     })
     .eq("id", created.user.id);
 
@@ -110,6 +112,7 @@ export async function updateUser(
       role: data.role,
       aktif: data.aktif,
       allowed_modules: modules,
+      can_approve_po: data.can_approve_po,
     })
     .eq("id", id);
 

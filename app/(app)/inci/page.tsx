@@ -3,7 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import type { InciMaster } from "@/lib/types";
-import ImportButton from "./ImportButton";
+import BahanShell from "@/components/BahanShell";
 
 export default async function InciPage() {
   const supabase = await createClient();
@@ -18,14 +18,13 @@ export default async function InciPage() {
   const list = (inciList || []) as InciMaster[];
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
+    <BahanShell>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Master INCI Name</h1>
-          <p className="text-muted text-sm mt-1">{list.length} INCI Name terdaftar</p>
+          <h2 className="font-display text-lg font-semibold text-ink">INCI Names</h2>
+          <p className="text-muted text-[12.5px] mt-0.5">{list.length} INCI Name terdaftar</p>
         </div>
         <div className="flex items-center gap-2">
-          <ImportButton />
           <Link
             href="/inci/new"
             className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13.5px] font-medium px-4 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
@@ -35,8 +34,8 @@ export default async function InciPage() {
         </div>
       </div>
 
-      <div className="mt-6 glass rounded-2xl overflow-x-auto">
-        <table className="w-full text-[13.5px]">
+      <div className="mt-4 glass rounded-2xl overflow-x-auto">
+        <table className="w-full min-w-[760px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
               <th className="px-4 py-2.5 font-semibold">INCI Name</th>
@@ -73,6 +72,6 @@ export default async function InciPage() {
           </tbody>
         </table>
       </div>
-    </div>
+    </BahanShell>
   );
 }

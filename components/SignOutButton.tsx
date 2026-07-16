@@ -4,7 +4,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut } from "lucide-react";
 
-export default function SignOutButton({ variant = "sidebar" }: { variant?: "sidebar" | "solid" }) {
+export default function SignOutButton({
+  variant = "sidebar",
+}: {
+  variant?: "sidebar" | "solid" | "icon";
+}) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -12,6 +16,18 @@ export default function SignOutButton({ variant = "sidebar" }: { variant?: "side
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
+  }
+
+  if (variant === "icon") {
+    return (
+      <button
+        onClick={handleSignOut}
+        title="Keluar"
+        className="flex justify-center text-white/50 hover:text-white p-2 transition-colors"
+      >
+        <LogOut size={17} />
+      </button>
+    );
   }
 
   if (variant === "solid") {

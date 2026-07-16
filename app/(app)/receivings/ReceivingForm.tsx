@@ -9,6 +9,7 @@ export type POOption = {
   no_po: string | null;
   status: "Dikirim" | "Diterima Sebagian";
   ppn_percent: number;
+  top_days: number | null;
   supplier_nama: string;
   items: {
     po_item_id: string;
@@ -50,6 +51,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
   const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
   const [noInvoice, setNoInvoice] = useState("");
   const [ppn, setPpn] = useState("11");
+  const [top, setTop] = useState(""); // hari; "" = tidak diset, "0" = Tunai/CIA
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -65,6 +67,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
       return;
     }
     setPpn(String(po.ppn_percent));
+    setTop(po.top_days == null ? "" : String(po.top_days));
     setRows(
       po.items
         .map((it) => {
@@ -114,6 +117,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
         tanggal_terima: tanggal,
         no_invoice: noInvoice || null,
         ppn_percent: parseNum(ppn),
+        top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
         items: rows.map((r) => ({
           po_item_id: r.po_item_id,
           item_id: r.item_id,
@@ -167,7 +171,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="sm:col-span-2">
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
               No. Invoice / Surat Jalan{" "}
@@ -191,6 +195,34 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
               onChange={(e) => setPpn(e.target.value)}
               className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
             />
+          </div>
+          <div>
+            <label className="block text-[12.5px] font-medium text-muted mb-1.5">
+              TOP (hari)
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={365}
+              value={top}
+              onChange={(e) => setTop(e.target.value)}
+              placeholder="30"
+              className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+            />
+            <p className="text-[11px] text-muted mt-1">
+              {top === ""
+                ? "Terisi otomatis dari PO"
+                : parseNum(top) === 0
+                  ? "Tunai / Cash in Advance"
+                  : `Jatuh tempo: ${new Date(
+                      new Date(tanggal + "T00:00:00").getTime() +
+                        Math.round(parseNum(top)) * 86400000
+                    ).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}`}
+            </p>
           </div>
         </div>
       </div>

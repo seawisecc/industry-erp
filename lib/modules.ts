@@ -4,8 +4,10 @@
 export const MODULES = [
   { key: "dashboard", label: "Dashboard" },
   { key: "items", label: "Stok Bahan" },
+  { key: "data-migration", label: "Migrasi Data & Adjustment" },
   { key: "purchase-orders", label: "Purchase Order" },
   { key: "receivings", label: "Receiving" },
+  { key: "payments", label: "Pembayaran" },
   { key: "suppliers", label: "Supplier" },
   { key: "materials", label: "Material" },
   { key: "inci", label: "INCI Name" },
