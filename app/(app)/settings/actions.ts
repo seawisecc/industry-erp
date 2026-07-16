@@ -51,6 +51,7 @@ export type SettingsInput = {
   no_telp: string | null;
   email: string | null;
   npwp: string | null;
+  bank_info: string | null;
   sign_dibuat_nama: string | null;
   sign_dibuat_jabatan: string | null;
   sign_disetujui_nama: string | null;

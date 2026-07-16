@@ -10,6 +10,7 @@ export interface Profile {
   is_super_admin: boolean;
   allowed_modules: string[] | null;
   can_approve_po: boolean;
+  can_plan_production: boolean;
 }
 
 export interface Organization {

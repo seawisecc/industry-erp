@@ -12,6 +12,13 @@ import {
   ClipboardList,
   PackageCheck,
   Banknote,
+  Package,
+  LayoutPanelLeft,
+  PackageOpen,
+  Contact,
+  Store,
+  FileText,
+  ShoppingCart,
   ChevronRight,
   LucideIcon,
 } from "lucide-react";
@@ -26,6 +33,14 @@ const ICONS: Record<string, LucideIcon> = {
   "/purchase-orders": ClipboardList,
   "/receivings": PackageCheck,
   "/payments": Banknote,
+  "/products": Package,
+  "/production": LayoutPanelLeft,
+  "/finished-goods": PackageOpen,
+  "/clients": Contact,
+  "/consignments": Store,
+  "/sales-invoices": FileText,
+  "/pos": ShoppingCart,
+  "/sales-payments": Banknote,
 };
 
 export type SettingsCard = {

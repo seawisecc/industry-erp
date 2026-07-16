@@ -17,6 +17,7 @@ type Props = {
     allowed_modules: string[] | null;
     is_super_admin: boolean;
     can_approve_po: boolean;
+    can_plan_production: boolean;
   };
 };
 
@@ -33,6 +34,9 @@ export default function UserForm({ user }: Props) {
     user?.allowed_modules ?? MODULES.map((m) => m.key)
   );
   const [canApprovePO, setCanApprovePO] = useState(user?.can_approve_po ?? false);
+  const [canPlanProduction, setCanPlanProduction] = useState(
+    user?.can_plan_production ?? false
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -57,6 +61,7 @@ export default function UserForm({ user }: Props) {
         aktif,
         allowed_modules: isAdminRole ? null : checked,
         can_approve_po: isAdminRole ? true : canApprovePO,
+        can_plan_production: isAdminRole ? true : canPlanProduction,
       };
       if (isEdit && user) {
         await updateUser(user.id, {
@@ -202,6 +207,30 @@ export default function UserForm({ user }: Props) {
               <span className="block text-[11.5px] text-muted">
                 Izin khusus — PO baru harus disetujui sebelum bisa dikirim ke
                 supplier.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {!isAdminRole && (
+          <label
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] cursor-pointer border transition-all ${
+              canPlanProduction
+                ? "bg-amber-100/60 border-amber-500/40"
+                : "glass-input border-transparent"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={canPlanProduction}
+              onChange={(e) => setCanPlanProduction(e.target.checked)}
+              className="accent-[#2f4f3e]"
+            />
+            <span>
+              <b>Bisa membuat instruksi produksi (Plan)</b>
+              <span className="block text-[11.5px] text-muted">
+                Izin khusus — eksekusi produksi hanya bisa dimulai dari plan yang
+                sudah dibuat.
               </span>
             </span>
           </label>

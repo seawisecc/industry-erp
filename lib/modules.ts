@@ -3,16 +3,22 @@
 
 export const MODULES = [
   { key: "dashboard", label: "Dashboard" },
-  { key: "items", label: "Stok Bahan" },
-  { key: "data-migration", label: "Migrasi Data & Adjustment" },
-  { key: "purchase-orders", label: "Purchase Order" },
+  { key: "items", label: "Stock Items" },
+  { key: "materials", label: "Materials" },
+  { key: "inci", label: "INCI Names" },
+  { key: "purchase-orders", label: "Purchase Orders" },
   { key: "receivings", label: "Receiving" },
-  { key: "payments", label: "Pembayaran" },
-  { key: "suppliers", label: "Supplier" },
-  { key: "materials", label: "Material" },
-  { key: "inci", label: "INCI Name" },
-  { key: "products", label: "Produk" },
-  { key: "production", label: "Produksi" },
+  { key: "payments", label: "Payments (Purchasing)" },
+  { key: "suppliers", label: "Suppliers" },
+  { key: "products", label: "Products" },
+  { key: "production", label: "Production" },
+  { key: "finished-goods", label: "Finished Goods" },
+  { key: "clients", label: "Clients" },
+  { key: "consignments", label: "Consignment" },
+  { key: "sales-invoices", label: "Sales Invoices" },
+  { key: "pos", label: "POS" },
+  { key: "sales-payments", label: "Sales Payments" },
+  { key: "data-migration", label: "Data Migration & Adjustment" },
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number]["key"];

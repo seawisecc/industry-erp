@@ -11,6 +11,7 @@ export type UserInput = {
   allowed_modules: string[] | null; // null = akses semua
   aktif: boolean;
   can_approve_po: boolean;
+  can_plan_production: boolean;
 };
 
 async function requireAdmin() {
@@ -70,6 +71,7 @@ export async function createUser(
       organization_id: organizationId,
       allowed_modules: modules,
       can_approve_po: data.can_approve_po,
+      can_plan_production: data.can_plan_production,
     })
     .eq("id", created.user.id);
 
@@ -113,6 +115,7 @@ export async function updateUser(
       aktif: data.aktif,
       allowed_modules: modules,
       can_approve_po: data.can_approve_po,
+      can_plan_production: data.can_plan_production,
     })
     .eq("id", id);
 

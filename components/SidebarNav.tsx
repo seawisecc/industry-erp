@@ -12,7 +12,7 @@ import {
   ClipboardList,
   Briefcase,
   Package,
-  LayoutPanelLeft,
+  HandCoins,
   Settings,
   Building2,
   Menu,
@@ -27,6 +27,14 @@ import { canAccessModule } from "@/lib/modules";
 const HUBS: Record<string, string[]> = {
   "/items": ["/items", "/materials", "/inci"],
   "/purchase-orders": ["/purchase-orders", "/receivings", "/payments"],
+  "/products": ["/products", "/production", "/finished-goods"],
+  "/clients": [
+    "/clients",
+    "/consignments",
+    "/sales-invoices",
+    "/pos",
+    "/sales-payments",
+  ],
   "/settings": ["/settings", "/data-migration", "/users"],
 };
 
@@ -36,7 +44,7 @@ const NAV = [
   { href: "/purchase-orders", label: "Purchasing", icon: ClipboardList },
   { href: "/suppliers", label: "Suppliers", icon: Briefcase },
   { href: "/products", label: "Products", icon: Package },
-  { href: "/production", label: "Production", icon: LayoutPanelLeft },
+  { href: "/clients", label: "Sales", icon: HandCoins },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/companies", label: "Companies", icon: Building2 },
 ];

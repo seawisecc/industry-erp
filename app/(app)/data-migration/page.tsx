@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SlidersHorizontal, ArrowRight } from "lucide-react";
 import ImportCard, { ImportCardConfig } from "./ImportCard";
+import ExportCard from "./ExportCard";
 import SettingsShell from "@/components/SettingsShell";
 
 const CARDS: ImportCardConfig[] = [
@@ -74,6 +75,8 @@ export default function DataMigrationPage() {
         {CARDS.map((c) => (
           <ImportCard key={c.kind} config={c} />
         ))}
+
+        <ExportCard />
 
         {/* ===== Kartu Adjustment Stok ===== */}
         <div className="glass rounded-2xl p-5 flex flex-col gap-3">

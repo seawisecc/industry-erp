@@ -22,6 +22,7 @@ export default function SettingsForm({ initial }: Props) {
     no_telp: initial?.no_telp || "",
     email: initial?.email || "",
     npwp: initial?.npwp || "",
+    bank_info: initial?.bank_info || "",
     sign_dibuat_nama: initial?.sign_dibuat_nama || "",
     sign_dibuat_jabatan: initial?.sign_dibuat_jabatan || "",
     sign_disetujui_nama: initial?.sign_disetujui_nama || "",
@@ -114,6 +115,19 @@ export default function SettingsForm({ initial }: Props) {
               className={inputCls}
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-[12.5px] font-medium text-muted mb-1.5">
+            Rekening Bank{" "}
+            <span className="font-normal text-muted/70">(tampil di invoice)</span>
+          </label>
+          <input
+            value={form.bank_info}
+            onChange={(e) => set("bank_info", e.target.value)}
+            placeholder="Misal: BCA - 7705299919 a.n. PT ..."
+            className={inputCls}
+          />
         </div>
       </div>
 

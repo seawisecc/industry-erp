@@ -169,3 +169,65 @@ export async function runImport(
     };
   }
 }
+
+// ================= EXPORT / BACKUP =================
+
+const BACKUP_TABLES = [
+  "suppliers",
+  "inci_master",
+  "materials",
+  "material_inci",
+  "items",
+  "purchase_orders",
+  "po_items",
+  "receivings",
+  "purchase_batches",
+  "products",
+  "product_formulas",
+  "product_variants",
+  "variant_packaging",
+  "production_plans",
+  "production_batches",
+  "production_outputs",
+  "production_components",
+  "stock_adjustments",
+  "stock_adjustment_items",
+  "clients",
+  "organization_settings",
+];
+
+export async function exportBackup(): Promise<
+  { ok: true; json: string } | { ok: false; error: string }
+> {
+  try {
+    const supabase = await createClient();
+    const { organizationId } = await getEffectiveOrg();
+    if (!organizationId) {
+      throw new Error("Organisasi tidak terdeteksi. Refresh halaman dan login ulang.");
+    }
+
+    const backup: Record<string, unknown> = {
+      _meta: {
+        app: "Seawise Enterprise Apps — Industry Edition",
+        exported_at: new Date().toISOString(),
+        organization_id: organizationId,
+      },
+    };
+
+    for (const table of BACKUP_TABLES) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("organization_id", organizationId);
+      // Tabel yang belum ada / kolom beda dilewati, jangan gagalkan backup
+      backup[table] = error ? { _error: error.message } : data || [];
+    }
+
+    return { ok: true, json: JSON.stringify(backup, null, 2) };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Gagal membuat backup",
+    };
+  }
+}
