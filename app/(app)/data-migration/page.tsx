@@ -60,6 +60,33 @@ const CARDS: ImportCardConfig[] = [
     templateSample: ["Niacinamide", "kg", "Bahan Baku", "5"],
     previewCols: ["nama", "satuan", "kategori"],
   },
+  {
+    kind: "clients",
+    title: "Clients",
+    desc: "Impor data client untuk konsinyasi, invoice, dan POS.",
+    requiredCols: ["company_brand"],
+    optionalCols: ["cp", "phone", "npwp", "kategori", "alamat"],
+    note: "Kategori: Brand Owner / University/Corporation / Research / Reseller / Walk In Customer / Other (tak dikenal → Other). Kode CL-XXXX dibuat otomatis.",
+    templateSample: [
+      "PT Cantik Selalu",
+      "Rina",
+      "081234567890",
+      "-",
+      "Brand Owner",
+      "Jl. Melati No. 2, Denpasar",
+    ],
+    previewCols: ["company_brand", "cp", "kategori"],
+  },
+  {
+    kind: "products",
+    title: "Products",
+    desc: "Impor data produk jadi (tanpa formula & varian).",
+    requiredCols: ["nama_produk"],
+    optionalCols: ["brand", "kategori", "batch_size_kg"],
+    note: "Kode PRD-XXXX dibuat otomatis. Formula %, varian, dan kemasan diisi lewat form Edit Produk setelah import.",
+    templateSample: ["Brightening Serum", "GlowLab", "Skincare", "100"],
+    previewCols: ["nama_produk", "brand", "kategori"],
+  },
 ];
 
 export default function DataMigrationPage() {
@@ -71,7 +98,7 @@ export default function DataMigrationPage() {
         isi, upload.
       </p>
 
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
         {CARDS.map((c) => (
           <ImportCard key={c.kind} config={c} />
         ))}
@@ -79,7 +106,7 @@ export default function DataMigrationPage() {
         <ExportCard />
 
         {/* ===== Kartu Adjustment Stok ===== */}
-        <div className="glass rounded-2xl p-5 flex flex-col gap-3">
+        <div className="glass rounded-2xl p-5 flex flex-col gap-3 h-full">
           <div className="bg-amber-100 text-amber-500 rounded-xl p-2.5 self-start">
             <SlidersHorizontal size={18} />
           </div>

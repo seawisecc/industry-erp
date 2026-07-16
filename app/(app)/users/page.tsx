@@ -10,6 +10,7 @@ type UserRow = {
   email: string;
   nama: string;
   role: string;
+  role_title: string | null;
   aktif: boolean;
   is_super_admin: boolean;
   allowed_modules: string[] | null;
@@ -21,7 +22,7 @@ export default async function UsersPage() {
 
   const { data: users } = await supabase
     .from("profiles")
-    .select("id, email, nama, role, aktif, is_super_admin, allowed_modules")
+    .select("id, email, nama, role, role_title, aktif, is_super_admin, allowed_modules")
     .eq("organization_id", organizationId)
     .order("nama");
 
@@ -75,7 +76,16 @@ export default async function UsersPage() {
                     </div>
                     <div className="text-[11.5px] text-muted">{u.email}</div>
                   </td>
-                  <td className="px-4 py-3">{u.role}</td>
+                  <td className="px-4 py-3">
+                    <span className="whitespace-nowrap">
+                      {u.role_title || u.role}
+                    </span>
+                    {u.role === "Admin" && (
+                      <span className="ml-1.5 text-[10.5px] bg-botanical-100 text-botanical-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                        Admin
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     {isFullAccess ? (
                       <span className="text-[12.5px]">Semua modul</span>

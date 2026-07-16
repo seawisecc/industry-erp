@@ -31,7 +31,7 @@ export default function ExportCard() {
   }
 
   return (
-    <div className="glass rounded-2xl p-5 flex flex-col gap-3">
+    <div className="glass rounded-2xl p-5 flex flex-col gap-3 h-full">
       <div className="bg-clay-100 text-clay-600 rounded-xl p-2.5 self-start">
         <DatabaseBackup size={18} />
       </div>

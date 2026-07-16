@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus, ListChecks } from "lucide-react";
+import { Plus, ListChecks, CalendarClock } from "lucide-react";
 import BahanShell from "@/components/BahanShell";
 
 type ItemRow = {
@@ -40,7 +40,13 @@ export default async function ItemsPage() {
             {list.length} item terdaftar — stok masuk lewat menu Receiving
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/items/expiry"
+            className="flex items-center gap-1.5 bg-white border border-line text-ink text-[13px] font-medium px-3.5 py-2.5 rounded-sm hover:bg-porcelain transition-colors"
+          >
+            <CalendarClock size={15} /> Expiry Control
+          </Link>
           <Link
             href="/items/from-material"
             className="flex items-center gap-1.5 bg-white border border-line text-ink text-[13px] font-medium px-3.5 py-2.5 rounded-sm hover:bg-porcelain transition-colors"

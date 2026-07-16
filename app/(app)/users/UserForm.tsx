@@ -5,14 +5,13 @@ import { useRouter } from "next/navigation";
 import { createUser, updateUser } from "./actions";
 import { MODULES } from "@/lib/modules";
 
-type Role = "Admin" | "Staff Gudang" | "Staff Produksi";
-
 type Props = {
   user?: {
     id: string;
     email: string;
     nama: string;
-    role: Role;
+    role: string;
+    role_title: string | null;
     aktif: boolean;
     allowed_modules: string[] | null;
     is_super_admin: boolean;
@@ -21,6 +20,18 @@ type Props = {
   };
 };
 
+const ROLE_SARAN = [
+  "Owner",
+  "Direktur",
+  "Manager Produksi",
+  "Supervisor QC",
+  "Staff Gudang",
+  "Staff Produksi",
+  "Purchasing",
+  "Finance",
+  "Sales",
+];
+
 export default function UserForm({ user }: Props) {
   const router = useRouter();
   const isEdit = !!user;
@@ -28,7 +39,8 @@ export default function UserForm({ user }: Props) {
   const [email, setEmail] = useState(user?.email || "");
   const [password, setPassword] = useState("");
   const [nama, setNama] = useState(user?.nama || "");
-  const [role, setRole] = useState<Role>(user?.role || "Staff Gudang");
+  const [roleTitle, setRoleTitle] = useState(user?.role_title || user?.role || "");
+  const [isAdmin, setIsAdmin] = useState(user ? user.role === "Admin" : false);
   const [aktif, setAktif] = useState(user?.aktif ?? true);
   const [checked, setChecked] = useState<string[]>(
     user?.allowed_modules ?? MODULES.map((m) => m.key)
@@ -40,7 +52,6 @@ export default function UserForm({ user }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const isAdminRole = role === "Admin";
   const allChecked = checked.length === MODULES.length;
 
   function toggle(key: string) {
@@ -57,11 +68,12 @@ export default function UserForm({ user }: Props) {
     try {
       const payload = {
         nama,
-        role,
+        role_title: roleTitle,
+        is_admin: isAdmin,
         aktif,
-        allowed_modules: isAdminRole ? null : checked,
-        can_approve_po: isAdminRole ? true : canApprovePO,
-        can_plan_production: isAdminRole ? true : canPlanProduction,
+        allowed_modules: isAdmin ? null : checked,
+        can_approve_po: isAdmin ? true : canApprovePO,
+        can_plan_production: isAdmin ? true : canPlanProduction,
       };
       if (isEdit && user) {
         await updateUser(user.id, {
@@ -131,18 +143,20 @@ export default function UserForm({ user }: Props) {
           </div>
           <div>
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
-              Role
+              Role / Jabatan
             </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              disabled={user?.is_super_admin}
-              className={`${inputCls} disabled:opacity-60`}
-            >
-              <option value="Staff Gudang">Staff Gudang</option>
-              <option value="Staff Produksi">Staff Produksi</option>
-              <option value="Admin">Admin</option>
-            </select>
+            <input
+              value={roleTitle}
+              onChange={(e) => setRoleTitle(e.target.value)}
+              list="role-saran"
+              placeholder="Bebas sesuai struktur company"
+              className={inputCls}
+            />
+            <datalist id="role-saran">
+              {ROLE_SARAN.map((r) => (
+                <option key={r} value={r} />
+              ))}
+            </datalist>
           </div>
           {isEdit && (
             <div>
@@ -161,6 +175,29 @@ export default function UserForm({ user }: Props) {
             </div>
           )}
         </div>
+
+        <label
+          className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] cursor-pointer border transition-all ${
+            isAdmin
+              ? "bg-botanical-100/70 border-botanical-700/40"
+              : "glass-input border-transparent"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={isAdmin}
+            onChange={(e) => setIsAdmin(e.target.checked)}
+            disabled={user?.is_super_admin}
+            className="accent-[#2f4f3e]"
+          />
+          <span>
+            <b>Admin perusahaan</b>
+            <span className="block text-[11.5px] text-muted">
+              Akses penuh ke semua modul, kelola pengguna &amp; pengaturan,
+              serta otomatis bisa approve PO dan membuat plan produksi.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="glass rounded-2xl p-6 flex flex-col gap-3">
@@ -170,12 +207,12 @@ export default function UserForm({ user }: Props) {
               Akses Modul
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              {isAdminRole
-                ? "Role Admin otomatis punya akses ke semua modul + menu Pengguna."
+              {isAdmin
+                ? "Admin perusahaan otomatis punya akses ke semua modul."
                 : "Centang modul yang boleh dibuka user ini."}
             </p>
           </div>
-          {!isAdminRole && (
+          {!isAdmin && (
             <button
               type="button"
               onClick={() =>
@@ -188,7 +225,7 @@ export default function UserForm({ user }: Props) {
           )}
         </div>
 
-        {!isAdminRole && (
+        {!isAdmin && (
           <label
             className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] cursor-pointer border transition-all ${
               canApprovePO
@@ -212,7 +249,7 @@ export default function UserForm({ user }: Props) {
           </label>
         )}
 
-        {!isAdminRole && (
+        {!isAdmin && (
           <label
             className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] cursor-pointer border transition-all ${
               canPlanProduction
@@ -236,7 +273,7 @@ export default function UserForm({ user }: Props) {
           </label>
         )}
 
-        {!isAdminRole && (
+        {!isAdmin && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {MODULES.map((m) => (
               <label

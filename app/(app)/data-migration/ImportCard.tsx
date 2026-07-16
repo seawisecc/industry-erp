@@ -10,6 +10,8 @@ import {
   BookText,
   FlaskConical,
   Boxes,
+  Contact,
+  Package,
   LucideIcon,
 } from "lucide-react";
 import { runImport, ImportKind } from "./actions";
@@ -21,6 +23,8 @@ const ICONS: Record<ImportKind, LucideIcon> = {
   inci: BookText,
   materials: FlaskConical,
   items: Boxes,
+  clients: Contact,
+  products: Package,
 };
 
 type CsvRow = Record<string, string | undefined>;
@@ -131,7 +135,7 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
   }
 
   return (
-    <div className="glass rounded-2xl p-5 flex flex-col gap-3">
+    <div className="glass rounded-2xl p-5 flex flex-col gap-3 h-full">
       <div className="bg-botanical-100 text-botanical-700 rounded-xl p-2.5 self-start">
         <Icon size={18} />
       </div>

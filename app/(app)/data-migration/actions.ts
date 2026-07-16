@@ -4,7 +4,22 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 
-export type ImportKind = "suppliers" | "inci" | "materials" | "items";
+export type ImportKind =
+  | "suppliers"
+  | "inci"
+  | "materials"
+  | "items"
+  | "clients"
+  | "products";
+
+const CLIENT_KATEGORI = [
+  "Brand Owner",
+  "University/Corporation",
+  "Research",
+  "Reseller",
+  "Walk In Customer",
+  "Other",
+];
 
 type CsvRow = Record<string, string | undefined>;
 
@@ -158,6 +173,71 @@ export async function runImport(
       if (error) throw new Error(error.message);
 
       revalidatePath("/items");
+      return { ok: true, count: valid.length };
+    }
+
+    // ================= CLIENTS =================
+    if (kind === "clients") {
+      const valid = rows.filter((r) => clean(r.company_brand));
+      if (valid.length === 0)
+        throw new Error("Tidak ada baris dengan company_brand terisi");
+
+      // Kode berurutan CL-XXXX melanjutkan yang sudah ada
+      const { data: lastRow } = await supabase
+        .from("clients")
+        .select("kode")
+        .eq("organization_id", organizationId)
+        .not("kode", "is", null)
+        .order("kode", { ascending: false })
+        .limit(1);
+      const last = lastRow?.[0]?.kode as string | undefined;
+      let seq = last?.startsWith("CL-") ? parseInt(last.slice(3)) || 0 : 0;
+
+      const { error } = await supabase.from("clients").insert(
+        valid.map((r) => {
+          seq += 1;
+          const kat = clean(r.kategori);
+          return {
+            kode: "CL-" + String(seq).padStart(4, "0"),
+            company_brand: clean(r.company_brand)!,
+            cp: clean(r.cp),
+            npwp: clean(r.npwp),
+            phone: clean(r.phone),
+            kategori:
+              CLIENT_KATEGORI.find(
+                (k) => k.toLowerCase() === (kat || "").toLowerCase()
+              ) || "Other",
+            alamat: clean(r.alamat),
+            aktif: true,
+            organization_id: organizationId,
+          };
+        })
+      );
+      if (error) throw new Error(error.message);
+
+      revalidatePath("/clients");
+      return { ok: true, count: valid.length };
+    }
+
+    // ================= PRODUCTS =================
+    if (kind === "products") {
+      const valid = rows.filter((r) => clean(r.nama_produk));
+      if (valid.length === 0)
+        throw new Error("Tidak ada baris dengan nama_produk terisi");
+
+      const { error } = await supabase.from("products").insert(
+        valid.map((r) => ({
+          nama_produk: clean(r.nama_produk)!,
+          brand: clean(r.brand),
+          kategori: clean(r.kategori),
+          batch_size_kg: r.batch_size_kg ? parseNum(r.batch_size_kg) : null,
+          aktif: true,
+          organization_id: organizationId,
+        }))
+      );
+      if (error) throw new Error(error.message);
+
+      revalidatePath("/products");
       return { ok: true, count: valid.length };
     }
 

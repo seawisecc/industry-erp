@@ -7,7 +7,8 @@ import { revalidatePath } from "next/cache";
 
 export type UserInput = {
   nama: string;
-  role: "Admin" | "Staff Gudang" | "Staff Produksi";
+  role_title: string; // jabatan bebas sesuai struktur company
+  is_admin: boolean; // akses penuh + kelola pengguna
   allowed_modules: string[] | null; // null = akses semua
   aktif: boolean;
   can_approve_po: boolean;
@@ -27,7 +28,7 @@ async function requireAdmin() {
 
 function normalizeModules(data: UserInput): string[] | null {
   // Admin selalu akses semua
-  if (data.role === "Admin") return null;
+  if (data.is_admin) return null;
   if (!data.allowed_modules || data.allowed_modules.length === 0) {
     throw new Error("Pilih minimal satu modul yang boleh diakses");
   }
@@ -53,7 +54,7 @@ export async function createUser(
     email_confirm: true,
     user_metadata: {
       nama: data.nama.trim(),
-      role: data.role,
+      role: data.is_admin ? "Admin" : "Staff Gudang",
       organization_id: organizationId,
       allowed_modules: modules,
     },
@@ -66,7 +67,8 @@ export async function createUser(
     .from("profiles")
     .update({
       nama: data.nama.trim(),
-      role: data.role,
+      role: data.is_admin ? "Admin" : "Staff Gudang",
+      role_title: data.role_title?.trim() || null,
       aktif: true,
       organization_id: organizationId,
       allowed_modules: modules,
@@ -111,7 +113,8 @@ export async function updateUser(
     .from("profiles")
     .update({
       nama: data.nama.trim(),
-      role: data.role,
+      role: data.is_admin ? "Admin" : "Staff Gudang",
+      role_title: data.role_title?.trim() || null,
       aktif: data.aktif,
       allowed_modules: modules,
       can_approve_po: data.can_approve_po,

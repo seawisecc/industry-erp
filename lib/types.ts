@@ -5,6 +5,7 @@ export interface Profile {
   email: string;
   nama: string;
   role: UserRole;
+  role_title: string | null;
   aktif: boolean;
   organization_id: string;
   is_super_admin: boolean;
