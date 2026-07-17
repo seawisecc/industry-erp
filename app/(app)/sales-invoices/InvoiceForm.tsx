@@ -42,7 +42,7 @@ export default function InvoiceForm({
   );
   const [clientId, setClientId] = useState("");
   const [namaPembeli, setNamaPembeli] = useState("");
-  const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [diskon, setDiskon] = useState("0");
   const [pakaiTax, setPakaiTax] = useState(false);
   const [taxPercent, setTaxPercent] = useState("11");

@@ -44,9 +44,9 @@ export default function LoginPage() {
       setError("Email atau password salah.");
       return;
     }
-    // loading tetap true selama redirect, biar tombol jelas "sedang bekerja"
-    router.push("/dashboard");
-    router.refresh();
+    // Hard navigation: mengosongkan seluruh cache router dari sesi sebelumnya
+    // (mencegah redirect basi/data user lama muncul setelah ganti akun).
+    window.location.assign("/dashboard");
   }
 
   async function handleRegister(e: React.FormEvent) {

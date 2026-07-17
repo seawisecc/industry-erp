@@ -94,6 +94,17 @@ body {
   border: 1px solid rgba(28, 28, 26, 0.1);
 }
 
+/* Seragamkan tinggi kontrol form.
+   Native <select> & <input type=date> di Safari mengabaikan padding vertikal
+   sehingga tampak lebih pendek dari text input (py-2.5 + text-sm = 42px).
+   Rule di @layer base — utility eksplisit (mis. h-10) tetap bisa override. */
+@layer base {
+  select.glass-input,
+  input.glass-input[type="date"] {
+    height: 2.625rem; /* 42px */
+  }
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -106,6 +117,29 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-botanical-700);
   outline-offset: 2px;
+}
+
+/* ---------- Mode cetak halaman aplikasi (mis. Reports) ----------
+   Sembunyikan sidebar/topbar/tombol saat print — konten jadi dokumen bersih */
+@media print {
+  aside,
+  .print-hide {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .glass {
+    background: white !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
 }
 
 /* ---------- Progress bar navigasi (components/TopProgress.tsx) ---------- */

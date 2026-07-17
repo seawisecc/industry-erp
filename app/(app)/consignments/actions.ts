@@ -160,7 +160,7 @@ export async function reportConsignmentSale(
     );
 
     // Nomor invoice
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString("sv-SE");
     const ym = today.slice(0, 7).replace("-", "");
     const prefix = `INV.${ym}`;
     const { data: lastInv } = await supabase

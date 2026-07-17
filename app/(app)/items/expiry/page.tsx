@@ -36,8 +36,8 @@ export default async function ExpiryPage() {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const in60 = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+  const todayStr = new Date().toLocaleDateString("sv-SE");
+  const in60 = new Date(Date.now() + 60 * 86400000).toLocaleDateString("sv-SE");
 
   const [{ data: batches }, { data: logs }] = await Promise.all([
     supabase

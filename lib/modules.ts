@@ -18,6 +18,7 @@ export const MODULES = [
   { key: "sales-invoices", label: "Sales Invoices" },
   { key: "pos", label: "POS" },
   { key: "sales-payments", label: "Sales Payments" },
+  { key: "reports", label: "Reports" },
   { key: "data-migration", label: "Data Migration & Adjustment" },
 ] as const;
 

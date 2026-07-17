@@ -22,7 +22,7 @@ export default function PlanForm({ products }: { products: ProductOpt[] }) {
   const [productId, setProductId] = useState("");
   const [noBatch, setNoBatch] = useState("");
   const [jumlahBatch, setJumlahBatch] = useState("1");
-  const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [catatan, setCatatan] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

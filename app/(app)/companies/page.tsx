@@ -34,7 +34,7 @@ export default async function CompaniesPage() {
     .order("nama");
 
   const list = (orgs || []) as unknown as OrgRow[];
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toLocaleDateString("sv-SE");
   const pending = list.filter((o) => !o.aktif).length;
 
   return (

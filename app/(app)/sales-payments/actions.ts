@@ -17,7 +17,7 @@ export async function setSalesInvoicePaid(
       .from("sales_invoices")
       .update({
         status_bayar: paid ? "Lunas" : "Belum Lunas",
-        tanggal_bayar: paid ? new Date().toISOString().slice(0, 10) : null,
+        tanggal_bayar: paid ? new Date().toLocaleDateString("sv-SE") : null,
       })
       .eq("id", id)
       .eq("organization_id", organizationId);

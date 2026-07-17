@@ -60,7 +60,7 @@ export default function ProductionForm({
 
   const [productId, setProductId] = useState("");
   const [noBatch, setNoBatch] = useState("");
-  const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [jumlahBatch, setJumlahBatch] = useState("1");
   const [variantQty, setVariantQty] = useState<Record<string, string>>({});
   const [bahanRows, setBahanRows] = useState<Row[]>([]);

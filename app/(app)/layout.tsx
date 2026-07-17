@@ -22,7 +22,7 @@ export default async function AppLayout({
       .eq("id", organizationId)
       .single();
 
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = new Date().toLocaleDateString("sv-SE");
     const expired =
       org?.aktif && org.aktif_sampai !== null && org.aktif_sampai < todayStr;
 

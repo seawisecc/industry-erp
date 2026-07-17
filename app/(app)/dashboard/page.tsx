@@ -11,6 +11,7 @@ import {
   AlarmClock,
 } from "lucide-react";
 import BarChart, { BarGroup } from "@/components/charts/BarChart";
+import { localDateStr, localMonthKey, addDaysStr } from "@/lib/dates";
 import HBarList from "@/components/charts/HBarList";
 import type { ExecutionData } from "@/app/(app)/production/actions";
 
@@ -27,20 +28,18 @@ export default async function DashboardPage() {
   const { profile, organizationId } = await getEffectiveOrg();
 
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
-  const in60 = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const todayStr = localDateStr(today);
+  const in60 = addDaysStr(todayStr, 60);
   const monthStart = `${todayStr.slice(0, 7)}-01`;
   const monthLabel = today.toLocaleDateString("id-ID", {
     month: "long",
     year: "numeric",
   });
 
-  // Awal periode 6 bulan terakhir (termasuk bulan berjalan)
-  const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1)
-    .toISOString()
-    .slice(0, 10);
+  // Awal periode 6 bulan terakhir (termasuk bulan berjalan) — tanggal LOKAL
+  const sixMonthsAgo = `${localMonthKey(
+    new Date(today.getFullYear(), today.getMonth() - 5, 1)
+  )}-01`;
 
   const [
     batchesRes,
@@ -147,7 +146,7 @@ export default async function DashboardPage() {
   const monthLabels: string[] = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    monthKeys.push(d.toISOString().slice(0, 7));
+    monthKeys.push(localMonthKey(d));
     monthLabels.push(d.toLocaleDateString("id-ID", { month: "short" }));
   }
   const salesByMonth = new Map<string, number>();

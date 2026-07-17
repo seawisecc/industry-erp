@@ -21,7 +21,7 @@ export default function ConsignmentForm({
 }) {
   const router = useRouter();
   const [clientId, setClientId] = useState("");
-  const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [catatan, setCatatan] = useState("");
   const [rows, setRows] = useState<Row[]>([{ key: "", qty: "", harga: "" }]);
   const [loading, setLoading] = useState(false);

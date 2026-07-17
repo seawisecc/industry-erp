@@ -13,6 +13,7 @@ import {
   Briefcase,
   Package,
   HandCoins,
+  BarChart3,
   Settings,
   Building2,
   Menu,
@@ -45,6 +46,7 @@ const NAV = [
   { href: "/suppliers", label: "Suppliers", icon: Briefcase },
   { href: "/products", label: "Products", icon: Package },
   { href: "/clients", label: "Sales", icon: HandCoins },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/companies", label: "Companies", icon: Building2 },
 ];

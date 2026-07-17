@@ -40,7 +40,7 @@ export default async function PaymentsPage() {
     )
     .eq("organization_id", organizationId);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toLocaleDateString("sv-SE");
   const list = ((invoices || []) as unknown as InvoiceRow[]).sort((a, b) => {
     // Belum lunas dulu, urut jatuh tempo terdekat (tanpa tempo di akhir)
     if (a.status_bayar !== b.status_bayar)

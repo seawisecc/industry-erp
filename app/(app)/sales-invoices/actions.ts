@@ -31,7 +31,7 @@ export type InvoiceInput = {
 function addDays(iso: string, days: number): string {
   const d = new Date(iso + "T00:00:00");
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return d.toLocaleDateString("sv-SE");
 }
 
 async function nextInvoiceNo(
@@ -159,7 +159,7 @@ export async function convertToInvoice(
     if (!inv) throw new Error("Invoice tidak ditemukan");
     if (inv.tipe !== "Proforma") throw new Error("Sudah berupa Invoice");
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString("sv-SE");
     const { error } = await supabase
       .from("sales_invoices")
       .update({

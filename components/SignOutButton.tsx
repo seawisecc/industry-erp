@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut } from "lucide-react";
 
@@ -9,13 +8,12 @@ export default function SignOutButton({
 }: {
   variant?: "sidebar" | "solid" | "icon";
 }) {
-  const router = useRouter();
   const supabase = createClient();
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    // Hard navigation: buang seluruh cache router sesi ini
+    window.location.assign("/login");
   }
 
   if (variant === "icon") {

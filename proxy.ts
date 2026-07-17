@@ -25,12 +25,12 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // getSession() membaca JWT dari cookie TANPA network call ke Supabase
-  // (getUser() sebelumnya menambah ~200ms di SETIAP request).
-  // Verifikasi penuh tetap terjadi di layout via getEffectiveOrg (getUser + profile).
-  const { data: { session } } = await supabase.auth.getSession();
+  // getUser() memverifikasi & ME-REFRESH token bila kedaluwarsa (cookie
+  // diperbarui lewat setAll di atas). Sejak function pindah ke region
+  // Singapore, panggilan ini hanya ~5-15ms — aman untuk tiap request.
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!session && !request.nextUrl.pathname.startsWith("/login")) {
+  if (!user && !request.nextUrl.pathname.startsWith("/login")) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

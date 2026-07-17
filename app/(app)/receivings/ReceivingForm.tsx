@@ -48,7 +48,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
   const router = useRouter();
 
   const [poId, setPoId] = useState("");
-  const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [noInvoice, setNoInvoice] = useState("");
   const [ppn, setPpn] = useState("11");
   const [top, setTop] = useState(""); // hari; "" = tidak diset, "0" = Tunai/CIA

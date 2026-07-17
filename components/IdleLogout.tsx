@@ -21,8 +21,7 @@ export default function IdleLogout() {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(async () => {
         await supabase.auth.signOut();
-        router.replace("/login");
-        router.refresh();
+        window.location.assign("/login");
       }, IDLE_MINUTES * 60 * 1000);
     }
 

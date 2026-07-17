@@ -170,7 +170,7 @@ export async function finishProduction(
     const { data: batchId, error } = await supabase.rpc("create_production", {
       p_organization_id: organizationId,
       p_no_batch: plan.no_batch,
-      p_tanggal: new Date().toISOString().slice(0, 10),
+      p_tanggal: new Date().toLocaleDateString("sv-SE"),
       p_catatan: plan.catatan,
       p_product_id: plan.product_id,
       p_outputs: realOutputs.map((o) => ({ ...o, satuan: "pcs" })),

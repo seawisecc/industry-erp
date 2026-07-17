@@ -42,7 +42,7 @@ export default async function SalesPaymentsPage() {
     .eq("organization_id", organizationId)
     .eq("tipe", "Invoice");
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toLocaleDateString("sv-SE");
   const list = ((invoices || []) as unknown as InvRow[]).sort((a, b) => {
     if (a.status_bayar !== b.status_bayar)
       return a.status_bayar === "Belum Lunas" ? -1 : 1;

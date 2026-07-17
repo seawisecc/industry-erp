@@ -35,7 +35,7 @@ function formatId(n: number) {
 export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
   const router = useRouter();
 
-  const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [catatan, setCatatan] = useState("");
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<Record<string, Row>>(() =>

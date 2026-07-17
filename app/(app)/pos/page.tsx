@@ -23,7 +23,7 @@ export default async function PosPage() {
   const { organizationId } = await getEffectiveOrg();
   const { clients, options } = await getSalesOptions(organizationId!);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toLocaleDateString("sv-SE");
   const { data: todaySales } = await supabase
     .from("sales_invoices")
     .select("id, no_invoice, tanggal, total, nama_pembeli, clients(company_brand)")

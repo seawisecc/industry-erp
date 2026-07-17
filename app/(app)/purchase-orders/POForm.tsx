@@ -54,7 +54,7 @@ export default function POForm({ suppliers, items, po }: Props) {
 
   const [supplierId, setSupplierId] = useState(po?.supplier_id || "");
   const [tanggal, setTanggal] = useState(
-    po?.tanggal_po || new Date().toISOString().slice(0, 10)
+    po?.tanggal_po || new Date().toLocaleDateString("sv-SE")
   );
   const [ppn, setPpn] = useState(String(po?.ppn_percent ?? 11));
   const [catatan, setCatatan] = useState(po?.catatan || "");
