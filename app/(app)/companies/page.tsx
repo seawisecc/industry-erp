@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import CompanyToggle from "./CompanyToggle";
+import TableSearch from "@/components/TableSearch";
 
 type OrgRow = {
   id: string;
@@ -45,15 +46,21 @@ export default async function CompaniesPage() {
         {pending > 0 ? ` — ${pending} menunggu aktivasi` : ""}
       </p>
 
-      <div className="mt-6 glass rounded-2xl overflow-x-auto overflow-y-visible">
+      <div className="mt-4">
+        <TableSearch
+          placeholder="Cari nama company / admin..."
+          filters={[{ label: "Semua Status", options: ["Aktif", "Menunggu Aktivasi", "Kedaluwarsa"] }]}
+        />
+      </div>
+      <div className="glass rounded-2xl overflow-x-auto overflow-y-visible">
         <table className="w-full min-w-[880px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Company</th>
-              <th className="px-4 py-2.5 font-semibold">Admin</th>
-              <th className="px-4 py-2.5 font-semibold">User</th>
-              <th className="px-4 py-2.5 font-semibold">Status</th>
-              <th className="px-4 py-2.5 font-semibold">Valid Sampai</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Company</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Admin</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">User</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Valid Sampai</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>

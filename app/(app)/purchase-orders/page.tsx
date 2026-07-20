@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import PembelianShell from "@/components/PembelianShell";
+import TableSearch from "@/components/TableSearch";
 
 type POStatus = "Dibuat" | "Disetujui" | "Dikirim" | "Diterima Sebagian" | "Selesai";
 
@@ -64,23 +65,29 @@ export default async function PurchaseOrdersPage() {
         </div>
         <Link
           href="/purchase-orders/new"
-          className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13px] font-medium px-3.5 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
+          className="inline-flex items-center gap-1.5 h-9 bg-botanical-700 text-white text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-botanical-800 transition-colors shadow-sm whitespace-nowrap"
         >
           <Plus size={15} /> Buat PO
         </Link>
       </div>
 
-      <div className="mt-4 glass rounded-2xl overflow-x-auto">
+      <div className="mt-4">
+        <TableSearch
+          placeholder="Cari no. PO / supplier..."
+          filters={[{ label: "Semua Status", options: ["Dibuat", "Disetujui", "Dikirim", "Diterima Sebagian", "Selesai"] }]}
+        />
+      </div>
+      <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[960px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">No. PO</th>
-              <th className="px-4 py-2.5 font-semibold">Tanggal</th>
-              <th className="px-4 py-2.5 font-semibold">Supplier</th>
-              <th className="px-4 py-2.5 font-semibold">Item</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Total (incl. PPN)</th>
-              <th className="px-4 py-2.5 font-semibold">TOP</th>
-              <th className="px-4 py-2.5 font-semibold">Status</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. PO</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Supplier</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Item</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Total (incl. PPN)</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">TOP</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>

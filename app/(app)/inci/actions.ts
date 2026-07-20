@@ -5,71 +5,64 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-export async function createInci(formData: FormData) {
-  const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+export type InciInput = {
+  inci_name: string;
+  cas_number: string | null;
+  noael: string | null;
+  function: string | null;
+  reference: string | null;
+};
 
-  if (!organizationId) {
-    throw new Error("Organisasi tidak terdeteksi. Coba refresh halaman dan login ulang.");
-  }
+// Simpan INCI (baru atau edit). Return {ok, error} — tidak throw,
+// supaya pesan error asli tetap terlihat di production.
+export async function saveInci(
+  input: InciInput,
+  id?: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { organizationId } = await getEffectiveOrg();
+    if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
 
-  const inci_name = formData.get("inci_name") as string;
-  const cas_number = formData.get("cas_number") as string;
-  const noael = formData.get("noael") as string;
-  const inci_function = formData.get("function") as string;
-  const reference = formData.get("reference") as string;
+    const inci_name = input.inci_name?.trim();
+    if (!inci_name) throw new Error("INCI Name wajib diisi");
 
-  if (!inci_name) {
-    throw new Error("INCI Name wajib diisi");
-  }
+    // Cegah double input: nama sama (case-insensitive) di org ini
+    const dupQuery = supabase
+      .from("inci_master")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("inci_name", inci_name);
+    const { data: dup } = id ? await dupQuery.neq("id", id) : await dupQuery;
+    if (dup && dup.length > 0) {
+      throw new Error(`INCI "${inci_name}" sudah terdaftar`);
+    }
 
-  const { error } = await supabase.from("inci_master").insert({
-    inci_name,
-    cas_number: cas_number || null,
-    noael: noael || null,
-    function: inci_function || null,
-    reference: reference || null,
-    organization_id: organizationId,
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath("/inci");
-  redirect("/inci");
-}
-
-export async function updateInci(id: string, formData: FormData) {
-  const supabase = await createClient();
-
-  const inci_name = formData.get("inci_name") as string;
-  const cas_number = formData.get("cas_number") as string;
-  const noael = formData.get("noael") as string;
-  const inci_function = formData.get("function") as string;
-  const reference = formData.get("reference") as string;
-
-  if (!inci_name) {
-    throw new Error("INCI Name wajib diisi");
-  }
-
-  const { error } = await supabase
-    .from("inci_master")
-    .update({
+    const payload = {
       inci_name,
-      cas_number: cas_number || null,
-      noael: noael || null,
-      function: inci_function || null,
-      reference: reference || null,
-    })
-    .eq("id", id);
+      cas_number: input.cas_number?.trim() || null,
+      noael: input.noael?.trim() || null,
+      function: input.function?.trim() || null,
+      reference: input.reference?.trim() || null,
+    };
 
-  if (error) {
-    throw new Error(error.message);
+    const { error } = id
+      ? await supabase
+          .from("inci_master")
+          .update(payload)
+          .eq("id", id)
+          .eq("organization_id", organizationId)
+      : await supabase
+          .from("inci_master")
+          .insert({ ...payload, organization_id: organizationId });
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/inci");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal menyimpan" };
   }
-
-  revalidatePath("/inci");
-  redirect("/inci");
 }
 
 export async function importInci(rows: {

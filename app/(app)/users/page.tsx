@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { MODULES } from "@/lib/modules";
 import SettingsShell from "@/components/SettingsShell";
+import TableSearch from "@/components/TableSearch";
 
 type UserRow = {
   id: string;
@@ -39,20 +40,26 @@ export default async function UsersPage() {
         </div>
         <Link
           href="/users/new"
-          className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13.5px] font-medium px-4 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
+          className="inline-flex items-center gap-1.5 h-9 bg-botanical-700 text-white text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-botanical-800 transition-colors shadow-sm whitespace-nowrap"
         >
           <Plus size={16} /> Tambah Pengguna
         </Link>
       </div>
 
-      <div className="mt-6 glass rounded-2xl overflow-x-auto">
+      <div className="mt-4">
+        <TableSearch
+          placeholder="Cari nama / email / role..."
+          filters={[{ label: "Semua Status", options: ["Aktif", "Nonaktif"] }]}
+        />
+      </div>
+      <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Nama</th>
-              <th className="px-4 py-2.5 font-semibold">Role</th>
-              <th className="px-4 py-2.5 font-semibold">Akses Modul</th>
-              <th className="px-4 py-2.5 font-semibold">Status</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Nama</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Role</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Akses Modul</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>

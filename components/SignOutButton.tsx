@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut } from "lucide-react";
 
@@ -9,8 +10,11 @@ export default function SignOutButton({
   variant?: "sidebar" | "solid" | "icon";
 }) {
   const supabase = createClient();
+  const [loading, setLoading] = useState(false);
 
   async function handleSignOut() {
+    if (loading) return; // guard: cegah double-click
+    setLoading(true);
     await supabase.auth.signOut();
     // Hard navigation: buang seluruh cache router sesi ini
     window.location.assign("/login");

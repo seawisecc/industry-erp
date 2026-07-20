@@ -54,7 +54,7 @@ export default async function StockAdjustmentPage() {
         </div>
         <Link
           href="/data-migration/adjustment/new"
-          className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13.5px] font-medium px-4 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
+          className="inline-flex items-center gap-1.5 h-9 bg-botanical-700 text-white text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-botanical-800 transition-colors shadow-sm whitespace-nowrap"
         >
           <Plus size={16} /> Adjustment Baru
         </Link>
@@ -64,10 +64,10 @@ export default async function StockAdjustmentPage() {
         <table className="w-full text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Tanggal</th>
-              <th className="px-4 py-2.5 font-semibold">Catatan</th>
-              <th className="px-4 py-2.5 font-semibold">Item Disesuaikan</th>
-              <th className="px-4 py-2.5 font-semibold">Oleh</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Catatan</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Item Disesuaikan</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Oleh</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>

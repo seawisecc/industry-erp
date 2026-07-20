@@ -33,6 +33,16 @@ export async function createMaterial(data: MaterialPayload) {
     throw new Error("Kode material & tradename wajib diisi");
   }
 
+  // Cegah double input: kode material sama (case-insensitive) di org ini
+  const { data: dup } = await supabase
+    .from("materials")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .ilike("material_code", data.material_code.trim());
+  if (dup && dup.length > 0) {
+    throw new Error(`Kode material "${data.material_code.trim()}" sudah terdaftar`);
+  }
+
   const { data: material, error } = await supabase
     .from("materials")
     .insert({
@@ -79,6 +89,17 @@ export async function updateMaterial(id: string, data: MaterialPayload) {
 
   if (!data.material_code || !data.tradename) {
     throw new Error("Kode material & tradename wajib diisi");
+  }
+
+  // Cegah double input: kode sama di material LAIN (case-insensitive)
+  const { data: dup } = await supabase
+    .from("materials")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .ilike("material_code", data.material_code.trim())
+    .neq("id", id);
+  if (dup && dup.length > 0) {
+    throw new Error(`Kode material "${data.material_code.trim()}" sudah terdaftar`);
   }
 
   const { error } = await supabase

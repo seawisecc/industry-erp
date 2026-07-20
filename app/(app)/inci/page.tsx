@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import type { InciMaster } from "@/lib/types";
 import BahanShell from "@/components/BahanShell";
+import TableSearch from "@/components/TableSearch";
 
 export default async function InciPage() {
   const supabase = await createClient();
@@ -27,22 +28,25 @@ export default async function InciPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/inci/new"
-            className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13.5px] font-medium px-4 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
+            className="inline-flex items-center gap-1.5 h-9 bg-botanical-700 text-white text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-botanical-800 transition-colors shadow-sm whitespace-nowrap"
           >
             <Plus size={16} /> Tambah INCI Name
           </Link>
         </div>
       </div>
 
-      <div className="mt-4 glass rounded-2xl overflow-x-auto">
+      <div className="mt-4">
+        <TableSearch placeholder="Cari INCI name / CAS..." />
+      </div>
+      <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[760px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">INCI Name</th>
-              <th className="px-4 py-2.5 font-semibold">CAS Number</th>
-              <th className="px-4 py-2.5 font-semibold">NOAEL</th>
-              <th className="px-4 py-2.5 font-semibold">Function</th>
-              <th className="px-4 py-2.5 font-semibold">Reference</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">INCI Name</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">CAS Number</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">NOAEL</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Function</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Reference</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>

@@ -3,39 +3,67 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
-export async function createSupplier(formData: FormData) {
-  const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+export type SupplierInput = {
+  nama: string;
+  alamat: string | null;
+  nama_kontak: string | null;
+  no_telp: string | null;
+  email: string | null;
+  npwp: string | null;
+};
 
-  const nama = formData.get("nama") as string;
-  const alamat = formData.get("alamat") as string;
-  const nama_kontak = formData.get("nama_kontak") as string;
-  const no_telp = formData.get("no_telp") as string;
-  const email = formData.get("email") as string;
-  const npwp = formData.get("npwp") as string;
+// Simpan supplier (baru atau edit). Return {ok, error} — tidak throw,
+// supaya pesan error asli tetap terlihat di production.
+export async function saveSupplier(
+  input: SupplierInput,
+  id?: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { organizationId } = await getEffectiveOrg();
+    if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
 
-  if (!nama) {
-    throw new Error("Nama supplier wajib diisi");
+    const nama = input.nama?.trim();
+    if (!nama) throw new Error("Nama supplier wajib diisi");
+
+    // Cegah double input: cek nama yang sama (case-insensitive) di org ini
+    const dupQuery = supabase
+      .from("suppliers")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("nama", nama);
+    const { data: dup } = id ? await dupQuery.neq("id", id) : await dupQuery;
+    if (dup && dup.length > 0) {
+      throw new Error(`Supplier "${nama}" sudah terdaftar`);
+    }
+
+    const payload = {
+      nama,
+      alamat: input.alamat?.trim() || null,
+      nama_kontak: input.nama_kontak?.trim() || null,
+      no_telp: input.no_telp?.trim() || null,
+      email: input.email?.trim() || null,
+      npwp: input.npwp?.trim() || null,
+    };
+
+    const { error } = id
+      ? await supabase
+          .from("suppliers")
+          .update(payload)
+          .eq("id", id)
+          .eq("organization_id", organizationId)
+      : await supabase
+          .from("suppliers")
+          .insert({ ...payload, organization_id: organizationId });
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/suppliers");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal menyimpan" };
   }
-
-  const { error } = await supabase.from("suppliers").insert({
-    nama,
-    alamat: alamat || null,
-    nama_kontak: nama_kontak || null,
-    no_telp: no_telp || null,
-    email: email || null,
-    npwp: npwp || null,
-    organization_id: organizationId,
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath("/suppliers");
-  redirect("/suppliers");
 }
 
 export async function importSuppliers(rows: {
@@ -79,36 +107,3 @@ export async function importSuppliers(rows: {
   return { success: true, count: validRows.length };
 }
 
-export async function updateSupplier(id: string, formData: FormData) {
-  const supabase = await createClient();
-
-  const nama = formData.get("nama") as string;
-  const alamat = formData.get("alamat") as string;
-  const nama_kontak = formData.get("nama_kontak") as string;
-  const no_telp = formData.get("no_telp") as string;
-  const email = formData.get("email") as string;
-  const npwp = formData.get("npwp") as string;
-
-  if (!nama) {
-    throw new Error("Nama supplier wajib diisi");
-  }
-
-  const { error } = await supabase
-    .from("suppliers")
-    .update({
-      nama,
-      alamat: alamat || null,
-      nama_kontak: nama_kontak || null,
-      no_telp: no_telp || null,
-      email: email || null,
-      npwp: npwp || null,
-    })
-    .eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath("/suppliers");
-  redirect("/suppliers");
-}

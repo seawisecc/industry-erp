@@ -55,6 +55,16 @@ export async function createClientData(
     }
     validate(data);
 
+    // Cegah double input: nama company/brand sama (case-insensitive) di org ini
+    const { data: dup } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("company_brand", data.company_brand.trim());
+    if (dup && dup.length > 0) {
+      throw new Error(`Client "${data.company_brand.trim()}" sudah terdaftar`);
+    }
+
     const { error } = await supabase.from("clients").insert({
       kode: await nextKode(organizationId),
       company_brand: data.company_brand.trim(),
@@ -81,7 +91,22 @@ export async function updateClientData(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient();
+    const { organizationId } = await getEffectiveOrg();
+    if (!organizationId) {
+      throw new Error("Organisasi tidak terdeteksi. Refresh halaman dan login ulang.");
+    }
     validate(data);
+
+    // Cegah double input: nama sama di client LAIN (case-insensitive)
+    const { data: dup } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("company_brand", data.company_brand.trim())
+      .neq("id", id);
+    if (dup && dup.length > 0) {
+      throw new Error(`Client "${data.company_brand.trim()}" sudah terdaftar`);
+    }
 
     const { error } = await supabase
       .from("clients")
@@ -94,7 +119,8 @@ export async function updateClientData(
         alamat: data.alamat?.trim() || null,
         aktif: data.aktif,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("organization_id", organizationId);
     if (error) throw new Error(error.message);
 
     revalidatePath("/clients");

@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { Wallet, ReceiptText, CalendarClock } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
 import SalesPayButton from "./SalesPayButton";
+import TableSearch from "@/components/TableSearch";
 
 type InvRow = {
   id: string;
@@ -106,18 +107,24 @@ export default async function SalesPaymentsPage() {
         ))}
       </div>
 
-      <div className="mt-4 glass rounded-2xl overflow-x-auto">
+      <div className="mt-4">
+        <TableSearch
+          placeholder="Cari no. invoice / client..."
+          filters={[{ label: "Semua Status", options: ["Lunas", "Belum Lunas"] }]}
+        />
+      </div>
+      <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[860px] text-[13px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">No. Invoice</th>
-              <th className="px-4 py-2.5 font-semibold">Client</th>
-              <th className="px-4 py-2.5 font-semibold">Sumber</th>
-              <th className="px-4 py-2.5 font-semibold">Tanggal</th>
-              <th className="px-4 py-2.5 font-semibold">Jatuh Tempo</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Total</th>
-              <th className="px-4 py-2.5 font-semibold">Status</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Aksi</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. Invoice</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Client</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Sumber</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Jatuh Tempo</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Total</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Aksi</th>
             </tr>
           </thead>
           <tbody>

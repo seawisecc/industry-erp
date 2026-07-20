@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
+import TableSearch from "@/components/TableSearch";
 
 type ConsRow = {
   id: string;
@@ -46,23 +47,29 @@ export default async function ConsignmentsPage() {
         </div>
         <Link
           href="/consignments/new"
-          className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13px] font-medium px-3.5 py-2.5 rounded-sm hover:bg-botanical-800 transition-colors"
+          className="inline-flex items-center gap-1.5 h-9 bg-botanical-700 text-white text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-botanical-800 transition-colors shadow-sm whitespace-nowrap"
         >
           <Plus size={15} /> Kirim Konsinyasi
         </Link>
       </div>
 
-      <div className="mt-4 glass rounded-2xl overflow-x-auto">
+      <div className="mt-4">
+        <TableSearch
+          placeholder="Cari no. konsinyasi / client..."
+          filters={[{ label: "Semua Status", options: ["Aktif", "Selesai"] }]}
+        />
+      </div>
+      <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[800px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">No.</th>
-              <th className="px-4 py-2.5 font-semibold">Client</th>
-              <th className="px-4 py-2.5 font-semibold">Tanggal Kirim</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Terkirim</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Terjual</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Sisa di Lokasi</th>
-              <th className="px-4 py-2.5 font-semibold">Status</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No.</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Client</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal Kirim</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Terkirim</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Terjual</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Sisa di Lokasi</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>

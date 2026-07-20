@@ -22,6 +22,16 @@ export async function createItem(data: {
     throw new Error("Nama & satuan wajib diisi");
   }
 
+  // Cegah double input: nama sama (case-insensitive) di org ini
+  const { data: dup } = await supabase
+    .from("items")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .ilike("nama", data.nama.trim());
+  if (dup && dup.length > 0) {
+    throw new Error(`Item "${data.nama.trim()}" sudah terdaftar`);
+  }
+
   // 1. Buat item (kode ITM-XXXX dibuat otomatis oleh trigger database)
   const { data: item, error } = await supabase
     .from("items")
@@ -132,9 +142,21 @@ export async function updateItem(
   }
 ) {
   const supabase = await createClient();
+  const { organizationId } = await getEffectiveOrg();
 
   if (!data.nama || !data.satuan) {
     throw new Error("Nama & satuan wajib diisi");
+  }
+
+  // Cegah double input: nama sama di item LAIN (case-insensitive)
+  const { data: dup } = await supabase
+    .from("items")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .ilike("nama", data.nama.trim())
+    .neq("id", id);
+  if (dup && dup.length > 0) {
+    throw new Error(`Item "${data.nama.trim()}" sudah terdaftar`);
   }
 
   const { error } = await supabase

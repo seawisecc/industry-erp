@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { getFinishedStock } from "@/lib/salesStock";
 import ProdukShell from "@/components/ProdukShell";
+import TableSearch from "@/components/TableSearch";
 
 export default async function FinishedGoodsPage() {
   const supabase = await createClient();
@@ -51,17 +52,22 @@ export default async function FinishedGoodsPage() {
         </p>
       </div>
 
-      <div className="mt-4 glass rounded-2xl overflow-x-auto">
+      <div className="mt-4">
+
+        <TableSearch placeholder="Cari produk / varian..." />
+
+      </div>
+      <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[640px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Kode</th>
-              <th className="px-4 py-2.5 font-semibold">Produk</th>
-              <th className="px-4 py-2.5 font-semibold">Varian</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Produksi</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Konsinyasi</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Terjual</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Tersedia</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Kode</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Produk</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Varian</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Produksi</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Konsinyasi</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Terjual</th>
+              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Tersedia</th>
             </tr>
           </thead>
           <tbody>
