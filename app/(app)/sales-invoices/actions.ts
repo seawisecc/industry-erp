@@ -7,7 +7,8 @@ import { computeTotals } from "@/lib/invoiceMath";
 import { revalidatePath } from "next/cache";
 
 export type InvoiceItemInput = {
-  product_id: string;
+  product_id: string | null; // null untuk baris jasa
+  service_id?: string | null;
   varian_ukuran: string | null;
   qty: number;
   harga: number;
@@ -64,12 +65,15 @@ export async function createInvoice(
     if (!data.tanggal) throw new Error("Tanggal wajib diisi");
     if (!data.client_id && !data.nama_pembeli?.trim())
       throw new Error("Pilih client atau isi nama pembeli");
-    const items = data.items.filter((it) => it.product_id && it.qty > 0);
+    const items = data.items.filter(
+      (it) => (it.product_id || it.service_id) && it.qty > 0
+    );
     if (items.length === 0) throw new Error("Minimal satu item");
 
-    // Cek stok produk jadi (Direct/POS memotong stok)
+    // Cek stok produk jadi (Direct/POS memotong stok) — baris jasa dilewati
     const stock = await getFinishedStock(organizationId);
     for (const it of items) {
+      if (!it.product_id) continue; // jasa: tidak ada stok
       const s = stock.get(fgKey(it.product_id, it.varian_ukuran));
       const available = s?.available ?? 0;
       if (it.qty > available) {
@@ -120,6 +124,7 @@ export async function createInvoice(
       items.map((it) => ({
         invoice_id: inv.id,
         product_id: it.product_id,
+        service_id: it.service_id || null,
         varian_ukuran: it.varian_ukuran,
         qty: it.qty,
         harga: it.harga,

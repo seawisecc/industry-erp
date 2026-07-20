@@ -8,12 +8,6 @@ type Props = {
   initial: SettingsInput | null;
 };
 
-const SIGNERS = [
-  { key: "dibuat", label: "Dibuat oleh", hint: "Biasanya staff purchasing" },
-  { key: "disetujui", label: "Disetujui oleh", hint: "Biasanya manager/owner" },
-  { key: "mengetahui", label: "Mengetahui", hint: "Biasanya direktur" },
-] as const;
-
 export default function SettingsForm({ initial }: Props) {
   const router = useRouter();
 
@@ -131,34 +125,21 @@ export default function SettingsForm({ initial }: Props) {
         </div>
       </div>
 
-      <div className="glass rounded-2xl p-6 flex flex-col gap-4">
+      <div className="glass rounded-2xl p-6">
         <h2 className="font-display text-[15.5px] font-semibold text-ink">
-          Pengesahan Dokumen (3 Key Person)
+          Pengesahan Dokumen
         </h2>
-        <p className="text-muted text-[12.5px] -mt-3">
-          Nama &amp; jabatan yang muncul di kolom tanda tangan dokumen PO.
+        <p className="text-muted text-[12.5px] mt-1">
+          Pengaturan kolom tanda tangan kini punya menu sendiri — bisa diatur
+          per jenis dokumen (PO, Penerimaan, Produksi, Invoice) di{" "}
+          <a
+            href="/document-signing"
+            className="text-botanical-700 font-medium hover:underline"
+          >
+            Settings → Document Signing
+          </a>
+          .
         </p>
-
-        {SIGNERS.map((s) => (
-          <div key={s.key} className="grid grid-cols-1 sm:grid-cols-[160px_1fr_1fr] gap-3 items-center">
-            <div>
-              <div className="text-[13px] font-medium">{s.label}</div>
-              <div className="text-[11.5px] text-muted">{s.hint}</div>
-            </div>
-            <input
-              value={form[`sign_${s.key}_nama`]}
-              onChange={(e) => set(`sign_${s.key}_nama`, e.target.value)}
-              placeholder="Nama"
-              className={inputCls}
-            />
-            <input
-              value={form[`sign_${s.key}_jabatan`]}
-              onChange={(e) => set(`sign_${s.key}_jabatan`, e.target.value)}
-              placeholder="Jabatan"
-              className={inputCls}
-            />
-          </div>
-        ))}
       </div>
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}

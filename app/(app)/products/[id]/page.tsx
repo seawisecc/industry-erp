@@ -18,6 +18,7 @@ type ProductRaw = {
     nama_varian: string;
     netto: number | null;
     satuan_netto: string | null;
+    harga_jual: number | null;
     variant_packaging: { item_id: string; qty_per_pcs: number }[];
   }[];
 };
@@ -41,7 +42,7 @@ export default async function ProductDetailPage({
       .select(
         `id, kode, nama_produk, brand, kategori, batch_size_kg, aktif,
          product_formulas(item_id, percentage),
-         product_variants(nama_varian, netto, satuan_netto, variant_packaging(item_id, qty_per_pcs))`
+         product_variants(nama_varian, netto, satuan_netto, harga_jual, variant_packaging(item_id, qty_per_pcs))`
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -101,8 +102,32 @@ export default async function ProductDetailPage({
       }
       packCost += Number(p.qty_per_pcs) * harga;
     }
-    return { nama: v.nama_varian, bulkCost, packCost, total: bulkCost + packCost };
+    const total = bulkCost + packCost;
+    const hargaJual = v.harga_jual == null ? null : Number(v.harga_jual);
+    return {
+      nama: v.nama_varian,
+      bulkCost,
+      packCost,
+      total,
+      hargaJual,
+      margin: hargaJual != null && hargaJual > 0 ? hargaJual - total : null,
+    };
   });
+
+  // ===== Formula (untuk ditampilkan) =====
+  const formulaRows = product.product_formulas
+    .map((f) => {
+      const it = itemMap.get(f.item_id);
+      return {
+        kode: it?.kode || "—",
+        nama: it?.nama || "(item terhapus)",
+        satuan: it?.satuan || "",
+        pct: Number(f.percentage),
+        qtyPerBatch: (Number(f.percentage) / 100) * batchKg,
+      };
+    })
+    .sort((a, b) => b.pct - a.pct);
+  const totalPct = formulaRows.reduce((s, r) => s + r.pct, 0);
 
   // ===== INCI aggregation =====
   const formulaItemIds = product.product_formulas.map((f) => f.item_id);
@@ -178,6 +203,66 @@ export default async function ProductDetailPage({
         {batchKg > 0 ? ` · 1 batch = ${batchKg.toLocaleString("id-ID")} kg bulk` : ""}
       </p>
 
+      {/* ===== Formula ===== */}
+      <div className="glass rounded-2xl p-6 mb-5 flex flex-col gap-4">
+        <div>
+          <h2 className="font-display text-[15.5px] font-semibold text-ink">
+            Formulasi Bahan Baku
+          </h2>
+          <p className="text-muted text-[12.5px] mt-0.5">
+            {formulaRows.length} bahan · total {totalPct.toLocaleString("id-ID")}%
+            {batchKg > 0
+              ? ` · qty per batch = % × ${batchKg.toLocaleString("id-ID")} kg`
+              : ""}
+          </p>
+        </div>
+        {formulaRows.length === 0 ? (
+          <p className="text-muted text-[13px]">Belum ada formulasi.</p>
+        ) : (
+          <div className="border border-line rounded-xl overflow-hidden">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-b border-line bg-white/50">
+                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Kode</th>
+                  <th className="px-3 py-2 font-semibold">Bahan</th>
+                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">%</th>
+                  {batchKg > 0 && (
+                    <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">
+                      Qty / Batch
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {formulaRows.map((r) => (
+                  <tr key={r.kode + r.nama} className="border-b border-line last:border-0">
+                    <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">
+                      {r.kode}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="max-w-[280px] truncate" title={r.nama}>
+                        {r.nama}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                      {r.pct.toLocaleString("id-ID", { maximumFractionDigits: 3 })}%
+                    </td>
+                    {batchKg > 0 && (
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                        {r.qtyPerBatch.toLocaleString("id-ID", {
+                          maximumFractionDigits: 3,
+                        })}{" "}
+                        {r.satuan || "kg"}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* ===== Costing / HPP ===== */}
       <div className="glass rounded-2xl p-6 mb-5 flex flex-col gap-4">
         <div className="flex items-start gap-3">
@@ -227,15 +312,17 @@ export default async function ProductDetailPage({
               <thead>
                 <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-b border-line bg-white/50">
                   <th className="px-3 py-2 font-semibold">Varian</th>
-                  <th className="px-3 py-2 font-semibold text-right">Cost Bulk/pcs</th>
-                  <th className="px-3 py-2 font-semibold text-right">Cost Kemasan/pcs</th>
-                  <th className="px-3 py-2 font-semibold text-right">Est. HPP/pcs</th>
+                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Cost Bulk/pcs</th>
+                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Cost Kemasan/pcs</th>
+                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Est. HPP/pcs</th>
+                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Harga Jual</th>
+                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Margin</th>
                 </tr>
               </thead>
               <tbody>
                 {variantCosts.map((v) => (
                   <tr key={v.nama} className="border-b border-line last:border-0">
-                    <td className="px-3 py-2.5 font-medium">{v.nama}</td>
+                    <td className="px-3 py-2.5 font-medium whitespace-nowrap">{v.nama}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
                       {formatRupiah(v.bulkCost)}
                     </td>
@@ -244,6 +331,33 @@ export default async function ProductDetailPage({
                     </td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap font-semibold text-botanical-700">
                       {formatRupiah(v.total)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap font-semibold">
+                      {v.hargaJual != null ? formatRupiah(v.hargaJual) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                      {v.margin != null ? (
+                        <span
+                          className={
+                            v.margin >= 0
+                              ? "text-botanical-700 font-medium"
+                              : "text-clay-600 font-medium"
+                          }
+                        >
+                          {formatRupiah(v.margin)}
+                          {v.hargaJual! > 0 && (
+                            <span className="block text-[10.5px] text-muted font-normal">
+                              {((v.margin / v.hargaJual!) * 100).toLocaleString(
+                                "id-ID",
+                                { maximumFractionDigits: 1 }
+                              )}
+                              %
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}

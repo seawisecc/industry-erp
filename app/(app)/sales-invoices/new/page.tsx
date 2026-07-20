@@ -6,7 +6,7 @@ import InvoiceForm from "../InvoiceForm";
 
 export default async function NewInvoicePage() {
   const { organizationId } = await getEffectiveOrg();
-  const { clients, options } = await getSalesOptions(organizationId!);
+  const { clients, options } = await getSalesOptions(organizationId!, { includeServices: true });
 
   return (
     <div className="max-w-3xl">

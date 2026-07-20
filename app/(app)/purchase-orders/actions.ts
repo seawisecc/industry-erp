@@ -34,6 +34,37 @@ function validatePO(data: POInput) {
     throw new Error("Ada item yang dipilih dua kali — gabungkan qty-nya");
 }
 
+
+// Validasi MOQ server-side: qty >= MOQ & kelipatannya
+async function assertMoq(
+  organizationId: string,
+  items: POItemInput[]
+) {
+  const supabase = await createClient();
+  const ids = items.map((it) => it.item_id);
+  const { data: rows } = await supabase
+    .from("items")
+    .select("id, nama, satuan, moq")
+    .eq("organization_id", organizationId)
+    .in("id", ids);
+  const map = new Map(
+    ((rows || []) as { id: string; nama: string; satuan: string; moq: number | null }[]).map(
+      (r) => [r.id, r]
+    )
+  );
+  for (const it of items) {
+    const item = map.get(it.item_id);
+    const moq = item?.moq == null ? null : Number(item.moq);
+    if (!item || !moq || moq <= 0) continue;
+    const ratio = it.qty_pesan / moq;
+    if (it.qty_pesan < moq || Math.abs(ratio - Math.round(ratio)) > 1e-9) {
+      throw new Error(
+        `${item.nama}: qty harus minimal ${moq} ${item.satuan} dan kelipatannya (MOQ)`
+      );
+    }
+  }
+}
+
 export async function createPO(data: POInput) {
   const supabase = await createClient();
   const { profile, organizationId } = await getEffectiveOrg();
@@ -43,6 +74,7 @@ export async function createPO(data: POInput) {
   }
 
   validatePO(data);
+  await assertMoq(organizationId, data.items);
 
   // 1. Insert PO — no_po diisi otomatis oleh trigger database (PO-MMYY-001)
   const { data: po, error } = await supabase
@@ -200,6 +232,7 @@ export async function updatePO(id: string, data: POInput) {
   }
 
   validatePO(data);
+  await assertMoq(organizationId, data.items);
   await getEditablePO(id);
 
   const { error } = await supabase

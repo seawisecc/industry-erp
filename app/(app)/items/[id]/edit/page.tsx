@@ -44,6 +44,7 @@ export default async function EditItemPage({
           kategori: item.kategori,
           satuan: item.satuan,
           stok_minimum: Number(item.stok_minimum),
+          moq: item.moq == null ? null : Number(item.moq),
           material_id: linkedMaterial?.id || null,
         }}
       />

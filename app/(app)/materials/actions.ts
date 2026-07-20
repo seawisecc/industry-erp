@@ -119,6 +119,19 @@ export async function updateMaterial(id: string, data: MaterialPayload) {
     throw new Error(error.message);
   }
 
+  // Sinkron kode item yang ter-link (satu penomoran material = item)
+  const { data: matRow } = await supabase
+    .from("materials")
+    .select("item_id")
+    .eq("id", id)
+    .single();
+  if (matRow?.item_id) {
+    await supabase
+      .from("items")
+      .update({ kode: data.material_code.trim() })
+      .eq("id", matRow.item_id);
+  }
+
   await supabase.from("material_inci").delete().eq("material_id", id);
 
   const validInci = data.inci_rows.filter((r) => r.inci_name && r.percentage >= 0);

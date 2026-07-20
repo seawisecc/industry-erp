@@ -9,11 +9,13 @@ import { computeTotals } from "@/lib/invoiceMath";
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
 export type ProductVariantOpt = {
-  key: string; // product_id|varian
-  product_id: string;
+  key: string; // product_id|varian, atau svc|id untuk jasa
+  product_id: string; // "" untuk jasa
   varian: string; // "-" jika tanpa varian
   label: string; // "PRD-0001 — Serum (30 g)"
   available: number;
+  harga_jual: number | null;
+  service_id: string | null; // terisi bila baris ini layanan jasa
 };
 
 type Row = { key: string; qty: string; harga: string };
@@ -85,8 +87,9 @@ export default function InvoiceForm({
         .map((r) => {
           const o = optOf(r.key)!;
           return {
-            product_id: o.product_id,
-            varian_ukuran: o.varian === "-" ? null : o.varian,
+            product_id: o.service_id ? null : o.product_id,
+            service_id: o.service_id,
+            varian_ukuran: o.service_id || o.varian === "-" ? null : o.varian,
             qty: parseNum(r.qty),
             harga: parseNum(r.harga),
           };
@@ -218,19 +221,30 @@ export default function InvoiceForm({
 
         {rows.map((row, idx) => {
           const o = optOf(row.key);
-          const over = o && parseNum(row.qty) > o.available;
+          const over = o && !o.service_id && parseNum(row.qty) > o.available;
           return (
             <div key={idx} className="flex flex-col gap-1">
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_100px_150px_120px_32px] gap-2 items-center">
                 <select
                   value={row.key}
-                  onChange={(e) => updateRow(idx, { key: e.target.value })}
+                  onChange={(e) => {
+                    const opt = optOf(e.target.value);
+                    // Prefill harga jual dari master produk (tetap bisa diubah)
+                    updateRow(idx, {
+                      key: e.target.value,
+                      harga:
+                        opt?.harga_jual != null ? String(opt.harga_jual) : row.harga,
+                    });
+                  }}
                   className={inputCls}
                 >
                   <option value="">— Pilih produk & varian —</option>
                   {options.map((opt) => (
                     <option key={opt.key} value={opt.key}>
-                      {opt.label} · stok {opt.available.toLocaleString("id-ID")}
+                      {opt.label}
+                      {opt.service_id
+                        ? ""
+                        : ` · stok ${opt.available.toLocaleString("id-ID")}`}
                     </option>
                   ))}
                 </select>

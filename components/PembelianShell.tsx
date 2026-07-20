@@ -18,6 +18,11 @@ const CARDS: SettingsCard[] = [
     title: "Payments",
     subtitle: "Faktur, jatuh tempo, pelunasan",
   },
+  {
+    href: "/ppic",
+    title: "PPIC Planner",
+    subtitle: "Rencana produksi → kebutuhan beli",
+  },
 ];
 
 /**

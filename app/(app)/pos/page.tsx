@@ -21,7 +21,7 @@ function formatRupiah(n: number) {
 export default async function PosPage() {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
-  const { clients, options } = await getSalesOptions(organizationId!);
+  const { clients, options } = await getSalesOptions(organizationId!, { includeServices: true });
 
   const todayStr = new Date().toLocaleDateString("sv-SE");
   const { data: todaySales } = await supabase

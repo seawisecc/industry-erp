@@ -9,6 +9,11 @@ const CARDS: SettingsCard[] = [
     subtitle: "Data produk, formula, varian, HPP",
   },
   {
+    href: "/services",
+    title: "Services",
+    subtitle: "Layanan jasa yang bisa dijual",
+  },
+  {
     href: "/production",
     title: "Production",
     subtitle: "Plan → Execution → Result",

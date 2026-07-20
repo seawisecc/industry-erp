@@ -4,11 +4,28 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 
+
+// Kode fallback ITM-XXXX (untuk item tanpa material)
+async function nextItemKode(organizationId: string): Promise<string> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("items")
+    .select("kode")
+    .eq("organization_id", organizationId)
+    .like("kode", "ITM-%")
+    .order("kode", { ascending: false })
+    .limit(1);
+  const last = data?.[0]?.kode as string | undefined;
+  const lastNum = last ? parseInt(last.slice(4)) || 0 : 0;
+  return "ITM-" + String(lastNum + 1).padStart(4, "0");
+}
+
 export async function createItem(data: {
   nama: string;
   kategori: "Bahan Baku" | "Kemasan";
   satuan: string;
   stok_minimum: number;
+  moq: number | null;
   material_id: string | null;
 }) {
   const supabase = await createClient();
@@ -32,14 +49,28 @@ export async function createItem(data: {
     throw new Error(`Item "${data.nama.trim()}" sudah terdaftar`);
   }
 
-  // 1. Buat item (kode ITM-XXXX dibuat otomatis oleh trigger database)
+  // 1. Tentukan kode: ikut kode material bila ter-link, fallback ITM-XXXX
+  let kode: string | null = null;
+  if (data.material_id) {
+    const { data: mat } = await supabase
+      .from("materials")
+      .select("material_code")
+      .eq("id", data.material_id)
+      .eq("organization_id", organizationId)
+      .single();
+    kode = mat?.material_code || null;
+  }
+  if (!kode) kode = await nextItemKode(organizationId);
+
   const { data: item, error } = await supabase
     .from("items")
     .insert({
+      kode,
       nama: data.nama.trim(),
       kategori: data.kategori,
       satuan: data.satuan.trim(),
       stok_minimum: data.stok_minimum || 0,
+      moq: data.moq,
       organization_id: organizationId,
     })
     .select()
@@ -84,7 +115,7 @@ export async function createItemsFromMaterials(
     // Ambil material terpilih & pastikan belum ter-link ke item
     const { data: materials, error: mError } = await supabase
       .from("materials")
-      .select("id, tradename, kategori, item_id")
+      .select("id, material_code, tradename, kategori, item_id")
       .eq("organization_id", organizationId)
       .in(
         "id",
@@ -101,6 +132,7 @@ export async function createItemsFromMaterials(
       const { data: item, error } = await supabase
         .from("items")
         .insert({
+          kode: mat.material_code,
           nama: mat.tradename,
           kategori: mat.kategori,
           satuan: r.satuan.trim(),
@@ -138,6 +170,7 @@ export async function updateItem(
     kategori: "Bahan Baku" | "Kemasan";
     satuan: string;
     stok_minimum: number;
+    moq: number | null;
     material_id: string | null;
   }
 ) {
@@ -159,13 +192,27 @@ export async function updateItem(
     throw new Error(`Item "${data.nama.trim()}" sudah terdaftar`);
   }
 
+  // Kalau ter-link material, kode item ikut kode material
+  let kodeUpdate: { kode: string } | Record<string, never> = {};
+  if (data.material_id) {
+    const { data: mat } = await supabase
+      .from("materials")
+      .select("material_code")
+      .eq("id", data.material_id)
+      .eq("organization_id", organizationId)
+      .single();
+    if (mat?.material_code) kodeUpdate = { kode: mat.material_code };
+  }
+
   const { error } = await supabase
     .from("items")
     .update({
+      ...kodeUpdate,
       nama: data.nama.trim(),
       kategori: data.kategori,
       satuan: data.satuan.trim(),
       stok_minimum: data.stok_minimum || 0,
+      moq: data.moq,
     })
     .eq("id", id);
 

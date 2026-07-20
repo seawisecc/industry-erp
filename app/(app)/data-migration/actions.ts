@@ -160,8 +160,21 @@ export async function runImport(
       if (valid.length === 0)
         throw new Error("Tidak ada baris dengan nama & satuan terisi");
 
+      // Kode ITM-XXXX berurutan dihitung aplikasi (trigger DB sudah dilepas)
+      const { data: lastItem } = await supabase
+        .from("items")
+        .select("kode")
+        .eq("organization_id", organizationId)
+        .like("kode", "ITM-%")
+        .order("kode", { ascending: false })
+        .limit(1);
+      let seq = lastItem?.[0]?.kode
+        ? parseInt((lastItem[0].kode as string).slice(4)) || 0
+        : 0;
+
       const { error } = await supabase.from("items").insert(
         valid.map((r) => ({
+          kode: "ITM-" + String(++seq).padStart(4, "0"),
           nama: clean(r.nama)!,
           kategori:
             clean(r.kategori)?.toLowerCase() === "kemasan" ? "Kemasan" : "Bahan Baku",

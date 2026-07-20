@@ -6,7 +6,12 @@ const CARDS: SettingsCard[] = [
   {
     href: "/settings",
     title: "Company Profile",
-    subtitle: "Data perusahaan, akun, pengesahan dokumen",
+    subtitle: "Data perusahaan & akun",
+  },
+  {
+    href: "/document-signing",
+    title: "Document Signing",
+    subtitle: "Kolom tanda tangan per dokumen cetak",
   },
   {
     href: "/data-migration",

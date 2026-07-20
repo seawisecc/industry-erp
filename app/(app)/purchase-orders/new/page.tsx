@@ -17,7 +17,7 @@ export default async function NewPOPage() {
   // Item yang bisa dipesan = item yang terhubung ke material (material menyimpan supplier-nya)
   const { data: materialLinks } = await supabase
     .from("materials")
-    .select("supplier_id, items:item_id(id, kode, nama, satuan)")
+    .select("supplier_id, items:item_id(id, kode, nama, satuan, moq)")
     .eq("organization_id", organizationId)
     .not("item_id", "is", null);
 
@@ -25,7 +25,7 @@ export default async function NewPOPage() {
   const itemOptions: ItemOption[] = [];
   for (const link of (materialLinks || []) as unknown as {
     supplier_id: string | null;
-    items: { id: string; kode: string; nama: string; satuan: string } | null;
+    items: { id: string; kode: string; nama: string; satuan: string; moq: number | null } | null;
   }[]) {
     if (!link.items || seen.has(link.items.id)) continue;
     seen.add(link.items.id);

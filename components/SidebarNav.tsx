@@ -27,8 +27,8 @@ import { canAccessModule } from "@/lib/modules";
 // (navigasi detailnya ada di dalam halaman masing-masing)
 const HUBS: Record<string, string[]> = {
   "/items": ["/items", "/materials", "/inci"],
-  "/purchase-orders": ["/purchase-orders", "/receivings", "/payments"],
-  "/products": ["/products", "/production", "/finished-goods"],
+  "/purchase-orders": ["/purchase-orders", "/receivings", "/payments", "/ppic"],
+  "/products": ["/products", "/services", "/production", "/finished-goods"],
   "/clients": [
     "/clients",
     "/consignments",
@@ -36,7 +36,7 @@ const HUBS: Record<string, string[]> = {
     "/pos",
     "/sales-payments",
   ],
-  "/settings": ["/settings", "/data-migration", "/users"],
+  "/settings": ["/settings", "/data-migration", "/users", "/document-signing"],
 };
 
 const NAV = [

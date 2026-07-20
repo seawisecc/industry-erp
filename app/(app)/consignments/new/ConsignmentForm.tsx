@@ -138,7 +138,15 @@ export default function ConsignmentForm({
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px_160px_32px] gap-2 items-center">
                 <select
                   value={row.key}
-                  onChange={(e) => updateRow(idx, { key: e.target.value })}
+                  onChange={(e) => {
+                    const opt = options.find((o) => o.key === e.target.value);
+                    // Prefill harga jual dari master produk (tetap bisa diubah)
+                    updateRow(idx, {
+                      key: e.target.value,
+                      harga:
+                        opt?.harga_jual != null ? String(opt.harga_jual) : row.harga,
+                    });
+                  }}
                   className={inputCls}
                 >
                   <option value="">— Pilih produk & varian —</option>

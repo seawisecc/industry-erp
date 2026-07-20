@@ -13,6 +13,7 @@ export type VariantInput = {
   nama_varian: string;
   netto: number;
   satuan_netto: string;
+  harga_jual: number | null;
   packaging: { item_id: string; qty_per_pcs: number }[];
 };
 
@@ -118,6 +119,7 @@ async function insertFormulasAndVariants(
         nama_varian: v.nama_varian.trim(),
         netto: v.netto,
         satuan_netto: v.satuan_netto,
+        harga_jual: v.harga_jual,
         organization_id: organizationId,
       })
       .select()

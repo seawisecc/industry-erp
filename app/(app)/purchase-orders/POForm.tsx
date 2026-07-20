@@ -12,6 +12,7 @@ export type ItemOption = {
   kode: string;
   nama: string;
   satuan: string;
+  moq: number | null;
   supplier_id: string | null;
 };
 
@@ -42,6 +43,19 @@ function emptyRow(): Row {
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
+}
+
+// Qty wajib >= MOQ dan kelipatannya (kalau item punya MOQ)
+function moqIssue(row: Row): string | null {
+  const moq = row.item?.moq;
+  if (!moq || moq <= 0) return null;
+  const qty = parseNum(row.qty);
+  if (qty <= 0) return null;
+  if (qty < moq) return `Minimal ${moq} ${row.item!.satuan} (MOQ)`;
+  const ratio = qty / moq;
+  if (Math.abs(ratio - Math.round(ratio)) > 1e-9)
+    return `Harus kelipatan ${moq} ${row.item!.satuan} (MOQ)`;
+  return null;
 }
 
 function formatRupiah(n: number) {
@@ -112,6 +126,12 @@ export default function POForm({ suppliers, items, po }: Props) {
     setError("");
     try {
       const filled = rows.filter((r) => r.item);
+      for (const r of filled) {
+        const issue = moqIssue(r);
+        if (issue) {
+          throw new Error(`${r.item!.nama}: ${issue.toLowerCase()}`);
+        }
+      }
       const payload = {
         supplier_id: supplierId,
         tanggal_po: tanggal,
@@ -307,9 +327,18 @@ export default function POForm({ suppliers, items, po }: Props) {
                     inputMode="decimal"
                     value={row.qty}
                     onChange={(e) => updateRow(idx, { qty: e.target.value })}
-                    placeholder="0"
-                    className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                    placeholder={
+                      row.item?.moq ? `MOQ ${row.item.moq}` : "0"
+                    }
+                    className={`w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700 ${
+                      moqIssue(row) ? "ring-2 ring-clay-500" : ""
+                    }`}
                   />
+                  {moqIssue(row) && (
+                    <p className="text-clay-600 text-[11px] mt-1">
+                      {moqIssue(row)}
+                    </p>
+                  )}
                 </div>
 
                 <div>

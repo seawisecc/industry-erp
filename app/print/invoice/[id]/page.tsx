@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
+import type { SignSlot } from "@/lib/docSign";
 import PrintButton from "../../po/[id]/PrintButton";
 
 type InvPrint = {
@@ -29,6 +30,7 @@ type InvPrint = {
     subtotal: number;
     varian_ukuran: string | null;
     products: { nama_produk: string } | null;
+    services: { nama_jasa: string } | null;
   }[];
 };
 
@@ -63,7 +65,7 @@ export default async function PrintInvoicePage({
         `id, no_invoice, tipe, tanggal, jatuh_tempo, diskon_percent, pakai_tax, tax_percent,
          subtotal, total, catatan, nama_pembeli,
          clients(company_brand, cp, phone, npwp, alamat),
-         sales_invoice_items(qty, harga, subtotal, varian_ukuran, products(nama_produk))`
+         sales_invoice_items(qty, harga, subtotal, varian_ukuran, products(nama_produk), services(nama_jasa))`
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -84,6 +86,18 @@ export default async function PrintInvoicePage({
   const taxNilai = inv.pakai_tax ? (dpp * Number(inv.tax_percent)) / 100 : 0;
 
   const billTo = inv.clients?.company_brand || inv.nama_pembeli || "-";
+
+  // Kolom tanda tangan: pakai pengaturan Document Signing bila sudah diatur,
+  // kalau belum tetap tampil "Regards," seperti template asli.
+  const { data: signRow } = await supabase
+    .from("doc_sign_settings")
+    .select("slots")
+    .eq("organization_id", organizationId)
+    .eq("doc_type", "invoice")
+    .maybeSingle();
+  const invoiceSigners: SignSlot[] = Array.isArray(signRow?.slots)
+    ? (signRow!.slots as SignSlot[]).filter((s) => s.aktif)
+    : [];
 
   return (
     <div className="min-h-screen py-8 print:py-0">
@@ -189,7 +203,9 @@ export default async function PrintInvoicePage({
                   key={i}
                   className={i % 2 === 1 ? "bg-neutral-50" : undefined}
                 >
-                  <td className="py-2 px-2">{it.products?.nama_produk || "-"}</td>
+                  <td className="py-2 px-2">
+                    {it.products?.nama_produk || it.services?.nama_jasa || "-"}
+                  </td>
                   <td className="py-2 px-2 text-center">{it.varian_ukuran || "-"}</td>
                   <td className="py-2 px-2 text-center">
                     {Number(it.qty).toLocaleString("id-ID")}
@@ -255,15 +271,37 @@ export default async function PrintInvoicePage({
           </div>
 
           {/* ===== TANDA TANGAN ===== */}
-          <div className="flex justify-end mt-8 mb-2">
-            <div className="text-center text-[11.5px]">
-              <div>Regards,</div>
-              <div className="h-[18mm]" />
-              <div className="font-semibold border-b border-[#1a1a1a] min-w-[45mm] pb-0.5">
-                {settings?.sign_dibuat_nama || "(............................)"}
+          {invoiceSigners.length > 0 ? (
+            <div
+              className="mt-8 mb-2 grid gap-6 text-center text-[11.5px]"
+              style={{
+                gridTemplateColumns: `repeat(${invoiceSigners.length}, 1fr)`,
+              }}
+            >
+              {invoiceSigners.map((s, i) => (
+                <div key={i}>
+                  <div>{s.label}</div>
+                  <div className="h-[18mm]" />
+                  <div className="font-semibold border-b border-[#1a1a1a] inline-block min-w-[40mm] pb-0.5">
+                    {s.nama || "(............................)"}
+                  </div>
+                  <div className="text-[10px] text-neutral-600 mt-1">
+                    {s.jabatan || ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex justify-end mt-8 mb-2">
+              <div className="text-center text-[11.5px]">
+                <div>Regards,</div>
+                <div className="h-[18mm]" />
+                <div className="font-semibold border-b border-[#1a1a1a] min-w-[45mm] pb-0.5">
+                  {settings?.sign_dibuat_nama || "(............................)"}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="bg-botanical-100/60 border-t border-neutral-300 text-center text-[10.5px] text-neutral-600 py-2">

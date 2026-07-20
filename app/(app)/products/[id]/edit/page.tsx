@@ -18,6 +18,7 @@ type ProductRaw = {
     nama_varian: string;
     netto: number | null;
     satuan_netto: string | null;
+    harga_jual: number | null;
     variant_packaging: { item_id: string; qty_per_pcs: number }[];
   }[];
 };
@@ -37,7 +38,7 @@ export default async function EditProductPage({
       .select(
         `id, kode, nama_produk, brand, kategori, batch_size_kg, aktif,
          product_formulas(item_id, percentage),
-         product_variants(nama_varian, netto, satuan_netto, variant_packaging(item_id, qty_per_pcs))`
+         product_variants(nama_varian, netto, satuan_netto, harga_jual, variant_packaging(item_id, qty_per_pcs))`
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -88,6 +89,7 @@ export default async function EditProductPage({
             nama_varian: v.nama_varian,
             netto: v.netto == null ? null : Number(v.netto),
             satuan_netto: v.satuan_netto,
+            harga_jual: v.harga_jual == null ? null : Number(v.harga_jual),
             packaging: (v.variant_packaging || []).map((p) => ({
               item_id: p.item_id,
               qty_per_pcs: Number(p.qty_per_pcs),

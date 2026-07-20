@@ -19,12 +19,16 @@ import {
   Store,
   FileText,
   ShoppingCart,
+  CalendarRange,
+  Wrench,
+  PenLine,
   ChevronRight,
   LucideIcon,
 } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
   "/settings": IdCard,
+  "/document-signing": PenLine,
   "/data-migration": DatabaseZap,
   "/users": Users,
   "/items": Boxes,
@@ -33,7 +37,9 @@ const ICONS: Record<string, LucideIcon> = {
   "/purchase-orders": ClipboardList,
   "/receivings": PackageCheck,
   "/payments": Banknote,
+  "/ppic": CalendarRange,
   "/products": Package,
+  "/services": Wrench,
   "/production": LayoutPanelLeft,
   "/finished-goods": PackageOpen,
   "/clients": Contact,

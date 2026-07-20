@@ -20,6 +20,7 @@ type Props = {
     kategori: "Bahan Baku" | "Kemasan";
     satuan: string;
     stok_minimum: number;
+    moq: number | null;
     material_id: string | null;
   };
 };
@@ -37,6 +38,7 @@ export default function ItemForm({ materials, item }: Props) {
   );
   const [satuan, setSatuan] = useState(item?.satuan || "kg");
   const [stokMinimum, setStokMinimum] = useState(String(item?.stok_minimum ?? ""));
+  const [moq, setMoq] = useState(item?.moq == null ? "" : String(item.moq));
   const [selectedMaterial, setSelectedMaterial] = useState<MaterialOption | null>(
     initialMaterial
   );
@@ -99,6 +101,7 @@ export default function ItemForm({ materials, item }: Props) {
         kategori,
         satuan,
         stok_minimum: parseFloat(stokMinimum.replace(",", ".")) || 0,
+        moq: moq.trim() ? parseFloat(moq.replace(",", ".")) || null : null,
         material_id: selectedMaterial?.id || null,
       };
       if (isEdit && item) {
@@ -228,6 +231,22 @@ export default function ItemForm({ materials, item }: Props) {
             placeholder="0"
             className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
           />
+        </div>
+        <div>
+          <label className="block text-[12.5px] font-medium text-muted mb-1.5">
+            MOQ <span className="font-normal text-muted/70">(opsional)</span>
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={moq}
+            onChange={(e) => setMoq(e.target.value)}
+            placeholder="Misal: 25"
+            className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+          />
+          <p className="text-[11px] text-muted mt-1">
+            Qty PO wajib minimal MOQ &amp; kelipatannya
+          </p>
         </div>
       </div>
 

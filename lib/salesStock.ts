@@ -38,6 +38,7 @@ export async function getFinishedStock(
       .from("sales_invoice_items")
       .select("product_id, varian_ukuran, qty, sales_invoices!inner(sumber)")
       .eq("organization_id", organizationId)
+      .not("product_id", "is", null) // baris jasa tidak memengaruhi stok
       .in("sales_invoices.sumber", ["Direct", "POS"]),
   ]);
 

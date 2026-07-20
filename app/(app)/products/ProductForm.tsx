@@ -15,7 +15,7 @@ export type ItemOption = {
 
 type FormulaRow = { item: ItemOption | null; query: string; open: boolean; pct: string };
 type PackRow = { item: ItemOption | null; query: string; open: boolean; qty: string };
-type VariantDraft = { netto: string; satuan: string; packaging: PackRow[] };
+type VariantDraft = { netto: string; satuan: string; harga: string; packaging: PackRow[] };
 
 type Props = {
   items: ItemOption[];
@@ -32,6 +32,7 @@ type Props = {
       nama_varian: string;
       netto: number | null;
       satuan_netto: string | null;
+      harga_jual: number | null;
       packaging: { item_id: string; qty_per_pcs: number }[];
     }[];
   };
@@ -52,7 +53,7 @@ function emptyPackRow(): PackRow {
 }
 
 function emptyVariant(): VariantDraft {
-  return { netto: "", satuan: "g", packaging: [emptyPackRow()] };
+  return { netto: "", satuan: "g", harga: "", packaging: [emptyPackRow()] };
 }
 
 export default function ProductForm({ items, product }: Props) {
@@ -85,6 +86,7 @@ export default function ProductForm({ items, product }: Props) {
     return product.variants.map((v) => ({
       netto: toStr(v.netto),
       satuan: v.satuan_netto || "g",
+      harga: v.harga_jual == null ? "" : String(v.harga_jual),
       packaging:
         v.packaging.length > 0
           ? v.packaging.map((p) => ({
@@ -109,12 +111,15 @@ export default function ProductForm({ items, product }: Props) {
   }
 
   function formulaOptions(row: FormulaRow) {
-    if (!row.open || !row.query) return [];
+    if (!row.open) return [];
     const q = row.query.toLowerCase();
     return bahanBaku
       .filter((it) => !usedFormulaIds.includes(it.id) || it.id === row.item?.id)
       .filter(
-        (it) => it.nama.toLowerCase().includes(q) || it.kode.toLowerCase().includes(q)
+        (it) =>
+          !q ||
+          it.nama.toLowerCase().includes(q) ||
+          it.kode.toLowerCase().includes(q)
       )
       .slice(0, 8);
   }
@@ -140,13 +145,16 @@ export default function ProductForm({ items, product }: Props) {
   }
 
   function packOptions(v: VariantDraft, row: PackRow) {
-    if (!row.open || !row.query) return [];
+    if (!row.open) return [];
     const q = row.query.toLowerCase();
     const used = v.packaging.map((p) => p.item?.id).filter(Boolean);
     return kemasan
       .filter((it) => !used.includes(it.id) || it.id === row.item?.id)
       .filter(
-        (it) => it.nama.toLowerCase().includes(q) || it.kode.toLowerCase().includes(q)
+        (it) =>
+          !q ||
+          it.nama.toLowerCase().includes(q) ||
+          it.kode.toLowerCase().includes(q)
       )
       .slice(0, 8);
   }
@@ -171,6 +179,7 @@ export default function ProductForm({ items, product }: Props) {
           nama_varian: `${v.netto.replace(".", ",")} ${v.satuan}`.trim(),
           netto: parseNum(v.netto),
           satuan_netto: v.satuan,
+          harga_jual: v.harga ? parseNum(v.harga) : null,
           packaging: v.packaging
             .filter((p) => p.item)
             .map((p) => ({ item_id: p.item!.id, qty_per_pcs: parseNum(p.qty) })),
@@ -463,6 +472,19 @@ export default function ProductForm({ items, product }: Props) {
                   <option value="ml">ml</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-[11.5px] text-muted mb-1">
+                  Harga Jual/pcs (Rp)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={v.harga}
+                  onChange={(e) => updateVariant(vIdx, { harga: e.target.value })}
+                  placeholder="Misal: 45000"
+                  className={`${inputCls} w-36`}
+                />
+              </div>
               <div className="flex-1 text-[12.5px] text-muted pb-2.5">
                 {v.netto ? `Varian: ${v.netto} ${v.satuan}` : ""}
               </div>
@@ -524,9 +546,16 @@ export default function ProductForm({ items, product }: Props) {
                           onBlur={() =>
                             setTimeout(() => updatePackRow(vIdx, pIdx, { open: false }), 150)
                           }
-                          placeholder="Ketik kode / nama kemasan..."
+                          placeholder="Pilih dari item stok kategori Kemasan..."
                           className={inputCls}
                         />
+                        {p.open && kemasan.length === 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg z-20 px-3 py-2.5 text-[12.5px] text-muted">
+                            Belum ada item berkategori <b>Kemasan</b> di stok.
+                            Tambahkan dulu lewat Materials &amp; Stock → Stock
+                            Items (kategori: Kemasan).
+                          </div>
+                        )}
                         {options.length > 0 && (
                           <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
                             {options.map((it) => (

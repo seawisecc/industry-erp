@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 
 type BatchDetail = {
   id: string;
@@ -81,13 +81,19 @@ export default async function ProductionDetailPage({
         <ArrowLeft size={15} /> Kembali ke Produksi
       </Link>
 
-      <div className="flex items-center gap-3 mb-1">
+      <div className="flex items-center gap-3 mb-1 flex-wrap">
         <h1 className="font-display text-2xl font-semibold text-ink">
           <span className="font-mono text-[22px]">{batch.no_batch_produksi}</span>
         </h1>
         <span className="inline-flex px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-botanical-100 text-botanical-700">
           {batch.status}
         </span>
+        <Link
+          href={`/print/production/${batch.id}`}
+          className="ml-auto inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+        >
+          <Printer size={14} /> Cetak Batch Record
+        </Link>
       </div>
       <p className="text-muted text-sm mb-6">
         {formatTanggal(batch.tanggal_produksi)}

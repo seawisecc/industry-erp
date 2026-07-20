@@ -9,8 +9,10 @@ export const MODULES = [
   { key: "purchase-orders", label: "Purchase Orders" },
   { key: "receivings", label: "Receiving" },
   { key: "payments", label: "Payments (Purchasing)" },
+  { key: "ppic", label: "PPIC Planner" },
   { key: "suppliers", label: "Suppliers" },
   { key: "products", label: "Products" },
+  { key: "services", label: "Services (Jasa)" },
   { key: "production", label: "Production" },
   { key: "finished-goods", label: "Finished Goods" },
   { key: "clients", label: "Clients" },
@@ -38,7 +40,12 @@ export function canAccessModule(p: AccessProfile, moduleKey: string): boolean {
   // Admin & Super Admin selalu akses semua, termasuk Pengguna & Pengaturan
   if (p.isSuperAdmin || p.role === "Admin") return true;
   // Menu Pengguna & Pengaturan khusus Admin
-  if (moduleKey === "users" || moduleKey === "settings") return false;
+  if (
+    moduleKey === "users" ||
+    moduleKey === "settings" ||
+    moduleKey === "document-signing"
+  )
+    return false;
   // Rute di luar registry (mis. halaman lain) dibiarkan lewat
   if (!MODULE_KEYS.includes(moduleKey)) return true;
   // null = belum diset → akses semua modul bisnis (kompatibel akun lama)

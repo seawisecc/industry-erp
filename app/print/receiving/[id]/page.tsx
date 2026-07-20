@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
+import { getDocSigners } from "@/lib/docSignServer";
 import PrintButton from "../../po/[id]/PrintButton";
 
 type RcvPrint = {
@@ -82,23 +83,8 @@ export default async function PrintReceivingPage({
   }
   const rows = (batches || []) as unknown as BatchRow[];
 
-  const signers = [
-    {
-      label: "Dibuat oleh,",
-      nama: settings?.sign_dibuat_nama,
-      jabatan: settings?.sign_dibuat_jabatan,
-    },
-    {
-      label: "Disetujui oleh,",
-      nama: settings?.sign_disetujui_nama,
-      jabatan: settings?.sign_disetujui_jabatan,
-    },
-    {
-      label: "Mengetahui,",
-      nama: settings?.sign_mengetahui_nama,
-      jabatan: settings?.sign_mengetahui_jabatan,
-    },
-  ];
+  // Kolom tanda tangan sesuai pengaturan Document Signing (per jenis dokumen)
+  const signers = await getDocSigners(organizationId!, "receiving");
 
   const kontakLine = [
     settings?.no_telp ? `Telp: ${settings.no_telp}` : null,
@@ -240,7 +226,11 @@ export default async function PrintReceivingPage({
         </div>
 
         {/* ===== TANDA TANGAN ===== */}
-        <div className="mt-10 grid grid-cols-3 gap-6 text-center break-inside-avoid">
+        {signers.length > 0 && (
+        <div
+          className="mt-10 grid gap-6 text-center break-inside-avoid"
+          style={{ gridTemplateColumns: `repeat(${signers.length}, 1fr)` }}
+        >
           {signers.map((s, i) => (
             <div key={i}>
               <div className="text-[12px]">{s.label}</div>
@@ -252,6 +242,7 @@ export default async function PrintReceivingPage({
             </div>
           ))}
         </div>
+        )}
 
         <div className="mt-10 pt-3 border-t border-neutral-300 text-[10px] text-neutral-400 flex justify-between">
           <span>
