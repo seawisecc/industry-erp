@@ -267,7 +267,7 @@ export default function ProductForm({ items, product }: Props) {
       </div>
 
       {/* ============ FORMULASI (%) ============ */}
-      <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+      <div className="relative z-30 glass rounded-2xl p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-display text-[15.5px] font-semibold text-ink">
@@ -388,7 +388,7 @@ export default function ProductForm({ items, product }: Props) {
       </div>
 
       {/* ============ VARIAN / GRAMASI + KEMASAN ============ */}
-      <div className="glass rounded-2xl p-6 flex flex-col gap-4">
+      <div className="relative z-20 glass rounded-2xl p-6 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-display text-[15.5px] font-semibold text-ink">

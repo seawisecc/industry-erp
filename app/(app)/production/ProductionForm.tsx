@@ -401,7 +401,7 @@ export default function ProductionForm({
 
       {/* ============ VARIAN YANG DIPRODUKSI ============ */}
       {selectedProduct && (
-        <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+        <div className="relative z-40 glass rounded-2xl p-6 flex flex-col gap-3">
           <div>
             <h2 className="font-display text-[15.5px] font-semibold text-ink">
               Ukuran yang Diproduksi
@@ -451,7 +451,7 @@ export default function ProductionForm({
 
       {/* ============ BAHAN BAKU (dari formula) ============ */}
       {selectedProduct && (
-        <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+        <div className="relative z-30 glass rounded-2xl p-6 flex flex-col gap-3">
           <div>
             <h2 className="font-display text-[15.5px] font-semibold text-ink">
               Bahan Baku (dari formula %)
@@ -473,7 +473,7 @@ export default function ProductionForm({
 
       {/* ============ KEMASAN (dari varian) ============ */}
       {selectedProduct && kemasanRows.length > 0 && (
-        <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+        <div className="relative z-20 glass rounded-2xl p-6 flex flex-col gap-3">
           <div>
             <h2 className="font-display text-[15.5px] font-semibold text-ink">
               Kemasan (dari varian terpilih)
@@ -488,7 +488,7 @@ export default function ProductionForm({
 
       {/* ============ ADJUSTING ============ */}
       {selectedProduct && (
-        <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+        <div className="relative z-10 glass rounded-2xl p-6 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-display text-[15.5px] font-semibold text-ink">

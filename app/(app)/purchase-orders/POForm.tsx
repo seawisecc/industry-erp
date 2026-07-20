@@ -200,7 +200,7 @@ export default function POForm({ suppliers, items, po }: Props) {
         </div>
       </div>
 
-      <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+      <div className="relative z-20 glass rounded-2xl p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-[15.5px] font-semibold text-ink">
             Item yang Dipesan

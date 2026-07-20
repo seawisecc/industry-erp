@@ -244,7 +244,7 @@ export default function ExecuteForm({
       </div>
 
       {/* ===== ADJUSTING ===== */}
-      <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+      <div className="relative z-20 glass rounded-2xl p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-display text-[15.5px] font-semibold text-ink">
