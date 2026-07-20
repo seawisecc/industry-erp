@@ -30,7 +30,13 @@ export async function proxy(request: NextRequest) {
   // Singapore, panggilan ini hanya ~5-15ms — aman untuk tiap request.
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user && !request.nextUrl.pathname.startsWith("/login")) {
+  // Halaman publik: bisa diakses tanpa login
+  const publicPaths = ["/login", "/kenapa"];
+  const isPublic = publicPaths.some((p) =>
+    request.nextUrl.pathname.startsWith(p)
+  );
+
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

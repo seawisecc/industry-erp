@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
@@ -80,6 +81,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
+      {/* Tombol ke halaman marketing /kenapa */}
+      <Link
+        href="/kenapa"
+        className="fixed top-5 right-5 z-20 glass rounded-full px-4 py-2 text-[13px] font-medium text-ink hover:bg-white/80 transition-colors shadow-sm"
+      >
+        Kenapa Seawise? →
+      </Link>
       <div className="relative w-full max-w-[900px] glass rounded-3xl overflow-hidden sm:min-h-[600px]">
         {/* ================= PANEL SIGN IN (kiri) ================= */}
         <div
