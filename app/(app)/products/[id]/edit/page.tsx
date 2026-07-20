@@ -73,6 +73,7 @@ export default async function EditProductPage({
         items={(items || []) as ItemOption[]}
         product={{
           id: product.id,
+          kode: product.kode,
           nama_produk: product.nama_produk,
           brand: product.brand,
           kategori: product.kategori,

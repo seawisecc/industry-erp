@@ -17,6 +17,7 @@ export type VariantInput = {
 };
 
 export type ProductInput = {
+  kode: string | null; // manual (bebas format) — kosong = otomatis PRD-XXXX
   nama_produk: string;
   brand: string | null;
   kategori: string | null;
@@ -25,6 +26,39 @@ export type ProductInput = {
   formulas: FormulaInput[];
   variants: VariantInput[];
 };
+
+// Kode otomatis PRD-XXXX (lanjut dari nomor PRD- terbesar di org ini)
+async function nextProductKode(organizationId: string): Promise<string> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("products")
+    .select("kode")
+    .eq("organization_id", organizationId)
+    .like("kode", "PRD-%")
+    .order("kode", { ascending: false })
+    .limit(1);
+  const last = data?.[0]?.kode as string | undefined;
+  const lastNum = last ? parseInt(last.slice(4)) || 0 : 0;
+  return "PRD-" + String(lastNum + 1).padStart(4, "0");
+}
+
+// Pastikan kode belum dipakai produk lain di org ini
+async function assertKodeUnik(
+  organizationId: string,
+  kode: string,
+  excludeId?: string
+) {
+  const supabase = await createClient();
+  const q = supabase
+    .from("products")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .ilike("kode", kode);
+  const { data: dup } = excludeId ? await q.neq("id", excludeId) : await q;
+  if (dup && dup.length > 0) {
+    throw new Error(`Kode produk "${kode}" sudah dipakai`);
+  }
+}
 
 function validateProduct(data: ProductInput) {
   if (!data.nama_produk?.trim()) throw new Error("Nama produk wajib diisi");
@@ -113,10 +147,14 @@ export async function createProduct(data: ProductInput) {
   }
   validateProduct(data);
 
-  // kode PRD-XXXX dibuat otomatis oleh trigger database
+  // Kode: manual kalau diisi (gaya raw material), otomatis PRD-XXXX kalau kosong
+  const kode = data.kode?.trim() || (await nextProductKode(organizationId));
+  await assertKodeUnik(organizationId, kode);
+
   const { data: product, error } = await supabase
     .from("products")
     .insert({
+      kode,
       nama_produk: data.nama_produk.trim(),
       brand: data.brand?.trim() || null,
       kategori: data.kategori?.trim() || null,
@@ -149,9 +187,15 @@ export async function updateProduct(id: string, data: ProductInput) {
   }
   validateProduct(data);
 
+  // Kode wajib saat edit (field sudah terisi kode lama di form)
+  const kode = data.kode?.trim();
+  if (!kode) throw new Error("Kode produk wajib diisi");
+  await assertKodeUnik(organizationId, kode, id);
+
   const { error } = await supabase
     .from("products")
     .update({
+      kode,
       nama_produk: data.nama_produk.trim(),
       brand: data.brand?.trim() || null,
       kategori: data.kategori?.trim() || null,

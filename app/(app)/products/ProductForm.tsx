@@ -21,6 +21,7 @@ type Props = {
   items: ItemOption[];
   product?: {
     id: string;
+    kode: string | null;
     nama_produk: string;
     brand: string | null;
     kategori: string | null;
@@ -61,6 +62,7 @@ export default function ProductForm({ items, product }: Props) {
   const bahanBaku = items.filter((it) => it.kategori === "Bahan Baku");
   const kemasan = items.filter((it) => it.kategori === "Kemasan");
 
+  const [kode, setKode] = useState(product?.kode || "");
   const [nama, setNama] = useState(product?.nama_produk || "");
   const [brand, setBrand] = useState(product?.brand || "");
   const [kategori, setKategori] = useState(product?.kategori || "");
@@ -156,6 +158,7 @@ export default function ProductForm({ items, product }: Props) {
     setError("");
     try {
       const payload = {
+        kode: kode.trim() || null,
         nama_produk: nama,
         brand: brand || null,
         kategori: kategori || null,
@@ -193,7 +196,27 @@ export default function ProductForm({ items, product }: Props) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* ============ INFO PRODUK ============ */}
       <div className="glass rounded-2xl p-6 flex flex-col gap-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-[190px_1fr_1fr] gap-4">
+          <div>
+            <label className="block text-[12.5px] font-medium text-muted mb-1.5">
+              Kode Produk{" "}
+              {!isEdit && (
+                <span className="font-normal text-muted/70">(opsional)</span>
+              )}
+            </label>
+            <input
+              value={kode}
+              onChange={(e) => setKode(e.target.value)}
+              required={isEdit}
+              placeholder="PRD-0001 / format sendiri"
+              className={`${inputCls} font-mono text-[13px]`}
+            />
+            {!isEdit && (
+              <p className="text-[11px] text-muted mt-1">
+                Kosongkan = otomatis PRD-XXXX
+              </p>
+            )}
+          </div>
           <div>
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
               Nama Produk
