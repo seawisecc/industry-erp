@@ -16,10 +16,7 @@ const geistMono = Geist_Mono({
 // Ganti dengan domain produksi via env NEXT_PUBLIC_SITE_URL
 // (mis. https://industry.seawise.app). Di Vercel otomatis pakai URL deploy.
 const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000");
+  process.env.NEXT_PUBLIC_SITE_URL || "https://industry-erp-blond.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -28,20 +25,22 @@ export const metadata: Metadata = {
     template: "%s · Seawise Industry",
   },
   description:
-    "ERP manufaktur kosmetik siap audit CPKB: purchase order, stok FEFO, produksi & HPP real per batch, MES, QC/QA, penjualan, dan regulasi INCI.",
+    "ERP manufaktur siap audit CPKB: purchase order, stok FEFO, produksi & HPP real per batch, MES, QC/QA, penjualan, dan regulasi INCI.",
   openGraph: {
     type: "website",
     siteName: "Seawise Enterprise Apps — Industry Edition",
     title: "Seawise Enterprise Apps — Industry Edition",
     description:
-      "ERP manufaktur kosmetik siap audit CPKB: purchase order, stok FEFO, produksi & HPP real per batch, MES, QC/QA, penjualan, dan regulasi INCI.",
+      "ERP manufaktur siap audit CPKB: purchase order, stok FEFO, produksi & HPP real per batch, MES, QC/QA, penjualan, dan regulasi INCI.",
     locale: "id_ID",
+    images: [{ url: "/og.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Seawise Enterprise Apps — Industry Edition",
     description:
-      "ERP manufaktur kosmetik siap audit CPKB — dari PO sampai Certificate of Analysis dalam satu sistem.",
+      "ERP manufaktur siap audit CPKB — dari PO sampai Certificate of Analysis dalam satu sistem.",
+    images: ["/og.png"],
   },
 };
 
