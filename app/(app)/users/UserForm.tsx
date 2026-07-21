@@ -17,6 +17,8 @@ type Props = {
     is_super_admin: boolean;
     can_approve_po: boolean;
     can_plan_production: boolean;
+    can_qc: boolean;
+    can_qa: boolean;
   };
 };
 
@@ -49,6 +51,8 @@ export default function UserForm({ user }: Props) {
   const [canPlanProduction, setCanPlanProduction] = useState(
     user?.can_plan_production ?? false
   );
+  const [canQc, setCanQc] = useState(user?.can_qc ?? false);
+  const [canQa, setCanQa] = useState(user?.can_qa ?? false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -74,6 +78,8 @@ export default function UserForm({ user }: Props) {
         allowed_modules: isAdmin ? null : checked,
         can_approve_po: isAdmin ? true : canApprovePO,
         can_plan_production: isAdmin ? true : canPlanProduction,
+        can_qc: isAdmin ? true : canQc,
+        can_qa: isAdmin ? true : canQa,
       };
       if (isEdit && user) {
         await updateUser(user.id, {
@@ -268,6 +274,54 @@ export default function UserForm({ user }: Props) {
               <span className="block text-[11.5px] text-muted">
                 Izin khusus — eksekusi produksi hanya bisa dimulai dari plan yang
                 sudah dibuat.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {!isAdmin && (
+          <label
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] cursor-pointer border transition-all ${
+              canQc
+                ? "bg-amber-100/60 border-amber-500/40"
+                : "glass-input border-transparent"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={canQc}
+              onChange={(e) => setCanQc(e.target.checked)}
+              className="accent-[#2f4f3e]"
+            />
+            <span>
+              <b>Petugas QC — mengisi &amp; memutuskan hasil uji</b>
+              <span className="block text-[11.5px] text-muted">
+                Uji bahan baku/kemas, IPC, dan produk jadi. Tanpa izin ini user
+                hanya bisa melihat lembar uji.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {!isAdmin && (
+          <label
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] cursor-pointer border transition-all ${
+              canQa
+                ? "bg-amber-100/60 border-amber-500/40"
+                : "glass-input border-transparent"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={canQa}
+              onChange={(e) => setCanQa(e.target.checked)}
+              className="accent-[#2f4f3e]"
+            />
+            <span>
+              <b>Petugas QA — meninjau &amp; meluluskan batch</b>
+              <span className="block text-[11.5px] text-muted">
+                Verifikasi checklist pelulusan dan release/reject batch ke stok
+                jual.
               </span>
             </span>
           </label>

@@ -7,6 +7,14 @@ import { revalidatePath } from "next/cache";
 export type FormulaInput = {
   item_id: string;
   percentage: number;
+  fase: string | null; // pengelompokan fase (A/B/C) — opsional
+};
+
+export type StepInput = {
+  instruksi: string;
+  suhu: string | null;
+  rpm: string | null;
+  durasi: string | null;
 };
 
 export type VariantInput = {
@@ -25,6 +33,7 @@ export type ProductInput = {
   batch_size_kg: number | null;
   aktif: boolean;
   formulas: FormulaInput[];
+  steps: StepInput[];
   variants: VariantInput[];
 };
 
@@ -105,6 +114,22 @@ async function insertFormulasAndVariants(
         product_id: productId,
         item_id: f.item_id,
         percentage: f.percentage,
+        fase: f.fase,
+        organization_id: organizationId,
+      }))
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  if (data.steps.length > 0) {
+    const { error } = await supabase.from("product_process_steps").insert(
+      data.steps.map((s, i) => ({
+        product_id: productId,
+        urutan: i + 1,
+        instruksi: s.instruksi,
+        suhu: s.suhu,
+        rpm: s.rpm,
+        durasi: s.durasi,
         organization_id: organizationId,
       }))
     );
@@ -220,6 +245,12 @@ export async function updateProduct(id: string, data: ProductInput) {
     .delete()
     .eq("product_id", id);
   if (delV) throw new Error(delV.message);
+
+  const { error: delS } = await supabase
+    .from("product_process_steps")
+    .delete()
+    .eq("product_id", id);
+  if (delS) throw new Error(delS.message);
 
   await insertFormulasAndVariants(supabase, id, organizationId, data);
 

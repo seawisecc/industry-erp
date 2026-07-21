@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import CompanyToggle from "./CompanyToggle";
+import MesToggle from "./MesToggle";
 import TableSearch from "@/components/TableSearch";
 
 type OrgRow = {
@@ -35,6 +36,24 @@ export default async function CompaniesPage() {
     .order("nama");
 
   const list = (orgs || []) as unknown as OrgRow[];
+
+  // Fitur berbayar per company (MES dsb.)
+  const { data: settingsRows } = await admin
+    .from("organization_settings")
+    .select("organization_id, features");
+  const rows = (settingsRows || []) as {
+    organization_id: string;
+    features: Record<string, boolean> | null;
+  }[];
+  const mesOf = new Map<string, boolean>(
+    rows.map((r) => [r.organization_id, r.features?.mes === true])
+  );
+  const qcOf = new Map<string, boolean>(
+    rows.map((r) => [r.organization_id, r.features?.qc === true])
+  );
+  const qaOf = new Map<string, boolean>(
+    rows.map((r) => [r.organization_id, r.features?.qa === true])
+  );
   const todayStr = new Date().toLocaleDateString("sv-SE");
   const pending = list.filter((o) => !o.aktif).length;
 
@@ -53,7 +72,7 @@ export default async function CompaniesPage() {
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto overflow-y-visible">
-        <table className="w-full min-w-[880px] text-[13.5px]">
+        <table className="w-full min-w-[1080px] text-[13.5px]">
           <thead>
             <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
               <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Company</th>
@@ -61,6 +80,9 @@ export default async function CompaniesPage() {
               <th className="px-4 py-2.5 font-semibold whitespace-nowrap">User</th>
               <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
               <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Valid Sampai</th>
+              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">
+                Fitur Paket Full
+              </th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
@@ -117,6 +139,25 @@ export default async function CompaniesPage() {
                     ) : (
                       <span className="text-muted">Tanpa batas</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <MesToggle
+                        organizationId={o.id}
+                        initialOn={mesOf.get(o.id) || false}
+                        featureKey="mes"
+                      />
+                      <MesToggle
+                        organizationId={o.id}
+                        initialOn={qcOf.get(o.id) || false}
+                        featureKey="qc"
+                      />
+                      <MesToggle
+                        organizationId={o.id}
+                        initialOn={qaOf.get(o.id) || false}
+                        featureKey="qa"
+                      />
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <CompanyToggle

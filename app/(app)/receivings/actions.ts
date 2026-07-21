@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { getFeatures } from "@/lib/featuresServer";
 
 export type ReceivingItemInput = {
   po_item_id: string;
@@ -112,7 +113,10 @@ export async function createReceiving(data: ReceivingInput) {
 
   if (rcvError) throw new Error(rcvError.message);
 
-  // ---- 2. Insert batch stok (qty_sisa = qty_masuk) ----
+  // ---- 2. Insert batch stok ----
+  // QC Module aktif: barang masuk KARANTINA dulu (qty_sisa 0, stok belum bisa
+  // dipakai) sampai di-release QC. Tanpa QC: langsung Released seperti biasa.
+  const { qc: qcOn } = await getFeatures(organizationId);
   const { error: batchError } = await supabase.from("purchase_batches").insert(
     items.map((it) => ({
       item_id: it.item_id,
@@ -123,7 +127,9 @@ export async function createReceiving(data: ReceivingInput) {
       exp_date: it.exp_date || null,
       qty_masuk: it.qty_masuk,
       harga_per_unit: it.harga_per_unit,
-      qty_sisa: it.qty_masuk,
+      qc_status: qcOn ? "Karantina" : "Released",
+      qty_karantina: qcOn ? it.qty_masuk : 0,
+      qty_sisa: qcOn ? 0 : it.qty_masuk,
       po_id: data.po_id,
       receiving_id: receiving.id,
       dibuat_oleh: profile?.id || null,

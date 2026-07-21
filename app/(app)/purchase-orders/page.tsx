@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Wand2 } from "lucide-react";
 import PembelianShell from "@/components/PembelianShell";
 import TableSearch from "@/components/TableSearch";
 
@@ -63,12 +63,20 @@ export default async function PurchaseOrdersPage() {
             {list.length} PO — alur: Dibuat → Disetujui → Dikirim → Diterima
           </p>
         </div>
-        <Link
-          href="/purchase-orders/new"
-          className="inline-flex items-center gap-1.5 h-9 bg-botanical-700 text-white text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-botanical-800 transition-colors shadow-sm whitespace-nowrap"
-        >
-          <Plus size={15} /> Buat PO
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/purchase-orders/guide"
+            className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+          >
+            <Wand2 size={14} /> Guide Order
+          </Link>
+          <Link
+            href="/purchase-orders/new"
+            className="inline-flex items-center gap-1.5 h-9 bg-botanical-700 text-white text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-botanical-800 transition-colors shadow-sm whitespace-nowrap"
+          >
+            <Plus size={15} /> Buat PO
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4">

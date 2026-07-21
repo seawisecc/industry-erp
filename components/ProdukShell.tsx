@@ -1,4 +1,5 @@
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
+import { getFeatures } from "@/lib/featuresServer";
 import { canAccessModule } from "@/lib/modules";
 import SettingsNav, { SettingsCard } from "./SettingsNav";
 
@@ -23,6 +24,16 @@ const CARDS: SettingsCard[] = [
     title: "Finished Goods",
     subtitle: "Stok produk jadi per varian",
   },
+  {
+    href: "/qc-finished",
+    title: "QC Produk Jadi",
+    subtitle: "Uji produk jadi sebelum pelulusan",
+  },
+  {
+    href: "/qa-release",
+    title: "QA Release",
+    subtitle: "Tinjau bukti & luluskan batch",
+  },
 ];
 
 /**
@@ -34,14 +45,21 @@ export default async function ProdukShell({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile, isSuperAdmin } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+  const features = await getFeatures(organizationId!);
   const access = {
     isSuperAdmin,
     role: profile?.role || "",
     allowedModules: profile?.allowed_modules ?? null,
   };
 
-  const cards = CARDS.filter((c) => canAccessModule(access, c.href.slice(1)));
+  const cards = CARDS.filter(
+    (c) =>
+      canAccessModule(access, c.href.slice(1)) &&
+      // Kartu QA hanya tampil bila QA Release aktif (paket full)
+      (c.href !== "/qa-release" || features.qa) &&
+      (c.href !== "/qc-finished" || (features.qa && features.qc))
+  );
 
   return (
     <div>

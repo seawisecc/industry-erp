@@ -6,6 +6,8 @@ export const MODULES = [
   { key: "items", label: "Stock Items" },
   { key: "materials", label: "Materials" },
   { key: "inci", label: "INCI Names" },
+  { key: "qc-incoming", label: "QC Incoming" },
+  { key: "qc-parameters", label: "Parameter Uji QC" },
   { key: "purchase-orders", label: "Purchase Orders" },
   { key: "receivings", label: "Receiving" },
   { key: "payments", label: "Payments (Purchasing)" },
@@ -15,6 +17,8 @@ export const MODULES = [
   { key: "services", label: "Services (Jasa)" },
   { key: "production", label: "Production" },
   { key: "finished-goods", label: "Finished Goods" },
+  { key: "qc-finished", label: "QC Produk Jadi" },
+  { key: "qa-release", label: "QA Release" },
   { key: "clients", label: "Clients" },
   { key: "consignments", label: "Consignment" },
   { key: "sales-invoices", label: "Sales Invoices" },
@@ -43,7 +47,9 @@ export function canAccessModule(p: AccessProfile, moduleKey: string): boolean {
   if (
     moduleKey === "users" ||
     moduleKey === "settings" ||
-    moduleKey === "document-signing"
+    moduleKey === "document-signing" ||
+    moduleKey === "features" ||
+    moduleKey === "qc-parameters"
   )
     return false;
   // Rute di luar registry (mis. halaman lain) dibiarkan lewat

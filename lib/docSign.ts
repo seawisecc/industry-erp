@@ -11,6 +11,8 @@ export const DOC_TYPES = [
   { key: "receiving", label: "Penerimaan Barang" },
   { key: "production", label: "Produksi" },
   { key: "invoice", label: "Invoice Penjualan" },
+  { key: "qc", label: "Lembar Pengujian QC" },
+  { key: "qa", label: "Sertifikat Analisa (QA)" },
 ] as const;
 
 export type DocTypeKey = (typeof DOC_TYPES)[number]["key"];

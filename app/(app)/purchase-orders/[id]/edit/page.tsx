@@ -202,11 +202,25 @@ export default async function EditPOPage({
     .eq("organization_id", organizationId)
     .order("nama");
 
-  const { data: materialLinks } = await supabase
-    .from("materials")
-    .select("supplier_id, items:item_id(id, kode, nama, satuan, moq)")
-    .eq("organization_id", organizationId)
-    .not("item_id", "is", null);
+  const [{ data: materialLinks }, { data: priceRows }] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("supplier_id, items:item_id(id, kode, nama, satuan, moq)")
+      .eq("organization_id", organizationId)
+      .not("item_id", "is", null),
+    supabase
+      .from("purchase_batches")
+      .select("item_id, harga_per_unit, created_at")
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  // Harga beli terakhir per item — dipakai untuk prefill kolom harga
+  const lastHarga = new Map<string, number>();
+  for (const b of (priceRows || []) as { item_id: string; harga_per_unit: number }[]) {
+    const h = Number(b.harga_per_unit);
+    if (h > 0 && !lastHarga.has(b.item_id)) lastHarga.set(b.item_id, h);
+  }
 
   const seen = new Set<string>();
   const itemOptions: ItemOption[] = [];
@@ -216,7 +230,11 @@ export default async function EditPOPage({
   }[]) {
     if (!link.items || seen.has(link.items.id)) continue;
     seen.add(link.items.id);
-    itemOptions.push({ ...link.items, supplier_id: link.supplier_id });
+    itemOptions.push({
+      ...link.items,
+      harga_terakhir: lastHarga.get(link.items.id) ?? null,
+      supplier_id: link.supplier_id,
+    });
   }
   itemOptions.sort((a, b) => a.kode.localeCompare(b.kode));
 

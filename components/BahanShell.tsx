@@ -1,4 +1,5 @@
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
+import { getFeatures } from "@/lib/featuresServer";
 import { canAccessModule } from "@/lib/modules";
 import SettingsNav, { SettingsCard } from "./SettingsNav";
 
@@ -7,6 +8,11 @@ const CARDS: SettingsCard[] = [
     href: "/items",
     title: "Stock Items",
     subtitle: "Item gudang, stok sisa, batch",
+  },
+  {
+    href: "/qc-incoming",
+    title: "QC Incoming",
+    subtitle: "Karantina & release barang masuk",
   },
   {
     href: "/materials",
@@ -29,14 +35,20 @@ export default async function BahanShell({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile, isSuperAdmin } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+  const features = await getFeatures(organizationId!);
   const access = {
     isSuperAdmin,
     role: profile?.role || "",
     allowedModules: profile?.allowed_modules ?? null,
   };
 
-  const cards = CARDS.filter((c) => canAccessModule(access, c.href.slice(1)));
+  const cards = CARDS.filter(
+    (c) =>
+      canAccessModule(access, c.href.slice(1)) &&
+      // Kartu QC hanya tampil bila QC Module aktif (paket full)
+      (c.href !== "/qc-incoming" || features.qc)
+  );
 
   return (
     <div>

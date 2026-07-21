@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
-import { getFinishedStock, fgKey } from "@/lib/salesStock";
 import { computeTotals } from "@/lib/invoiceMath";
 import { revalidatePath } from "next/cache";
 
@@ -29,59 +28,23 @@ export async function createConsignment(data: {
     const items = data.items.filter((it) => it.product_id && it.qty_kirim > 0);
     if (items.length === 0) throw new Error("Minimal satu produk dikirim");
 
-    // Cek stok produk jadi
-    const stock = await getFinishedStock(organizationId);
-    for (const it of items) {
-      const available = stock.get(fgKey(it.product_id, it.varian_ukuran))?.available ?? 0;
-      if (it.qty_kirim > available) {
-        throw new Error(
-          `Stok tidak cukup untuk varian ${it.varian_ukuran || "-"} (tersedia ${available.toLocaleString("id-ID")} pcs)`
-        );
-      }
-    }
-
-    // Nomor CSG-YYYYMM###
-    const ym = data.tanggal_kirim.slice(0, 7).replace("-", "");
-    const prefix = `CSG.${ym}`;
-    const { data: lastRow } = await supabase
-      .from("consignments")
-      .select("no_konsinyasi")
-      .eq("organization_id", organizationId)
-      .like("no_konsinyasi", `${prefix}%`)
-      .order("no_konsinyasi", { ascending: false })
-      .limit(1);
-    const lastSeq = lastRow?.[0]?.no_konsinyasi
-      ? parseInt((lastRow[0].no_konsinyasi as string).slice(prefix.length)) || 0
-      : 0;
-
-    const { data: cons, error } = await supabase
-      .from("consignments")
-      .insert({
-        no_konsinyasi: prefix + String(lastSeq + 1).padStart(3, "0"),
+    // Cek stok + penomoran + insert atomik di database (advisory lock)
+    const { error } = await supabase.rpc("create_consignment_tx", {
+      p_organization_id: organizationId,
+      p_header: {
         client_id: data.client_id,
         tanggal_kirim: data.tanggal_kirim,
         catatan: data.catatan?.trim() || null,
         dibuat_oleh: profile?.id || null,
-        organization_id: organizationId,
-      })
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-
-    const { error: itemsError } = await supabase.from("consignment_items").insert(
-      items.map((it) => ({
-        consignment_id: cons.id,
+      },
+      p_items: items.map((it) => ({
         product_id: it.product_id,
         varian_ukuran: it.varian_ukuran,
         qty_kirim: it.qty_kirim,
         harga_jual: it.harga_jual,
-        organization_id: organizationId,
-      }))
-    );
-    if (itemsError) {
-      await supabase.from("consignments").delete().eq("id", cons.id);
-      throw new Error(itemsError.message);
-    }
+      })),
+    });
+    if (error) throw new Error(error.message);
 
     revalidatePath("/consignments");
     revalidatePath("/finished-goods");
@@ -159,68 +122,44 @@ export async function reportConsignmentSale(
       data.tax_percent
     );
 
-    // Nomor invoice
     const today = new Date().toLocaleDateString("sv-SE");
-    const ym = today.slice(0, 7).replace("-", "");
-    const prefix = `INV.${ym}`;
-    const { data: lastInv } = await supabase
-      .from("sales_invoices")
-      .select("no_invoice")
-      .eq("organization_id", organizationId)
-      .like("no_invoice", `${prefix}%`)
-      .order("no_invoice", { ascending: false })
-      .limit(1);
-    const lastSeq = lastInv?.[0]?.no_invoice
-      ? parseInt((lastInv[0].no_invoice as string).slice(prefix.length)) || 0
-      : 0;
+    const jatuhTempoDate =
+      data.top_days == null ? null : new Date(today + "T00:00:00");
+    if (jatuhTempoDate) jatuhTempoDate.setDate(jatuhTempoDate.getDate() + data.top_days!);
+    const jatuhTempo = jatuhTempoDate
+      ? jatuhTempoDate.toLocaleDateString("sv-SE")
+      : null;
 
-    const jatuhTempo =
-      data.top_days == null
-        ? null
-        : new Date(
-            new Date(today + "T00:00:00").getTime() + data.top_days * 86400000
-          )
-            .toISOString()
-            .slice(0, 10);
-
-    const { data: inv, error } = await supabase
-      .from("sales_invoices")
-      .insert({
-        no_invoice: prefix + String(lastSeq + 1).padStart(3, "0"),
-        tipe: "Proforma",
-        sumber: "Konsinyasi",
-        client_id: cons.client_id,
-        consignment_id: consignmentId,
-        tanggal: today,
-        diskon_percent: data.diskon_percent,
-        pakai_tax: data.pakai_tax,
-        tax_percent: data.tax_percent,
-        subtotal,
-        total,
-        top_days: data.top_days,
-        jatuh_tempo: jatuhTempo,
-        dibuat_oleh: profile?.id || null,
-        organization_id: organizationId,
-      })
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-
-    const { error: iErr } = await supabase.from("sales_invoice_items").insert(
-      invItems.map((it) => ({
-        invoice_id: inv.id,
-        product_id: it.product_id,
-        varian_ukuran: it.varian_ukuran,
-        qty: it.qty,
-        harga: it.harga,
-        subtotal: it.qty * it.harga,
-        organization_id: organizationId,
-      }))
+    // Sumber Konsinyasi tidak memotong stok jual — RPC hanya mengamankan
+    // penomoran invoice dari duplikat.
+    const { data: invoiceId, error } = await supabase.rpc(
+      "create_sales_invoice_tx",
+      {
+        p_organization_id: organizationId,
+        p_header: {
+          tipe: "Proforma",
+          sumber: "Konsinyasi",
+          client_id: cons.client_id,
+          consignment_id: consignmentId,
+          tanggal: today,
+          diskon_percent: data.diskon_percent,
+          pakai_tax: data.pakai_tax,
+          tax_percent: data.tax_percent,
+          subtotal,
+          total,
+          top_days: data.top_days,
+          jatuh_tempo: jatuhTempo,
+          dibuat_oleh: profile?.id || null,
+        },
+        p_items: invItems.map((it) => ({
+          product_id: it.product_id,
+          varian_ukuran: it.varian_ukuran,
+          qty: it.qty,
+          harga: it.harga,
+        })),
+      }
     );
-    if (iErr) {
-      await supabase.from("sales_invoices").delete().eq("id", inv.id);
-      throw new Error(iErr.message);
-    }
+    if (error) throw new Error(error.message);
 
     // Update qty_terjual
     for (const it of laku) {
@@ -235,7 +174,7 @@ export async function reportConsignmentSale(
     revalidatePath("/consignments");
     revalidatePath("/sales-invoices");
     revalidatePath("/sales-payments");
-    return { ok: true, invoiceId: inv.id };
+    return { ok: true, invoiceId: invoiceId as string };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
   }

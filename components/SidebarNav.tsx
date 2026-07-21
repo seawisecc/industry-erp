@@ -26,9 +26,9 @@ import { canAccessModule } from "@/lib/modules";
 // Menu "hub": satu item sidebar mewakili beberapa halaman
 // (navigasi detailnya ada di dalam halaman masing-masing)
 const HUBS: Record<string, string[]> = {
-  "/items": ["/items", "/materials", "/inci"],
+  "/items": ["/items", "/materials", "/inci", "/qc-incoming"],
   "/purchase-orders": ["/purchase-orders", "/receivings", "/payments", "/ppic"],
-  "/products": ["/products", "/services", "/production", "/finished-goods"],
+  "/products": ["/products", "/services", "/production", "/finished-goods", "/qc-finished", "/qa-release"],
   "/clients": [
     "/clients",
     "/consignments",
@@ -36,7 +36,7 @@ const HUBS: Record<string, string[]> = {
     "/pos",
     "/sales-payments",
   ],
-  "/settings": ["/settings", "/data-migration", "/users", "/document-signing"],
+  "/settings": ["/settings", "/data-migration", "/users", "/document-signing", "/features", "/qc-parameters"],
 };
 
 const NAV = [

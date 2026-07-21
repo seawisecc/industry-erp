@@ -13,7 +13,14 @@ type ProductRaw = {
   kategori: string | null;
   batch_size_kg: number | null;
   aktif: boolean;
-  product_formulas: { item_id: string; percentage: number }[];
+  product_formulas: { item_id: string; percentage: number; fase: string | null }[];
+  product_process_steps: {
+    urutan: number;
+    instruksi: string;
+    suhu: string | null;
+    rpm: string | null;
+    durasi: string | null;
+  }[];
   product_variants: {
     nama_varian: string;
     netto: number | null;
@@ -41,7 +48,8 @@ export default async function ProductDetailPage({
       .from("products")
       .select(
         `id, kode, nama_produk, brand, kategori, batch_size_kg, aktif,
-         product_formulas(item_id, percentage),
+         product_formulas(item_id, percentage, fase),
+         product_process_steps(urutan, instruksi, suhu, rpm, durasi),
          product_variants(nama_varian, netto, satuan_netto, harga_jual, variant_packaging(item_id, qty_per_pcs))`
       )
       .eq("id", id)
@@ -122,12 +130,17 @@ export default async function ProductDetailPage({
         kode: it?.kode || "—",
         nama: it?.nama || "(item terhapus)",
         satuan: it?.satuan || "",
+        fase: f.fase || "",
         pct: Number(f.percentage),
         qtyPerBatch: (Number(f.percentage) / 100) * batchKg,
       };
     })
     .sort((a, b) => b.pct - a.pct);
   const totalPct = formulaRows.reduce((s, r) => s + r.pct, 0);
+
+  const stepRows = (product.product_process_steps || []).sort(
+    (a, b) => a.urutan - b.urutan
+  );
 
   // ===== INCI aggregation =====
   const formulaItemIds = product.product_formulas.map((f) => f.item_id);
@@ -225,6 +238,7 @@ export default async function ProductDetailPage({
                 <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-b border-line bg-white/50">
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Kode</th>
                   <th className="px-3 py-2 font-semibold">Bahan</th>
+                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Fase</th>
                   <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">%</th>
                   {batchKg > 0 && (
                     <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">
@@ -244,6 +258,9 @@ export default async function ProductDetailPage({
                         {r.nama}
                       </div>
                     </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {r.fase || "—"}
+                    </td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
                       {r.pct.toLocaleString("id-ID", { maximumFractionDigits: 3 })}%
                     </td>
@@ -262,6 +279,36 @@ export default async function ProductDetailPage({
           </div>
         )}
       </div>
+
+      {/* ===== Cara Pembuatan ===== */}
+      {stepRows.length > 0 && (
+        <div className="glass rounded-2xl p-6 mb-5 flex flex-col gap-3">
+          <h2 className="font-display text-[15.5px] font-semibold text-ink">
+            Cara Pembuatan
+          </h2>
+          <ol className="flex flex-col gap-2">
+            {stepRows.map((s) => (
+              <li key={s.urutan} className="flex gap-3 text-[13.5px]">
+                <span className="font-semibold text-botanical-700 w-6 text-right flex-shrink-0">
+                  {s.urutan}.
+                </span>
+                <div>
+                  {s.instruksi}
+                  {(s.suhu || s.rpm || s.durasi) && (
+                    <span className="text-muted text-[12px] ml-1.5">
+                      (
+                      {[s.suhu, s.rpm && `${s.rpm} rpm`, s.durasi]
+                        .filter(Boolean)
+                        .join(" · ")}
+                      )
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       {/* ===== Costing / HPP ===== */}
       <div className="glass rounded-2xl p-6 mb-5 flex flex-col gap-4">

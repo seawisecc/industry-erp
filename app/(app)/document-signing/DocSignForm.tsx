@@ -68,9 +68,16 @@ export default function DocSignForm({ initial }: { initial: DocSignInitial }) {
                   ? `${aktifCount} kolom tanda tangan`
                   : "Tanpa tanda tangan"}
               </span>
-              {doc.key === "production" && (
+              {doc.key === "qa" && (
                 <span className="w-full text-[11.5px] text-muted">
-                  Disimpan untuk dipakai saat dokumen cetak produksi tersedia.
+                  Muncul di Sertifikat Analisa produk jadi — biasanya Diperiksa
+                  oleh (analis) dan Disetujui oleh (Manager QA).
+                </span>
+              )}
+              {doc.key === "qc" && (
+                <span className="w-full text-[11.5px] text-muted">
+                  Muncul di cetakan lembar pengujian — biasanya Diperiksa oleh
+                  (analis QC) dan Disetujui oleh (Manager QC).
                 </span>
               )}
             </div>

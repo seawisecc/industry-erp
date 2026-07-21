@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { getFeatures } from "@/lib/featuresServer";
 
 export type ProductionInput = {
   no_batch: string;
@@ -15,11 +16,31 @@ export type ProductionInput = {
 
 // ================= PLAN → EXECUTION → RESULT =================
 
+export type StepLog = {
+  urutan: number;
+  instruksi: string;
+  mulai: string | null; // ISO timestamp
+  selesai: string | null;
+  oleh: string | null; // nama operator
+  catatan: string | null;
+};
+
+export type IpcHasil = {
+  nama: string;
+  satuan: string | null;
+  spesifikasi: string | null;
+  grup: string | null;
+  hasil: string;
+};
+
 export type ExecutionData = {
   bahan: { item_id: string; teoritis: number; real: number }[];
   adjust: { item_id: string; qty: number }[];
   variants: { nama_varian: string; rencana_pcs: number }[];
-  kemasan: { item_id: string; qty: number }[];
+  kemasan: { item_id: string; qty: number; terpakai?: number; rusak?: number }[];
+  langkah?: StepLog[]; // MES mode: checklist langkah produksi digital
+  ipc?: IpcHasil[]; // In-Process Control (QC produk ruahan)
+  bulk_real?: number; // hasil ruahan nyata (kg)
 };
 
 async function requirePlanner() {
@@ -54,7 +75,17 @@ export async function createPlan(data: {
       throw new Error("Jumlah batch harus lebih dari 0");
     if (!data.tanggal_rencana) throw new Error("Tanggal rencana wajib diisi");
 
+    // Snapshot cara pembuatan saat plan dibuat (jejak historis jujur —
+    // perubahan prosedur di master tidak mengubah plan/batch lama)
+    const { data: stepRows } = await supabase
+      .from("product_process_steps")
+      .select("urutan, instruksi, suhu, rpm, durasi")
+      .eq("product_id", data.product_id)
+      .eq("organization_id", organizationId)
+      .order("urutan");
+
     const { error } = await supabase.from("production_plans").insert({
+      steps_snapshot: stepRows && stepRows.length > 0 ? stepRows : null,
       product_id: data.product_id,
       no_batch: data.no_batch.trim(),
       jumlah_batch: data.jumlah_batch,
@@ -177,6 +208,17 @@ export async function finishProduction(
       p_components: components,
     });
     if (error) throw new Error(error.message);
+
+    // QA Release aktif: batch baru berstatus Hold — produk jadi belum masuk
+    // stok jual sampai diluluskan QA.
+    const { qa: qaOn } = await getFeatures(organizationId);
+    if (qaOn) {
+      await supabase
+        .from("production_batches")
+        .update({ qa_status: "Hold" })
+        .eq("id", batchId as string)
+        .eq("organization_id", organizationId);
+    }
 
     const { error: updError } = await supabase
       .from("production_plans")

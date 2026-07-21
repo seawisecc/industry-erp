@@ -21,6 +21,8 @@ import {
   Users,
   DatabaseBackup,
   ShieldCheck,
+  ListChecks,
+  BadgeCheck,
   ArrowRight,
   Mail,
   MessageCircle,
@@ -31,6 +33,7 @@ const WA_NUMBER = "628123757759"; // TODO: ganti dengan nomor WhatsApp bisnis
 const CONTACT_EMAIL = "seawise.cc@gmail.com";
 const HARGA_AKTIVASI = "Rp 25.000.000";
 const HARGA_MAINTENANCE = "Rp 9.500.000";
+const HARGA_BUNDLE = "Rp 35.000.000"; // Standar + Industri+ (MES · QC · QA)
 
 const WA_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
   "Halo, saya tertarik dengan Seawise Enterprise Apps (Industry Edition). Boleh minta info lebih lanjut?"
@@ -169,9 +172,34 @@ const FEATURES = [
   },
 ];
 
+const INDUSTRI = [
+  {
+    icon: ListChecks,
+    name: "MES",
+    full: "Manufacturing Execution System",
+    desc: "Cara pembuatan tiap formula tampil sebagai checklist digital saat produksi — operator mencentang langkah demi langkah. Batch record dua tahap (Catatan Pengolahan & Catatan Pengemasan) tersusun otomatis, lengkap dengan rekonsiliasi kemasan.",
+    chip: "BATCH BS-26-018 · 12/12 langkah ✓",
+  },
+  {
+    icon: FlaskConical,
+    name: "QC",
+    full: "Quality Control",
+    desc: "Barang datang masuk karantina — tidak bisa dipakai produksi sebelum lulus uji. Lembar pengujian digital untuk bahan baku, bahan kemas, IPC, dan produk jadi; spesifikasi tersimpan per bahan dan terisi otomatis di pengujian berikutnya.",
+    chip: "LOT SC-0143 · Released QC",
+  },
+  {
+    icon: BadgeCheck,
+    name: "QA",
+    full: "Quality Assurance",
+    desc: "Batch tidak bisa dijual sebelum diluluskan QA. Seluruh bukti — riwayat uji bahan, IPC, uji produk jadi, batch record — dalam satu layar, ditutup checklist pelulusan (izin edar, label, no. batch, expiry) dan Certificate of Analysis siap cetak.",
+    chip: "BATCH BS-26-018 · Released + CoA",
+  },
+];
+
 const NAV = [
   { href: "#alur", label: "Alur" },
   { href: "#fitur", label: "Fitur" },
+  { href: "#industri", label: "Industri+" },
   { href: "#harga", label: "Harga" },
   { href: "#kontak", label: "Kontak" },
 ];
@@ -376,6 +404,61 @@ export default function KenapaPage() {
         </div>
       </section>
 
+      {/* ================= INDUSTRI+ (MES · QC · QA) ================= */}
+      <section id="industri" className="max-w-6xl mx-auto px-5 py-24 sm:py-32 scroll-mt-14">
+        <Reveal>
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 rounded-full border border-clay-600/30 bg-clay-100/50 px-4 py-1.5 text-[11.5px] uppercase tracking-[0.2em] text-clay-600 font-semibold mb-5">
+              Paket Industri+ · Add-on
+            </div>
+            <h2 className="font-display font-semibold text-[clamp(28px,4.5vw,44px)] leading-tight">
+              Siap audit.
+              <br className="hidden sm:block" /> Mutu terkunci di dalam sistem.
+            </h2>
+            <p className="text-muted text-[15px] mt-4 max-w-2xl mx-auto leading-relaxed">
+              Tiga modul industri yang membuat mutu bukan sekadar SOP di atas
+              kertas: bahan tidak bisa dipakai sebelum lulus QC, produksi
+              mengikuti checklist digital, dan produk tidak bisa dijual sebelum
+              diluluskan QA. Jejak dokumennya lengkap — dari lembar uji sampai
+              Certificate of Analysis.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {INDUSTRI.map((m, i) => (
+            <Reveal key={m.name} delay={i * 100}>
+              <div className="h-full glass rounded-3xl p-7 flex flex-col border border-clay-600/15">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="inline-flex rounded-xl p-2.5 bg-botanical-700 text-white">
+                    <m.icon size={20} />
+                  </div>
+                  <div>
+                    <div className="font-display text-[19px] font-semibold leading-none">
+                      {m.name}
+                    </div>
+                    <div className="text-muted text-[11.5px] mt-1">{m.full}</div>
+                  </div>
+                </div>
+                <p className="text-ink/75 text-[13.5px] leading-relaxed flex-1">
+                  {m.desc}
+                </p>
+                <div className="mt-5 inline-flex self-start rounded-lg bg-botanical-100/70 px-3 py-1.5 font-mono text-[11px] text-botanical-700">
+                  {m.chip}
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        <Reveal delay={200}>
+          <p className="text-center text-muted text-[13px] mt-8">
+            Ketiga modul dibundel dalam satu paket dan diaktifkan langsung di
+            akun perusahaan Anda — tanpa instalasi terpisah.
+          </p>
+        </Reveal>
+      </section>
+
       {/* ================= HARGA ================= */}
       <section id="harga" className="max-w-6xl mx-auto px-5 py-24 sm:py-32 scroll-mt-14">
         <Reveal>
@@ -387,33 +470,62 @@ export default function KenapaPage() {
               Sederhana dan transparan.
             </h2>
             <p className="text-muted text-[15px] mt-4 max-w-lg mx-auto leading-relaxed">
-              Satu kali biaya aktivasi, lalu biaya pemeliharaan tahunan. Tanpa
+              Satu kali biaya aktivasi — pilih paket sesuai kebutuhan pabrik —
+              lalu biaya pemeliharaan tahunan yang sama untuk semua paket. Tanpa
               biaya per user, tanpa biaya tersembunyi.
             </p>
           </div>
         </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl mx-auto items-stretch">
-          <Reveal delay={80}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-6xl mx-auto items-stretch">
+          <Reveal delay={60}>
+            <div className="h-full glass rounded-3xl p-8 flex flex-col">
+              <div className="text-[11.5px] uppercase tracking-[0.2em] text-clay-600 font-semibold mb-4">
+                Paket Standar · sekali bayar
+              </div>
+              <div className="font-display text-[clamp(30px,4vw,40px)] font-semibold leading-none">
+                {HARGA_AKTIVASI}
+              </div>
+              <ul className="mt-8 flex flex-col gap-3 text-[13.5px] text-ink/80 flex-1">
+                {[
+                  "Seluruh modul ERP: pembelian, stok FEFO, produksi & HPP, penjualan, laporan",
+                  "Setup sistem & akun perusahaan Anda",
+                  "Migrasi data awal (supplier, bahan, produk, client)",
+                  "Training tim sampai lancar",
+                  "Maintenance tahun pertama sudah termasuk",
+                ].map((x) => (
+                  <li key={x} className="flex gap-2.5">
+                    <span className="text-botanical-700 mt-0.5">✓</span>
+                    {x}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+          <Reveal delay={140}>
             <div
-              className="h-full rounded-3xl p-8 sm:p-10 text-white flex flex-col"
+              className="relative h-full rounded-3xl p-8 text-white flex flex-col"
               style={{
                 background:
                   "radial-gradient(500px 300px at 80% 0%, rgba(193, 98, 61, 0.35) 0%, transparent 60%), linear-gradient(160deg, #16261D 0%, #2F4D3A 120%)",
               }}
             >
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-clay-600 text-white text-[10.5px] font-semibold uppercase tracking-[0.15em] px-4 py-1.5 whitespace-nowrap shadow-md">
+                Siap Audit
+              </div>
               <div className="text-[11.5px] uppercase tracking-[0.2em] text-amber-500 font-semibold mb-4">
-                Biaya Aktivasi · sekali bayar
+                Paket Industri+ · sekali bayar
               </div>
-              <div className="font-display text-[clamp(34px,5vw,46px)] font-semibold leading-none">
-                {HARGA_AKTIVASI}
+              <div className="font-display text-[clamp(30px,4vw,40px)] font-semibold leading-none">
+                {HARGA_BUNDLE}
               </div>
-              <ul className="mt-8 flex flex-col gap-3 text-[14px] text-white/80">
+              <ul className="mt-8 flex flex-col gap-3 text-[13.5px] text-white/85 flex-1">
                 {[
-                  "Setup sistem & akun perusahaan Anda",
-                  "Migrasi data awal (supplier, bahan, produk, client)",
-                  "Training tim sampai lancar",
-                  "Maintenance tahun pertama sudah termasuk",
+                  "Semua yang ada di Paket Standar",
+                  "Manufacturing Execution System (MES), checklist produksi digital & batch record 2 tahap",
+                  "Quality Control (QC), karantina bahan + lembar pengujian digital",
+                  "Quality Assurance (QA), pelulusan batch + Certificate of Analysis",
+                  "Training tambahan untuk tim QC & QA",
                 ].map((x) => (
                   <li key={x} className="flex gap-2.5">
                     <span className="text-amber-500 mt-0.5">✓</span>
@@ -423,17 +535,18 @@ export default function KenapaPage() {
               </ul>
             </div>
           </Reveal>
-          <Reveal delay={180}>
-            <div className="h-full glass rounded-3xl p-8 sm:p-10 flex flex-col">
+          <Reveal delay={220}>
+            <div className="h-full glass rounded-3xl p-8 flex flex-col">
               <div className="text-[11.5px] uppercase tracking-[0.2em] text-clay-600 font-semibold mb-4">
                 Maintenance · per tahun
               </div>
-              <div className="font-display text-[clamp(34px,5vw,46px)] font-semibold leading-none">
+              <div className="font-display text-[clamp(30px,4vw,40px)] font-semibold leading-none">
                 {HARGA_MAINTENANCE}
-                <span className="text-[16px] text-muted font-normal"> /tahun</span>
+                <span className="text-[15px] text-muted font-normal"> /tahun</span>
               </div>
-              <ul className="mt-8 flex flex-col gap-3 text-[14px] text-ink/80">
+              <ul className="mt-8 flex flex-col gap-3 text-[13.5px] text-ink/80 flex-1">
                 {[
+                  "Satu harga untuk semua paket",
                   "Berlaku mulai tahun kedua",
                   "Hosting cepat & backup data rutin",
                   "Dukungan langsung saat ada kendala",

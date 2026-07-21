@@ -18,6 +18,7 @@ type BatchPrint = {
     products: { kode: string | null; nama_produk: string; brand: string | null } | null;
   }[];
   production_components: {
+    item_id: string;
     qty_terpakai: number;
     harga_per_unit: number;
     subtotal: number;
@@ -65,7 +66,7 @@ export default async function PrintProductionPage({
       .select(
         `id, no_batch_produksi, tanggal_produksi, status, catatan, total_cost_bahan,
          production_outputs(qty_hasil, satuan, varian_ukuran, products(kode, nama_produk, brand)),
-         production_components(qty_terpakai, harga_per_unit, subtotal, items(kode, nama, satuan), purchase_batches(no_lot_supplier, exp_date, supplier_nama))`
+         production_components(qty_terpakai, harga_per_unit, subtotal, item_id, items(kode, nama, satuan), purchase_batches(no_lot_supplier, exp_date, supplier_nama))`
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -81,6 +82,70 @@ export default async function PrintProductionPage({
   if (!data) notFound();
   const batch = data as unknown as BatchPrint;
   const produk = batch.production_outputs?.[0]?.products;
+
+  // Cara pembuatan: pakai snapshot dari plan (jejak historis), fallback ke
+  // prosedur produk saat ini untuk batch lama yang belum punya snapshot.
+  type Step = {
+    urutan: number;
+    instruksi: string;
+    suhu: string | null;
+    rpm: string | null;
+    durasi: string | null;
+  };
+  const { data: plan } = await supabase
+    .from("production_plans")
+    .select("steps_snapshot, product_id, execution_data")
+    .eq("production_batch_id", batch.id)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  let steps: Step[] = Array.isArray(plan?.steps_snapshot)
+    ? (plan!.steps_snapshot as Step[])
+    : [];
+  const productId = plan?.product_id as string | undefined;
+  if (steps.length === 0 && productId) {
+    const { data: liveSteps } = await supabase
+      .from("product_process_steps")
+      .select("urutan, instruksi, suhu, rpm, durasi")
+      .eq("product_id", productId)
+      .eq("organization_id", organizationId)
+      .order("urutan");
+    steps = (liveSteps || []) as Step[];
+  }
+  steps.sort((a, b) => a.urutan - b.urutan);
+
+  // Log MES (kalau execution dilakukan digital): isi kolom waktu & operator
+  type StepLog = {
+    urutan: number;
+    mulai: string | null;
+    selesai: string | null;
+    oleh: string | null;
+    catatan: string | null;
+  };
+  const langkahLogs = new Map<number, StepLog>();
+  const exec = plan?.execution_data as { langkah?: StepLog[] } | null;
+  for (const l of exec?.langkah || []) langkahLogs.set(l.urutan, l);
+  const jamOf = (iso: string | null | undefined) =>
+    iso
+      ? new Date(iso).toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "";
+
+  // Fase per bahan (dari formula produk)
+  const faseMap = new Map<string, string>();
+  if (productId) {
+    const { data: formulas } = await supabase
+      .from("product_formulas")
+      .select("item_id, fase")
+      .eq("product_id", productId)
+      .eq("organization_id", organizationId);
+    for (const f of (formulas || []) as { item_id: string; fase: string | null }[]) {
+      if (f.fase) faseMap.set(f.item_id, f.fase);
+    }
+  }
+
 
   const totalPcs = batch.production_outputs.reduce(
     (s, o) => s + Number(o.qty_hasil),
@@ -177,6 +242,7 @@ export default async function PrintProductionPage({
         <table className="w-full border-collapse">
           <thead>
             <tr className="text-[10.5px] uppercase tracking-wide border-y-2 border-[#1a1a1a]">
+              <th className="py-2 pr-2 text-left">Fase</th>
               <th className="py-2 pr-2 text-left">Kode</th>
               <th className="py-2 pr-2 text-left">Bahan</th>
               <th className="py-2 pr-2 text-left">Lot Supplier</th>
@@ -188,6 +254,9 @@ export default async function PrintProductionPage({
           <tbody>
             {batch.production_components.map((c, i) => (
               <tr key={i} className="border-b border-neutral-300">
+                <td className="py-2 pr-2 text-center font-semibold">
+                  {faseMap.get(c.item_id) || ""}
+                </td>
                 <td className="py-2 pr-2 font-mono text-[11px] whitespace-nowrap">
                   {c.items?.kode}
                 </td>
@@ -219,7 +288,7 @@ export default async function PrintProductionPage({
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-[#1a1a1a]">
-              <td colSpan={5} className="py-2 pr-2 text-right font-semibold">
+              <td colSpan={6} className="py-2 pr-2 text-right font-semibold">
                 Total Cost Bahan
               </td>
               <td className="py-2 text-right font-bold whitespace-nowrap">
@@ -228,6 +297,56 @@ export default async function PrintProductionPage({
             </tr>
           </tfoot>
         </table>
+
+        {/* ===== CARA PEMBUATAN ===== */}
+        {steps.length > 0 && (
+          <>
+            <div className="text-[11px] uppercase tracking-wide text-neutral-500 mt-6 mb-1">
+              Cara Pembuatan — diisi operator saat produksi
+            </div>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="text-[10.5px] uppercase tracking-wide border-y-2 border-[#1a1a1a]">
+                  <th className="py-2 pr-2 text-left w-[8mm]">No</th>
+                  <th className="py-2 pr-2 text-left">Instruksi</th>
+                  <th className="py-2 pr-2 text-left w-[30mm]">Parameter</th>
+                  <th className="py-2 pr-2 text-center w-[16mm]">Mulai</th>
+                  <th className="py-2 pr-2 text-center w-[16mm]">Selesai</th>
+                  <th className="py-2 text-center w-[14mm]">Paraf</th>
+                </tr>
+              </thead>
+              <tbody>
+                {steps.map((s) => (
+                  <tr key={s.urutan} className="border-b border-neutral-300">
+                    <td className="py-2.5 pr-2 font-semibold">{s.urutan}.</td>
+                    <td className="py-2.5 pr-2">
+                      {s.instruksi}
+                      {langkahLogs.get(s.urutan)?.catatan && (
+                        <div className="text-[10.5px] text-neutral-500 italic mt-0.5">
+                          Catatan: {langkahLogs.get(s.urutan)!.catatan}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-2.5 pr-2 text-[11px] text-neutral-600">
+                      {[s.suhu, s.rpm ? `${s.rpm} rpm` : null, s.durasi]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                    </td>
+                    <td className="py-2.5 pr-2 border-l border-neutral-200 text-center text-[11px]">
+                      {jamOf(langkahLogs.get(s.urutan)?.mulai)}
+                    </td>
+                    <td className="py-2.5 pr-2 border-l border-neutral-200 text-center text-[11px]">
+                      {jamOf(langkahLogs.get(s.urutan)?.selesai)}
+                    </td>
+                    <td className="py-2.5 border-l border-neutral-200 text-center text-[10px]">
+                      {langkahLogs.get(s.urutan)?.oleh || ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
 
         {/* ===== CATATAN ===== */}
         {batch.catatan && (

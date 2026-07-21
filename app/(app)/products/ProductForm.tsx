@@ -13,7 +13,14 @@ export type ItemOption = {
   kategori: "Bahan Baku" | "Kemasan";
 };
 
-type FormulaRow = { item: ItemOption | null; query: string; open: boolean; pct: string };
+type FormulaRow = {
+  item: ItemOption | null;
+  query: string;
+  open: boolean;
+  pct: string;
+  fase: string;
+};
+type StepRow = { instruksi: string; suhu: string; rpm: string; durasi: string };
 type PackRow = { item: ItemOption | null; query: string; open: boolean; qty: string };
 type VariantDraft = { netto: string; satuan: string; harga: string; packaging: PackRow[] };
 
@@ -27,7 +34,13 @@ type Props = {
     kategori: string | null;
     batch_size_kg: number | null;
     aktif: boolean;
-    formulas: { item_id: string; percentage: number }[];
+    formulas: { item_id: string; percentage: number; fase: string | null }[];
+    steps: {
+      instruksi: string;
+      suhu: string | null;
+      rpm: string | null;
+      durasi: string | null;
+    }[];
     variants: {
       nama_varian: string;
       netto: number | null;
@@ -72,12 +85,23 @@ export default function ProductForm({ items, product }: Props) {
 
   const [fRows, setFRows] = useState<FormulaRow[]>(() => {
     if (!product || product.formulas.length === 0)
-      return [{ item: null, query: "", open: false, pct: "" }];
+      return [{ item: null, query: "", open: false, pct: "", fase: "" }];
     return product.formulas.map((f) => ({
       item: items.find((it) => it.id === f.item_id) || null,
       query: "",
       open: false,
       pct: toStr(f.percentage),
+      fase: f.fase || "",
+    }));
+  });
+
+  const [steps, setSteps] = useState<StepRow[]>(() => {
+    if (!product || product.steps.length === 0) return [];
+    return product.steps.map((s) => ({
+      instruksi: s.instruksi,
+      suhu: s.suhu || "",
+      rpm: s.rpm || "",
+      durasi: s.durasi || "",
     }));
   });
 
@@ -174,7 +198,19 @@ export default function ProductForm({ items, product }: Props) {
         aktif,
         formulas: fRows
           .filter((r) => r.item)
-          .map((r) => ({ item_id: r.item!.id, percentage: parseNum(r.pct) })),
+          .map((r) => ({
+            item_id: r.item!.id,
+            percentage: parseNum(r.pct),
+            fase: r.fase.trim() || null,
+          })),
+        steps: steps
+          .filter((s) => s.instruksi.trim())
+          .map((s) => ({
+            instruksi: s.instruksi.trim(),
+            suhu: s.suhu.trim() || null,
+            rpm: s.rpm.trim() || null,
+            durasi: s.durasi.trim() || null,
+          })),
         variants: variants.map((v) => ({
           nama_varian: `${v.netto.replace(".", ",")} ${v.satuan}`.trim(),
           netto: parseNum(v.netto),
@@ -322,7 +358,7 @@ export default function ProductForm({ items, product }: Props) {
             <button
               type="button"
               onClick={() =>
-                setFRows((rs) => [...rs, { item: null, query: "", open: false, pct: "" }])
+                setFRows((rs) => [...rs, { item: null, query: "", open: false, pct: "", fase: "" }])
               }
               className="flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline"
             >
@@ -336,7 +372,7 @@ export default function ProductForm({ items, product }: Props) {
           return (
             <div
               key={idx}
-              className="grid grid-cols-1 sm:grid-cols-[1fr_120px_32px] gap-2 items-start"
+              className="grid grid-cols-1 sm:grid-cols-[1fr_70px_110px_32px] gap-2 items-start"
             >
               <div className="relative">
                 {row.item ? (
@@ -387,6 +423,15 @@ export default function ProductForm({ items, product }: Props) {
                 )}
               </div>
 
+              <input
+                type="text"
+                value={row.fase}
+                onChange={(e) => updateFRow(idx, { fase: e.target.value })}
+                placeholder="Fase"
+                title="Fase (A/B/C — opsional)"
+                className={`${inputCls} text-center`}
+              />
+
               <div className="relative">
                 <input
                   type="text"
@@ -407,7 +452,7 @@ export default function ProductForm({ items, product }: Props) {
                   setFRows((rs) =>
                     rs.length > 1
                       ? rs.filter((_, i) => i !== idx)
-                      : [{ item: null, query: "", open: false, pct: "" }]
+                      : [{ item: null, query: "", open: false, pct: "", fase: "" }]
                   )
                 }
                 className="text-muted hover:text-clay-600 p-2"
@@ -417,6 +462,132 @@ export default function ProductForm({ items, product }: Props) {
             </div>
           );
         })}
+      </div>
+
+      {/* ============ CARA PEMBUATAN ============ */}
+      <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-[15.5px] font-semibold text-ink">
+              Cara Pembuatan
+            </h2>
+            <p className="text-muted text-[12.5px] mt-0.5">
+              Langkah proses berurutan — tampil di Batch Record. Parameter suhu,
+              kecepatan, dan waktu opsional.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setSteps((ss) => [...ss, { instruksi: "", suhu: "", rpm: "", durasi: "" }])
+            }
+            className="flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline flex-shrink-0"
+          >
+            <Plus size={14} /> Tambah Langkah
+          </button>
+        </div>
+
+        {steps.length === 0 && (
+          <p className="text-muted text-[13px]">
+            Belum ada langkah. Contoh: &quot;Panaskan Fase A hingga 70–75°C&quot;,
+            &quot;Homogenkan 3000 rpm selama 15 menit&quot;.
+          </p>
+        )}
+
+        {steps.map((s, idx) => (
+          <div
+            key={idx}
+            className="grid grid-cols-1 sm:grid-cols-[28px_1fr_90px_90px_90px_60px] gap-2 items-center"
+          >
+            <div className="text-[13px] font-semibold text-botanical-700 text-center">
+              {idx + 1}.
+            </div>
+            <input
+              value={s.instruksi}
+              onChange={(e) =>
+                setSteps((ss) =>
+                  ss.map((x, i) => (i === idx ? { ...x, instruksi: e.target.value } : x))
+                )
+              }
+              placeholder="Instruksi — misal: Campurkan Fase B ke Fase A perlahan"
+              className={inputCls}
+            />
+            <input
+              value={s.suhu}
+              onChange={(e) =>
+                setSteps((ss) =>
+                  ss.map((x, i) => (i === idx ? { ...x, suhu: e.target.value } : x))
+                )
+              }
+              placeholder="Suhu"
+              title="Suhu (mis. 70-75°C)"
+              className={inputCls}
+            />
+            <input
+              value={s.rpm}
+              onChange={(e) =>
+                setSteps((ss) =>
+                  ss.map((x, i) => (i === idx ? { ...x, rpm: e.target.value } : x))
+                )
+              }
+              placeholder="RPM"
+              title="Kecepatan mixing"
+              className={inputCls}
+            />
+            <input
+              value={s.durasi}
+              onChange={(e) =>
+                setSteps((ss) =>
+                  ss.map((x, i) => (i === idx ? { ...x, durasi: e.target.value } : x))
+                )
+              }
+              placeholder="Waktu"
+              title="Durasi (mis. 15 menit)"
+              className={inputCls}
+            />
+            <div className="flex items-center justify-end gap-0.5">
+              <button
+                type="button"
+                onClick={() =>
+                  idx > 0 &&
+                  setSteps((ss) => {
+                    const n = [...ss];
+                    [n[idx - 1], n[idx]] = [n[idx], n[idx - 1]];
+                    return n;
+                  })
+                }
+                disabled={idx === 0}
+                title="Naik"
+                className="text-muted hover:text-ink p-1 disabled:opacity-25"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  idx < steps.length - 1 &&
+                  setSteps((ss) => {
+                    const n = [...ss];
+                    [n[idx], n[idx + 1]] = [n[idx + 1], n[idx]];
+                    return n;
+                  })
+                }
+                disabled={idx === steps.length - 1}
+                title="Turun"
+                className="text-muted hover:text-ink p-1 disabled:opacity-25"
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                onClick={() => setSteps((ss) => ss.filter((_, i) => i !== idx))}
+                className="text-muted hover:text-clay-600 p-1"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* ============ VARIAN / GRAMASI + KEMASAN ============ */}

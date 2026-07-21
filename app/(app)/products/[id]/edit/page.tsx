@@ -13,7 +13,14 @@ type ProductRaw = {
   kategori: string | null;
   batch_size_kg: number | null;
   aktif: boolean;
-  product_formulas: { item_id: string; percentage: number }[];
+  product_formulas: { item_id: string; percentage: number; fase: string | null }[];
+  product_process_steps: {
+    urutan: number;
+    instruksi: string;
+    suhu: string | null;
+    rpm: string | null;
+    durasi: string | null;
+  }[];
   product_variants: {
     nama_varian: string;
     netto: number | null;
@@ -37,7 +44,8 @@ export default async function EditProductPage({
       .from("products")
       .select(
         `id, kode, nama_produk, brand, kategori, batch_size_kg, aktif,
-         product_formulas(item_id, percentage),
+         product_formulas(item_id, percentage, fase),
+         product_process_steps(urutan, instruksi, suhu, rpm, durasi),
          product_variants(nama_varian, netto, satuan_netto, harga_jual, variant_packaging(item_id, qty_per_pcs))`
       )
       .eq("id", id)
@@ -84,7 +92,16 @@ export default async function EditProductPage({
           formulas: (product.product_formulas || []).map((f) => ({
             item_id: f.item_id,
             percentage: Number(f.percentage),
+            fase: f.fase,
           })),
+          steps: (product.product_process_steps || [])
+            .sort((a, b) => a.urutan - b.urutan)
+            .map((s) => ({
+              instruksi: s.instruksi,
+              suhu: s.suhu,
+              rpm: s.rpm,
+              durasi: s.durasi,
+            })),
           variants: (product.product_variants || []).map((v) => ({
             nama_varian: v.nama_varian,
             netto: v.netto == null ? null : Number(v.netto),

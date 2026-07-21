@@ -19,17 +19,55 @@ export function fgKey(productId: string, varian: string | null): FgKey {
  * Hitung stok produk jadi per produk+varian:
  * available = produced − (kirim konsinyasi − retur) − terjual Direct/POS.
  * Penjualan dari konsinyasi TIDAK mengurangi lagi (barang sudah keluar saat kirim).
+ *
+ * Jalur utama: RPC get_finished_stock — agregasi dikerjakan database
+ * (satu query, hasil sudah per produk+varian) sehingga tetap ringan
+ * walau riwayat transaksi sudah puluhan ribu baris. Kalau RPC belum
+ * terpasang, otomatis jatuh ke perhitungan lama di server.
  */
 export async function getFinishedStock(
   organizationId: string
 ): Promise<Map<FgKey, FgStock>> {
   const supabase = await createClient();
 
+  const { data: agg, error: aggError } = await supabase.rpc(
+    "get_finished_stock",
+    { p_org: organizationId }
+  );
+  if (!aggError && Array.isArray(agg)) {
+    const map = new Map<FgKey, FgStock>();
+    for (const r of agg as {
+      product_id: string;
+      varian: string | null;
+      produced: number;
+      consigned: number;
+      sold: number;
+      available: number;
+    }[]) {
+      const varian = r.varian || "-";
+      map.set(`${r.product_id}|${varian}`, {
+        product_id: r.product_id,
+        varian,
+        produced: Number(r.produced),
+        consigned: Number(r.consigned),
+        sold: Number(r.sold),
+        available: Number(r.available),
+      });
+    }
+    return map;
+  }
+
+  // ---- Fallback: perhitungan di server (RPC belum terpasang) ----
   const [outputsRes, consRes, salesRes] = await Promise.all([
     supabase
       .from("production_outputs")
-      .select("product_id, varian_ukuran, qty_hasil")
-      .eq("organization_id", organizationId),
+      .select("product_id, varian_ukuran, qty_hasil, production_batches!inner(qa_status)")
+      .eq("organization_id", organizationId)
+      // Hold/Rejected ditahan; Released ATAU null (batch lama / QA nonaktif)
+      // tetap masuk stok jual.
+      .or("qa_status.eq.Released,qa_status.is.null", {
+        referencedTable: "production_batches",
+      }),
     supabase
       .from("consignment_items")
       .select("product_id, varian_ukuran, qty_kirim, qty_retur")

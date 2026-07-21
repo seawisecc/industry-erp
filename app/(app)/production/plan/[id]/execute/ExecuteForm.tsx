@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, X } from "lucide-react";
-import { saveExecution, ExecutionData } from "../../../actions";
+import {
+  saveExecution,
+  ExecutionData,
+  StepLog,
+  IpcHasil,
+} from "../../../actions";
 
 export type ItemInfo = {
   id: string;
@@ -18,13 +23,29 @@ export type PlanInfo = {
   no_batch: string;
   jumlah_batch: number;
   bulkKg: number;
-  formulas: { item_id: string; percentage: number }[];
+  formulas: { item_id: string; percentage: number; fase: string | null }[];
   variants: {
     nama_varian: string;
     netto: number | null;
     packaging: { item_id: string; qty_per_pcs: number }[];
   }[];
   saved: ExecutionData | null;
+  steps: {
+    urutan: number;
+    instruksi: string;
+    suhu: string | null;
+    rpm: string | null;
+    durasi: string | null;
+  }[];
+  mesOn: boolean;
+  qcOn: boolean;
+  operator: string;
+  produkKode: string | null;
+  produkNama: string;
+  brand: string | null;
+  batchSizeKg: number;
+  tanggalRencana: string;
+  ipcParams: IpcHasil[];
 };
 
 type AdjustRow = { item: ItemInfo | null; query: string; open: boolean; qty: string };
@@ -90,6 +111,56 @@ export default function ExecuteForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // ===== Hasil ruahan & rekonsiliasi kemasan (Catatan Pengemasan) =====
+  const [bulkReal, setBulkReal] = useState(
+    plan.saved?.bulk_real != null ? toStr(plan.saved.bulk_real) : ""
+  );
+  const [kemasanTerpakai, setKemasanTerpakai] = useState<Record<string, string>>(
+    () => {
+      const init: Record<string, string> = {};
+      for (const k of plan.saved?.kemasan || [])
+        if (k.terpakai != null) init[k.item_id] = toStr(k.terpakai);
+      return init;
+    }
+  );
+  const [kemasanRusak, setKemasanRusak] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const k of plan.saved?.kemasan || [])
+      if (k.rusak != null) init[k.item_id] = toStr(k.rusak);
+    return init;
+  });
+
+  // ===== IPC: hasil uji produk ruahan =====
+  const [ipcRows, setIpcRows] = useState<IpcHasil[]>(() =>
+    plan.ipcParams.map((p) => {
+      const saved = plan.saved?.ipc?.find((x) => x.nama === p.nama);
+      return { ...p, hasil: saved?.hasil || "" };
+    })
+  );
+
+  // ===== MES: log langkah produksi =====
+  const [stepLogs, setStepLogs] = useState<StepLog[]>(() =>
+    plan.steps.map((s) => {
+      const saved = plan.saved?.langkah?.find((l) => l.urutan === s.urutan);
+      return (
+        saved || {
+          urutan: s.urutan,
+          instruksi: s.instruksi,
+          mulai: null,
+          selesai: null,
+          oleh: null,
+          catatan: null,
+        }
+      );
+    })
+  );
+
+  function updateStepLog(urutan: number, patch: Partial<StepLog>) {
+    setStepLogs((ls) =>
+      ls.map((l) => (l.urutan === urutan ? { ...l, ...patch } : l))
+    );
+  }
+
   // Kebutuhan kemasan teoritis dari rencana pcs varian
   const kemasanTeoritis = new Map<string, number>();
   for (const v of plan.variants) {
@@ -145,11 +216,16 @@ export default function ExecuteForm({
             kemasanQty[id] !== undefined
               ? parseNum(kemasanQty[id])
               : kemasanTeoritis.get(id) || 0,
+          terpakai: parseNum(kemasanTerpakai[id] || ""),
+          rusak: parseNum(kemasanRusak[id] || ""),
         }))
         .filter((k) => k.qty > 0),
+      ipc: plan.qcOn && ipcRows.length > 0 ? ipcRows : plan.saved?.ipc,
+      bulk_real: bulkReal ? parseNum(bulkReal) : undefined,
       adjust: adjustRows
         .filter((r) => r.item && parseNum(r.qty) > 0)
         .map((r) => ({ item_id: r.item!.id, qty: parseNum(r.qty) })),
+      langkah: plan.mesOn && stepLogs.length > 0 ? stepLogs : plan.saved?.langkah,
     };
 
     const result = await saveExecution(plan.id, data);
@@ -167,11 +243,114 @@ export default function ExecuteForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {/* ============ TAHAP 1 — CATATAN PENGOLAHAN BATCH ============ */}
+      <div className="flex items-center gap-3">
+        <div className="bg-botanical-700 text-white rounded-lg px-3 py-1.5 text-[12px] font-semibold">
+          TAHAP 1
+        </div>
+        <h2 className="font-display text-[17px] font-semibold text-ink">
+          Catatan Pengolahan Batch
+        </h2>
+      </div>
+
+      {/* ===== INFORMASI PRODUK ===== */}
+      <div className="glass rounded-2xl p-6">
+        <h3 className="font-display text-[15px] font-semibold text-ink mb-3">
+          Informasi Produk
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted mb-0.5">
+              Produk
+            </div>
+            <div className="font-medium">{plan.produkNama}</div>
+            <div className="text-[11.5px] text-muted font-mono">
+              {[plan.produkKode, plan.brand].filter(Boolean).join(" · ")}
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted mb-0.5">
+              No. Batch
+            </div>
+            <div className="font-mono font-medium">{plan.no_batch}</div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted mb-0.5">
+              Ukuran Batch
+            </div>
+            <div className="font-medium">
+              {formatId(plan.jumlah_batch)} × {formatId(plan.batchSizeKg)} kg ={" "}
+              {formatId(plan.bulkKg)} kg
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted mb-0.5">
+              Tanggal Produksi
+            </div>
+            <div className="font-medium">
+              {new Date(plan.tanggalRencana + "T00:00:00").toLocaleDateString(
+                "id-ID",
+                { day: "numeric", month: "long", year: "numeric" }
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ===== FORMULASI & FASE ===== */}
+      <div className="glass rounded-2xl overflow-hidden">
+        <h3 className="font-display text-[15px] font-semibold text-ink px-6 pt-5 pb-3">
+          Formulasi &amp; Fase
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-[13px]">
+            <thead>
+              <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
+                <th className="px-4 py-2 font-semibold whitespace-nowrap">Fase</th>
+                <th className="px-4 py-2 font-semibold whitespace-nowrap">Kode</th>
+                <th className="px-4 py-2 font-semibold">Bahan</th>
+                <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">%</th>
+                <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">
+                  Qty Batch
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...plan.formulas]
+                .sort((a, b) =>
+                  (a.fase || "zz").localeCompare(b.fase || "zz") ||
+                  b.percentage - a.percentage
+                )
+                .map((f) => {
+                  const it = itemOf(f.item_id);
+                  return (
+                    <tr key={f.item_id} className="border-b border-line last:border-0">
+                      <td className="px-4 py-2 text-center font-semibold text-botanical-700">
+                        {f.fase || "—"}
+                      </td>
+                      <td className="px-4 py-2 font-mono text-[11.5px] whitespace-nowrap">
+                        {it?.kode}
+                      </td>
+                      <td className="px-4 py-2">{it?.nama || "—"}</td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                        {f.percentage.toLocaleString("id-ID")}%
+                      </td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap font-mono text-[12px]">
+                        {formatId((f.percentage / 100) * plan.bulkKg)} {it?.satuan}
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* ===== BAHAN BAKU: teoritis vs real ===== */}
       <div className="glass rounded-2xl p-6 flex flex-col gap-3">
         <div>
           <h2 className="font-display text-[15.5px] font-semibold text-ink">
-            Penimbangan Bahan (Formula × {formatId(plan.bulkKg)} kg bulk)
+            Penimbangan Bahan
           </h2>
           <p className="text-muted text-[12.5px] mt-0.5">
             Kolom kiri = jumlah teoritis, kolom kanan = hasil timbang nyata di
@@ -353,15 +532,260 @@ export default function ExecuteForm({
         })}
       </div>
 
+      {/* ===== MES: CHECKLIST LANGKAH PRODUKSI ===== */}
+      {plan.mesOn && plan.steps.length > 0 && (
+        <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="font-display text-[15.5px] font-semibold text-ink">
+                Langkah Produksi
+                <span className="ml-2 inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-botanical-100 text-botanical-700 align-middle">
+                  MES
+                </span>
+              </h2>
+              <p className="text-muted text-[12.5px] mt-0.5">
+                Tap Mulai saat mengerjakan, Selesai saat rampung — waktu &amp;
+                operator terekam otomatis ke Batch Record.
+              </p>
+            </div>
+            <span className="text-[12px] text-muted">
+              {stepLogs.filter((l) => l.selesai).length}/{stepLogs.length} selesai
+            </span>
+          </div>
+
+          {plan.steps.map((s) => {
+            const log = stepLogs.find((l) => l.urutan === s.urutan)!;
+            const jam = (iso: string | null) =>
+              iso
+                ? new Date(iso).toLocaleTimeString("id-ID", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : null;
+            return (
+              <div
+                key={s.urutan}
+                className={`border rounded-xl p-4 flex flex-col gap-2 transition-colors ${
+                  log.selesai
+                    ? "border-botanical-700/30 bg-botanical-100/30"
+                    : log.mulai
+                      ? "border-amber-500/40 bg-amber-100/20"
+                      : "border-line"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="font-display text-[15px] font-semibold text-botanical-700 w-6 text-right flex-shrink-0">
+                    {s.urutan}.
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13.5px] font-medium">{s.instruksi}</div>
+                    {(s.suhu || s.rpm || s.durasi) && (
+                      <div className="text-[12px] text-muted mt-0.5">
+                        {[s.suhu, s.rpm ? `${s.rpm} rpm` : null, s.durasi]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                    )}
+                    {(log.mulai || log.selesai) && (
+                      <div className="text-[11.5px] text-muted mt-1">
+                        {log.mulai ? `Mulai ${jam(log.mulai)}` : ""}
+                        {log.selesai ? ` — Selesai ${jam(log.selesai)}` : ""}
+                        {log.oleh ? ` · ${log.oleh}` : ""}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {!log.mulai && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateStepLog(s.urutan, {
+                            mulai: new Date().toISOString(),
+                            oleh: plan.operator || null,
+                          })
+                        }
+                        className="h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
+                      >
+                        Mulai
+                      </button>
+                    )}
+                    {log.mulai && !log.selesai && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateStepLog(s.urutan, {
+                            selesai: new Date().toISOString(),
+                          })
+                        }
+                        className="h-8 px-3 rounded-lg bg-amber-500 text-white text-[12px] font-medium hover:opacity-90 transition-opacity"
+                      >
+                        Selesai
+                      </button>
+                    )}
+                    {log.selesai && (
+                      <span className="text-botanical-700 text-[13px] font-semibold">
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {log.mulai && (
+                  <input
+                    value={log.catatan || ""}
+                    onChange={(e) =>
+                      updateStepLog(s.urutan, {
+                        catatan: e.target.value || null,
+                      })
+                    }
+                    placeholder="Catatan / penyimpangan (opsional)"
+                    className="w-full glass-input rounded-lg px-3 py-2 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {/* ===== IPC — QC PRODUK RUAHAN ===== */}
+      {plan.qcOn && ipcRows.length > 0 && (
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="px-6 pt-5 pb-3 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h3 className="font-display text-[15px] font-semibold text-ink">
+                Hasil Pengujian IPC
+                <span className="ml-2 inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-botanical-100 text-botanical-700 align-middle">
+                  QC
+                </span>
+              </h3>
+              <p className="text-muted text-[12px] mt-0.5">
+                In-Process Control produk ruahan sebelum dikemas.
+              </p>
+            </div>
+            <span className="text-[12px] text-muted">
+              {ipcRows.filter((r) => r.hasil.trim()).length}/{ipcRows.length} terisi
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-[13px]">
+              <thead>
+                <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
+                  <th className="px-4 py-2 font-semibold">Parameter</th>
+                  <th className="px-4 py-2 font-semibold w-[210px]">Spesifikasi</th>
+                  <th className="px-4 py-2 font-semibold w-[210px]">Hasil</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ipcRows.map((r, i) => (
+                  <tr key={r.nama} className="border-b border-line last:border-0">
+                    <td className="px-4 py-2">
+                      {r.nama}
+                      {r.satuan && (
+                        <span className="text-muted text-[11.5px]"> ({r.satuan})</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      <input
+                        value={r.spesifikasi || ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setIpcRows((rs) =>
+                            rs.map((x, j) => (j === i ? { ...x, spesifikasi: v } : x))
+                          );
+                        }}
+                        placeholder="Spesifikasi"
+                        className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                      />
+                    </td>
+                    <td className="px-4 py-2">
+                      <input
+                        value={r.hasil}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setIpcRows((rs) =>
+                            rs.map((x, j) => (j === i ? { ...x, hasil: v } : x))
+                          );
+                        }}
+                        placeholder="Hasil uji"
+                        className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ===== HASIL PENGOLAHAN (RUAHAN) ===== */}
+      <div className="glass rounded-2xl p-6">
+        <h3 className="font-display text-[15px] font-semibold text-ink mb-1">
+          Hasil Pengolahan
+        </h3>
+        <p className="text-muted text-[12.5px] mb-3">
+          Jumlah produk ruahan yang benar-benar dihasilkan dari proses di atas.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+          <div>
+            <label className="block text-[11.5px] text-muted mb-1">
+              Ruahan Teoritis
+            </label>
+            <div className="glass-input rounded-lg px-3 py-2.5 text-sm opacity-70">
+              {formatId(plan.bulkKg)} kg
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11.5px] text-muted mb-1">
+              Ruahan Real (kg)
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={bulkReal}
+              onChange={(e) => setBulkReal(e.target.value)}
+              placeholder={toStr(plan.bulkKg)}
+              className={inputCls}
+            />
+          </div>
+          <div className="text-[12.5px] pb-2.5">
+            {parseNum(bulkReal) > 0 && plan.bulkKg > 0 && (
+              <span
+                className={
+                  parseNum(bulkReal) >= plan.bulkKg * 0.97
+                    ? "text-botanical-700 font-medium"
+                    : "text-clay-600 font-medium"
+                }
+              >
+                Rendemen{" "}
+                {((parseNum(bulkReal) / plan.bulkKg) * 100).toLocaleString("id-ID", {
+                  maximumFractionDigits: 1,
+                })}
+                %
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ============ TAHAP 2 — CATATAN PENGEMASAN BATCH ============ */}
+      <div className="flex items-center gap-3 mt-2">
+        <div className="bg-botanical-700 text-white rounded-lg px-3 py-1.5 text-[12px] font-semibold">
+          TAHAP 2
+        </div>
+        <h2 className="font-display text-[17px] font-semibold text-ink">
+          Catatan Pengemasan Batch
+        </h2>
+      </div>
+
       {/* ===== VARIAN & KEMASAN ===== */}
       <div className="glass rounded-2xl p-6 flex flex-col gap-3">
         <div>
           <h2 className="font-display text-[15.5px] font-semibold text-ink">
-            Rencana Kemas &amp; Pengambilan Kemasan
+            Hasil Kemas &amp; Pengambilan Kemasan
           </h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            Isi rencana pcs per ukuran — kebutuhan kemasan terhitung otomatis,
-            jumlah ambil real bisa disesuaikan.
+            Isi jumlah real yang dihasilkan per ukuran — kebutuhan kemasan
+            terhitung otomatis, jumlah ambil bisa disesuaikan.
           </p>
         </div>
 
@@ -435,6 +859,104 @@ export default function ExecuteForm({
           </div>
         )}
       </div>
+
+      {/* ===== REKONSILIASI KEMASAN ===== */}
+      {kemasanIds.length > 0 && (
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="px-6 pt-5 pb-3">
+            <h3 className="font-display text-[15px] font-semibold text-ink">
+              Rekonsiliasi Kemasan
+            </h3>
+            <p className="text-muted text-[12px] mt-0.5">
+              Diambil vs terpakai, rusak, dan sisa dikembalikan ke gudang —
+              selisih harus nol.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-[13px]">
+              <thead>
+                <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
+                  <th className="px-4 py-2 font-semibold">Kemasan</th>
+                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Diambil</th>
+                  <th className="px-4 py-2 font-semibold w-[120px]">Terpakai</th>
+                  <th className="px-4 py-2 font-semibold w-[120px]">Rusak</th>
+                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Sisa</th>
+                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kemasanIds.map((id) => {
+                  const it = itemOf(id);
+                  const teoritis = kemasanTeoritis.get(id) || 0;
+                  const diambil =
+                    kemasanQty[id] !== undefined
+                      ? parseNum(kemasanQty[id])
+                      : teoritis;
+                  const terpakai = parseNum(kemasanTerpakai[id] || "");
+                  const rusak = parseNum(kemasanRusak[id] || "");
+                  const sisa = diambil - terpakai - rusak;
+                  const seimbang = Math.abs(sisa) < 0.0001 || sisa > 0;
+                  return (
+                    <tr key={id} className="border-b border-line last:border-0">
+                      <td className="px-4 py-2">
+                        <div className="font-medium max-w-[180px] truncate">
+                          {it?.nama || "—"}
+                        </div>
+                        <div className="text-[11px] text-muted font-mono">{it?.kode}</div>
+                      </td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap font-mono text-[12px]">
+                        {formatId(diambil)} {it?.satuan}
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={kemasanTerpakai[id] || ""}
+                          onChange={(e) =>
+                            setKemasanTerpakai((s) => ({ ...s, [id]: e.target.value }))
+                          }
+                          placeholder="0"
+                          className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={kemasanRusak[id] || ""}
+                          onChange={(e) =>
+                            setKemasanRusak((s) => ({ ...s, [id]: e.target.value }))
+                          }
+                          placeholder="0"
+                          className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap font-mono text-[12px]">
+                        {formatId(sisa)}
+                      </td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                        {terpakai > 0 || rusak > 0 ? (
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                              seimbang
+                                ? "bg-botanical-100 text-botanical-700"
+                                : "bg-clay-100 text-clay-600"
+                            }`}
+                          >
+                            {seimbang ? "Seimbang" : "Kurang"}
+                          </span>
+                        ) : (
+                          <span className="text-muted text-[11.5px]">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}
 

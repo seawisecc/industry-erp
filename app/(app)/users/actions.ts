@@ -13,6 +13,8 @@ export type UserInput = {
   aktif: boolean;
   can_approve_po: boolean;
   can_plan_production: boolean;
+  can_qc: boolean; // boleh mengisi & memutuskan hasil uji QC
+  can_qa: boolean; // boleh meninjau & meluluskan batch (QA)
 };
 
 async function requireAdmin() {
@@ -74,6 +76,8 @@ export async function createUser(
       allowed_modules: modules,
       can_approve_po: data.can_approve_po,
       can_plan_production: data.can_plan_production,
+      can_qc: data.can_qc,
+      can_qa: data.can_qa,
     })
     .eq("id", created.user.id);
 
@@ -119,6 +123,8 @@ export async function updateUser(
       allowed_modules: modules,
       can_approve_po: data.can_approve_po,
       can_plan_production: data.can_plan_production,
+      can_qc: data.can_qc,
+      can_qa: data.can_qa,
     })
     .eq("id", id);
 

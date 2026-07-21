@@ -5,17 +5,30 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import ExecuteForm, { PlanInfo, ItemInfo } from "./ExecuteForm";
 import type { ExecutionData } from "../../../actions";
+import { getFeatures } from "@/lib/featuresServer";
 
 type PlanRaw = {
   id: string;
   no_batch: string;
   jumlah_batch: number;
   status: string;
+  tanggal_rencana: string;
   execution_data: ExecutionData | null;
+  steps_snapshot:
+    | {
+        urutan: number;
+        instruksi: string;
+        suhu: string | null;
+        rpm: string | null;
+        durasi: string | null;
+      }[]
+    | null;
   products: {
+    kode: string | null;
     nama_produk: string;
+    brand: string | null;
     batch_size_kg: number | null;
-    product_formulas: { item_id: string; percentage: number }[];
+    product_formulas: { item_id: string; percentage: number; fase: string | null }[];
     product_variants: {
       nama_varian: string;
       netto: number | null;
@@ -31,15 +44,16 @@ export default async function ExecutePage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+  const { profile, organizationId } = await getEffectiveOrg();
+  const features = await getFeatures(organizationId!);
 
   const [{ data }, { data: items }] = await Promise.all([
     supabase
       .from("production_plans")
       .select(
-        `id, no_batch, jumlah_batch, status, execution_data,
-         products(nama_produk, batch_size_kg,
-           product_formulas(item_id, percentage),
+        `id, no_batch, jumlah_batch, tanggal_rencana, status, execution_data, steps_snapshot,
+         products(kode, nama_produk, brand, batch_size_kg,
+           product_formulas(item_id, percentage, fase),
            product_variants(nama_varian, netto, variant_packaging(item_id, qty_per_pcs)))`
       )
       .eq("id", id)
@@ -73,6 +87,23 @@ export default async function ExecutePage({
     stok: (it.purchase_batches || []).reduce((s, b) => s + Number(b.qty_sisa), 0),
   }));
 
+  // Parameter IPC (produk ruahan) — hanya bila QC Module aktif
+  const { data: ipcRows } = features.qc
+    ? await supabase
+        .from("qc_parameters")
+        .select("nama, satuan, spesifikasi, grup, urutan")
+        .eq("organization_id", organizationId)
+        .eq("kategori", "ipc")
+        .eq("aktif", true)
+        .order("urutan")
+    : { data: [] };
+  const ipcParams = ((ipcRows || []) as {
+    nama: string;
+    satuan: string | null;
+    spesifikasi: string | null;
+    grup: string | null;
+  }[]).map((p) => ({ ...p, hasil: "" }));
+
   const planInfo: PlanInfo = {
     id: plan.id,
     no_batch: plan.no_batch,
@@ -82,6 +113,7 @@ export default async function ExecutePage({
     formulas: plan.products.product_formulas.map((f) => ({
       item_id: f.item_id,
       percentage: Number(f.percentage),
+      fase: f.fase,
     })),
     variants: plan.products.product_variants.map((v) => ({
       nama_varian: v.nama_varian,
@@ -92,6 +124,16 @@ export default async function ExecutePage({
       })),
     })),
     saved: plan.execution_data,
+    steps: (plan.steps_snapshot || []).sort((a, b) => a.urutan - b.urutan),
+    mesOn: features.mes,
+    qcOn: features.qc,
+    operator: profile?.nama || "",
+    produkKode: plan.products.kode,
+    produkNama: plan.products.nama_produk,
+    brand: plan.products.brand,
+    batchSizeKg: Number(plan.products.batch_size_kg || 0),
+    tanggalRencana: plan.tanggal_rencana,
+    ipcParams,
   };
 
   return (

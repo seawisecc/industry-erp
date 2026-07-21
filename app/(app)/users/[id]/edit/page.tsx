@@ -16,7 +16,7 @@ export default async function EditUserPage({
 
   const { data: user } = await supabase
     .from("profiles")
-    .select("id, email, nama, role, role_title, aktif, is_super_admin, allowed_modules, can_approve_po, can_plan_production")
+    .select("id, email, nama, role, role_title, aktif, is_super_admin, allowed_modules, can_approve_po, can_plan_production, can_qc, can_qa")
     .eq("id", id)
     .eq("organization_id", organizationId)
     .single();
@@ -49,6 +49,8 @@ export default async function EditUserPage({
           is_super_admin: user.is_super_admin,
           can_approve_po: user.can_approve_po,
           can_plan_production: user.can_plan_production,
+          can_qc: !!user.can_qc,
+          can_qa: !!user.can_qa,
         }}
       />
     </div>

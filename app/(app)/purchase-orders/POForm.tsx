@@ -13,6 +13,7 @@ export type ItemOption = {
   nama: string;
   satuan: string;
   moq: number | null;
+  harga_terakhir: number | null; // harga beli terakhir (prefill di form)
   supplier_id: string | null;
 };
 
@@ -67,6 +68,8 @@ export default function POForm({ suppliers, items, po }: Props) {
   const isEdit = !!po;
 
   const [supplierId, setSupplierId] = useState(po?.supplier_id || "");
+  const [supQuery, setSupQuery] = useState("");
+  const [supOpen, setSupOpen] = useState(false);
   const [tanggal, setTanggal] = useState(
     po?.tanggal_po || new Date().toLocaleDateString("sv-SE")
   );
@@ -94,8 +97,20 @@ export default function POForm({ suppliers, items, po }: Props) {
     setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
 
+  const selectedSupplier = suppliers.find((s) => s.id === supplierId) || null;
+
+  function supplierOptions() {
+    if (!supOpen) return [];
+    const q = supQuery.trim().toLowerCase();
+    return suppliers
+      .filter((s) => !q || s.nama.toLowerCase().includes(q))
+      .slice(0, 8);
+  }
+
   function handleSupplierChange(nextId: string) {
     setSupplierId(nextId);
+    setSupQuery("");
+    setSupOpen(false);
     // Ganti supplier = daftar item beda → reset semua baris
     setRows([emptyRow()]);
   }
@@ -173,25 +188,63 @@ export default function POForm({ suppliers, items, po }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div className="glass rounded-2xl p-6 flex flex-col gap-4">
+      <div className="relative z-30 glass rounded-2xl p-6 flex flex-col gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2">
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
               Supplier
             </label>
-            <select
-              value={supplierId}
-              onChange={(e) => handleSupplierChange(e.target.value)}
-              required
-              className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
-            >
-              <option value="">— Pilih supplier —</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nama}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              {selectedSupplier ? (
+                <div className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 text-sm">
+                  <span className="truncate flex-1">{selectedSupplier.nama}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSupplierChange("")}
+                    className="text-muted hover:text-clay-600 flex-shrink-0"
+                    title="Ganti supplier"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    value={supQuery}
+                    onChange={(e) => {
+                      setSupQuery(e.target.value);
+                      setSupOpen(true);
+                    }}
+                    onFocus={() => setSupOpen(true)}
+                    onBlur={() => setTimeout(() => setSupOpen(false), 150)}
+                    placeholder="Ketik nama supplier..."
+                    className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                  />
+                  {supplierOptions().length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-30 max-h-52 overflow-y-auto">
+                      {supplierOptions().map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSupplierChange(s.id);
+                          }}
+                          className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 truncate"
+                        >
+                          {s.nama}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {supOpen && supQuery && supplierOptions().length === 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg z-30 px-3 py-2.5 text-[12.5px] text-muted">
+                      Supplier tidak ditemukan.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
@@ -296,18 +349,35 @@ export default function POForm({ suppliers, items, po }: Props) {
                               type="button"
                               onMouseDown={(e) => {
                                 e.preventDefault();
+                                // Harga otomatis dari pembelian terakhir —
+                                // tetap bisa diubah manual bila ada perubahan
+                                const hargaPrefill =
+                                  parseNum(row.harga) > 0
+                                    ? row.harga
+                                    : it.harga_terakhir != null
+                                      ? String(it.harga_terakhir).replace(".", ",")
+                                      : "";
                                 updateRow(idx, {
                                   item: it,
                                   query: "",
                                   open: false,
+                                  harga: hargaPrefill,
                                 });
                               }}
-                              className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 flex gap-2"
+                              className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 flex gap-2 items-center"
                             >
                               <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
                                 {it.kode}
                               </span>
-                              <span className="truncate">{it.nama}</span>
+                              <span className="truncate flex-1">{it.nama}</span>
+                              {it.harga_terakhir != null && (
+                                <span className="text-[11px] text-muted whitespace-nowrap flex-shrink-0">
+                                  Rp{" "}
+                                  {it.harga_terakhir.toLocaleString("id-ID", {
+                                    maximumFractionDigits: 0,
+                                  })}
+                                </span>
+                              )}
                             </button>
                           ))}
                         </div>
@@ -352,9 +422,31 @@ export default function POForm({ suppliers, items, po }: Props) {
                     inputMode="decimal"
                     value={row.harga}
                     onChange={(e) => updateRow(idx, { harga: e.target.value })}
-                    placeholder="0"
+                    placeholder={
+                      row.item?.harga_terakhir != null
+                        ? String(row.item.harga_terakhir)
+                        : "0"
+                    }
                     className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                   />
+                  {row.item?.harga_terakhir != null &&
+                    parseNum(row.harga) !== row.item.harga_terakhir && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateRow(idx, {
+                            harga: String(row.item!.harga_terakhir).replace(".", ","),
+                          })
+                        }
+                        className="text-[10.5px] text-botanical-700 hover:underline mt-0.5"
+                        title="Pakai harga pembelian terakhir"
+                      >
+                        terakhir: Rp{" "}
+                        {row.item.harga_terakhir.toLocaleString("id-ID", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </button>
+                    )}
                 </div>
 
                 <div>

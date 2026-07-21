@@ -12,6 +12,8 @@ export interface Profile {
   allowed_modules: string[] | null;
   can_approve_po: boolean;
   can_plan_production: boolean;
+  can_qc: boolean;
+  can_qa: boolean;
 }
 
 export interface Organization {

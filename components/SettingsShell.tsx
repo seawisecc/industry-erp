@@ -1,4 +1,5 @@
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
+import { getFeatures } from "@/lib/featuresServer";
 import { canAccessModule } from "@/lib/modules";
 import SettingsNav, { SettingsCard } from "./SettingsNav";
 
@@ -12,6 +13,16 @@ const CARDS: SettingsCard[] = [
     href: "/document-signing",
     title: "Document Signing",
     subtitle: "Kolom tanda tangan per dokumen cetak",
+  },
+  {
+    href: "/qc-parameters",
+    title: "Parameter Uji QC",
+    subtitle: "Spesifikasi & daftar parameter pemeriksaan",
+  },
+  {
+    href: "/features",
+    title: "Features",
+    subtitle: "MES mode & fitur lanjutan",
   },
   {
     href: "/data-migration",
@@ -34,14 +45,20 @@ export default async function SettingsShell({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile, isSuperAdmin } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+  const features = await getFeatures(organizationId!);
   const access = {
     isSuperAdmin,
     role: profile?.role || "",
     allowedModules: profile?.allowed_modules ?? null,
   };
 
-  const cards = CARDS.filter((c) => canAccessModule(access, c.href.slice(1)));
+  const cards = CARDS.filter(
+    (c) =>
+      canAccessModule(access, c.href.slice(1)) &&
+      // Parameter uji hanya relevan bila QC Module aktif
+      (c.href !== "/qc-parameters" || features.qc)
+  );
 
   return (
     <div>
