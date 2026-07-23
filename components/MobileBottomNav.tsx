@@ -120,7 +120,12 @@ export default function MobileBottomNav({
       )}
 
       {/* ===== Bar bawah ===== */}
-      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2 px-3 pointer-events-none">
+      <nav
+        className="sm:hidden fixed bottom-0 inset-x-0 z-40 pt-2 px-3 pointer-events-none"
+        style={{
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)",
+        }}
+      >
         <div className="pointer-events-auto flex items-center gap-2 max-w-md mx-auto">
           <div className="flex-1 glass rounded-full shadow-lg flex items-center justify-around px-1.5 py-1.5">
             {tabs.map((item) => {
