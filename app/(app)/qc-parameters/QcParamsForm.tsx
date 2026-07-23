@@ -164,47 +164,92 @@ export default function QcParamsForm({ initial }: { initial: QcParamInput[] }) {
 
         {idxs.map((i) => {
           const r = rows[i];
+          const dim = r.aktif ? "" : "opacity-50";
           return (
-            <div
-              key={i}
-              className="grid grid-cols-1 sm:grid-cols-[36px_1fr_120px_170px_36px] gap-2 items-center"
-            >
-              <div className="flex justify-center">
+            <div key={i}>
+              {/* ===== HP: kartu per parameter ===== */}
+              <div className="sm:hidden rounded-xl border border-line bg-white/50 p-3 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-[12.5px] font-medium text-ink/80 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={r.aktif}
+                      onChange={(e) => update(i, { aktif: e.target.checked })}
+                      className="accent-[#2f4f3e] w-4 h-4"
+                    />
+                    Tampil di lembar uji
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
+                    className="text-muted hover:text-clay-600 p-1"
+                    title="Hapus parameter"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
                 <input
-                  type="checkbox"
-                  checked={r.aktif}
-                  onChange={(e) => update(i, { aktif: e.target.checked })}
-                  title="Tampilkan di lembar pengujian"
-                  className="accent-[#2f4f3e] w-4 h-4"
+                  value={r.nama}
+                  onChange={(e) => update(i, { nama: e.target.value })}
+                  placeholder="Nama parameter"
+                  className={`${inputCls} ${dim}`}
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    value={r.satuan || ""}
+                    onChange={(e) => update(i, { satuan: e.target.value })}
+                    placeholder="Satuan"
+                    className={`${inputCls} ${dim}`}
+                  />
+                  <input
+                    value={r.grup || ""}
+                    onChange={(e) => update(i, { grup: e.target.value })}
+                    list="grup-saran"
+                    placeholder="Grup"
+                    className={`${inputCls} ${dim}`}
+                  />
+                </div>
               </div>
-              <input
-                value={r.nama}
-                onChange={(e) => update(i, { nama: e.target.value })}
-                placeholder="Nama parameter"
-                className={`${inputCls} ${r.aktif ? "" : "opacity-50"}`}
-              />
-              <input
-                value={r.satuan || ""}
-                onChange={(e) => update(i, { satuan: e.target.value })}
-                placeholder="satuan"
-                className={`${inputCls} ${r.aktif ? "" : "opacity-50"}`}
-              />
-              <input
-                value={r.grup || ""}
-                onChange={(e) => update(i, { grup: e.target.value })}
-                list="grup-saran"
-                placeholder="Grup"
-                className={`${inputCls} ${r.aktif ? "" : "opacity-50"}`}
-              />
-              <button
-                type="button"
-                onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
-                className="text-muted hover:text-clay-600 p-1.5 justify-self-center"
-                title="Hapus parameter"
-              >
-                <Trash2 size={15} />
-              </button>
+
+              {/* ===== Desktop: baris grid ===== */}
+              <div className="hidden sm:grid grid-cols-[36px_1fr_120px_170px_36px] gap-2 items-center">
+                <div className="flex justify-center">
+                  <input
+                    type="checkbox"
+                    checked={r.aktif}
+                    onChange={(e) => update(i, { aktif: e.target.checked })}
+                    title="Tampilkan di lembar pengujian"
+                    className="accent-[#2f4f3e] w-4 h-4"
+                  />
+                </div>
+                <input
+                  value={r.nama}
+                  onChange={(e) => update(i, { nama: e.target.value })}
+                  placeholder="Nama parameter"
+                  className={`${inputCls} ${dim}`}
+                />
+                <input
+                  value={r.satuan || ""}
+                  onChange={(e) => update(i, { satuan: e.target.value })}
+                  placeholder="satuan"
+                  className={`${inputCls} ${dim}`}
+                />
+                <input
+                  value={r.grup || ""}
+                  onChange={(e) => update(i, { grup: e.target.value })}
+                  list="grup-saran"
+                  placeholder="Grup"
+                  className={`${inputCls} ${dim}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
+                  className="text-muted hover:text-clay-600 p-1.5 justify-self-center"
+                  title="Hapus parameter"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
           );
         })}
