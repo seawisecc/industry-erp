@@ -138,8 +138,13 @@ export default function MobileBottomNav({
         <div className="pointer-events-auto flex items-center gap-2 max-w-md mx-auto">
           <div
             ref={barRef}
-            className="flex-1 min-w-0 rounded-full shadow-lg flex items-center gap-1 px-1.5 py-1.5 overflow-x-auto no-scrollbar bg-white/95 border border-line"
-            style={{ WebkitBackdropFilter: "none", backdropFilter: "none" }}
+            className="flex-1 min-w-0 rounded-full flex items-center gap-1 px-1.5 py-1.5 overflow-x-auto no-scrollbar border border-line"
+            style={{
+              backgroundColor: "#ffffff",
+              WebkitBackdropFilter: "none",
+              backdropFilter: "none",
+              boxShadow: "0 6px 20px rgba(22, 38, 29, 0.12)",
+            }}
           >
             {tabs.map((item) => {
               const active = isActive(item.href);
@@ -150,12 +155,11 @@ export default function MobileBottomNav({
                   href={item.href}
                   ref={active ? activeRef : undefined}
                   className={`flex items-center gap-1.5 rounded-full transition-all flex-shrink-0 ${
-                    active
-                      ? "bg-botanical-700 text-white px-3.5 py-2"
-                      : "text-ink/60 px-2.5 py-2"
+                    active ? "bg-botanical-700 px-3.5 py-2" : "px-2.5 py-2"
                   }`}
+                  style={{ color: active ? "#ffffff" : "#55655B" }}
                 >
-                  <Icon size={21} strokeWidth={2.2} />
+                  <Icon size={21} strokeWidth={2} />
                   {active && (
                     <span className="text-[12.5px] font-semibold whitespace-nowrap">
                       {shortLabel(item.label)}
@@ -171,11 +175,12 @@ export default function MobileBottomNav({
             <button
               onClick={() => setOpen((o) => !o)}
               aria-label="Sub-menu modul"
-              className={`flex-shrink-0 w-[52px] h-[52px] rounded-full shadow-lg flex items-center justify-center text-white transition-all active:scale-95 ${
+              className={`flex-shrink-0 w-[52px] h-[52px] rounded-full flex items-center justify-center text-white transition-all active:scale-95 ${
                 open ? "bg-botanical-800" : "bg-botanical-700"
               }`}
+              style={{ boxShadow: "0 6px 20px rgba(22, 38, 29, 0.18)" }}
             >
-              {open ? <X size={24} strokeWidth={2.6} /> : <LayoutGrid size={23} strokeWidth={2.4} />}
+              {open ? <X size={24} strokeWidth={2.4} /> : <LayoutGrid size={23} strokeWidth={2.2} />}
             </button>
           )}
         </div>
