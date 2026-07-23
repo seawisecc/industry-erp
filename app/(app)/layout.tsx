@@ -62,7 +62,7 @@ export default async function AppLayout({
     <div className="flex min-h-screen">
       <IdleLogout />
       <Sidebar />
-      <main className="flex-1 p-4 pt-[72px] sm:p-8 sm:pt-8 max-w-[1200px] mx-auto w-full min-w-0">
+      <main className="flex-1 p-4 pt-[72px] pb-[96px] sm:p-8 sm:pt-8 sm:pb-8 max-w-[1200px] mx-auto w-full min-w-0">
         <AccessGuard
           isSuperAdmin={isSuperAdmin}
           role={profile?.role || ""}

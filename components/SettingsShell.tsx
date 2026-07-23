@@ -68,7 +68,7 @@ export default async function SettingsShell({
       </p>
 
       <div className="mt-6 flex flex-col lg:flex-row gap-5 items-start">
-        <div className="w-full lg:w-72 lg:flex-shrink-0 lg:sticky lg:top-8">
+        <div className="hidden sm:block w-full lg:w-72 lg:flex-shrink-0 lg:sticky lg:top-8">
           <SettingsNav cards={cards} />
         </div>
         <div className="flex-1 min-w-0 w-full">{children}</div>

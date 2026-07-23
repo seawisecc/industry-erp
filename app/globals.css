@@ -160,6 +160,26 @@ body {
   box-shadow: 0 0 8px rgba(47, 77, 58, 0.5);
 }
 
+/* ---------- Bottom-sheet navigasi HP ---------- */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ---------- Transisi antar halaman ----------
    Dipakai app/(app)/template.tsx — animasi masuk halus tiap navigasi */
 @keyframes page-enter {

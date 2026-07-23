@@ -7,49 +7,13 @@ import Logo from "./Logo";
 import OrgSwitcher from "./OrgSwitcher";
 import SignOutButton from "./SignOutButton";
 import {
-  LayoutGrid,
-  Boxes,
-  ClipboardList,
-  Briefcase,
-  Package,
-  HandCoins,
-  BarChart3,
-  Settings,
-  Building2,
   Menu,
   X,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 import { canAccessModule } from "@/lib/modules";
-
-// Menu "hub": satu item sidebar mewakili beberapa halaman
-// (navigasi detailnya ada di dalam halaman masing-masing)
-const HUBS: Record<string, string[]> = {
-  "/items": ["/items", "/materials", "/inci", "/qc-incoming"],
-  "/purchase-orders": ["/purchase-orders", "/receivings", "/payments", "/ppic"],
-  "/products": ["/products", "/services", "/production", "/finished-goods", "/qc-finished", "/qa-release"],
-  "/clients": [
-    "/clients",
-    "/consignments",
-    "/sales-invoices",
-    "/pos",
-    "/sales-payments",
-  ],
-  "/settings": ["/settings", "/data-migration", "/users", "/document-signing", "/features", "/qc-parameters"],
-};
-
-const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/items", label: "Materials & Stock", icon: Boxes },
-  { href: "/purchase-orders", label: "Purchasing", icon: ClipboardList },
-  { href: "/suppliers", label: "Suppliers", icon: Briefcase },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/clients", label: "Sales", icon: HandCoins },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/companies", label: "Companies", icon: Building2 },
-];
+import { NAV, HUBS } from "@/lib/navConfig";
 
 type OrgOption = { id: string; nama: string; slug: string; aktif: boolean };
 
