@@ -39,9 +39,8 @@ export default function InvoiceForm({
   const router = useRouter();
   const isPos = mode === "pos";
 
-  const [tipe, setTipe] = useState<"Proforma" | "Invoice">(
-    isPos ? "Invoice" : "Proforma"
-  );
+  // POS = Invoice tunai; non-POS = Proforma (jadi Invoice otomatis saat lunas)
+  const tipe: "Proforma" | "Invoice" = isPos ? "Invoice" : "Proforma";
   const [clientId, setClientId] = useState("");
   const [namaPembeli, setNamaPembeli] = useState("");
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
@@ -118,20 +117,13 @@ export default function InvoiceForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="glass rounded-2xl p-6 flex flex-col gap-4">
+        {!isPos && (
+          <div className="text-[12px] text-muted bg-white/50 rounded-lg px-3 py-2 -mb-1">
+            Dibuat sebagai <b>Proforma Invoice</b> (tagihan tempo). Setelah lunas
+            di menu Sales Payments, otomatis menjadi Invoice.
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {!isPos && (
-            <div>
-              <label className={labelCls}>Tipe Dokumen</label>
-              <select
-                value={tipe}
-                onChange={(e) => setTipe(e.target.value as "Proforma" | "Invoice")}
-                className={inputCls}
-              >
-                <option value="Proforma">Proforma Invoice</option>
-                <option value="Invoice">Invoice</option>
-              </select>
-            </div>
-          )}
           <div>
             <label className={labelCls}>Client</label>
             <select

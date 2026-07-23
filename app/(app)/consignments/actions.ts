@@ -228,3 +228,199 @@ export async function closeConsignment(
     return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
   }
 }
+
+/* ============================================================
+   Laku / Retur di level OUTLET (client) — distribusi lintas
+   pengiriman, pengiriman tertua dulu (FIFO). Memudahkan pencatatan
+   dari rekap stok per outlet tanpa buka satu-satu pengiriman.
+   ============================================================ */
+
+export type OutletLine = {
+  product_id: string;
+  varian_ukuran: string | null;
+  qty: number;
+  harga?: number;
+};
+
+type CiRow = {
+  id: string;
+  product_id: string;
+  varian_ukuran: string | null;
+  qty_kirim: number;
+  qty_terjual: number;
+  qty_retur: number;
+  harga_jual: number;
+  consignments: { client_id: string; tanggal_kirim: string; status: string } | null;
+};
+
+const vkey = (v: string | null) => v || "-";
+
+async function ambilItemAktif(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  clientId: string
+): Promise<CiRow[]> {
+  const { data } = await supabase
+    .from("consignment_items")
+    .select(
+      "id, product_id, varian_ukuran, qty_kirim, qty_terjual, qty_retur, harga_jual, consignments!inner(client_id, tanggal_kirim, status)"
+    )
+    .eq("organization_id", organizationId)
+    .eq("consignments.client_id", clientId)
+    .eq("consignments.status", "Aktif");
+  const rows = (data || []) as unknown as CiRow[];
+  // tertua dulu
+  rows.sort((a, b) =>
+    (a.consignments?.tanggal_kirim || "").localeCompare(
+      b.consignments?.tanggal_kirim || ""
+    )
+  );
+  return rows;
+}
+
+// Bagikan qty ke beberapa baris pengiriman; menambah kolom `field`.
+async function distribusi(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rows: CiRow[],
+  line: OutletLine,
+  field: "qty_terjual" | "qty_retur"
+) {
+  const cocok = rows.filter(
+    (r) =>
+      r.product_id === line.product_id &&
+      vkey(r.varian_ukuran) === vkey(line.varian_ukuran)
+  );
+  const totalSisa = cocok.reduce(
+    (s, r) => s + (Number(r.qty_kirim) - Number(r.qty_terjual) - Number(r.qty_retur)),
+    0
+  );
+  if (line.qty > totalSisa + 0.001)
+    throw new Error(
+      `Qty melebihi sisa di outlet (sisa ${totalSisa}) untuk salah satu produk`
+    );
+
+  let perlu = line.qty;
+  for (const r of cocok) {
+    if (perlu <= 0) break;
+    const sisa = Number(r.qty_kirim) - Number(r.qty_terjual) - Number(r.qty_retur);
+    if (sisa <= 0) continue;
+    const ambil = Math.min(sisa, perlu);
+    const nilaiBaru = Number(r[field]) + ambil;
+    const { error } = await supabase
+      .from("consignment_items")
+      .update({ [field]: nilaiBaru })
+      .eq("id", r.id);
+    if (error) throw new Error(error.message);
+    perlu -= ambil;
+  }
+}
+
+/** Catat penjualan laku di sebuah outlet → potong stok + buat Proforma Invoice. */
+export async function reportOutletSale(
+  clientId: string,
+  lines: OutletLine[],
+  opts: { diskon_percent: number; pakai_tax: boolean; tax_percent: number; top_days: number | null }
+): Promise<{ ok: boolean; error?: string; invoiceId?: string }> {
+  try {
+    const supabase = await createClient();
+    const { profile, organizationId } = await getEffectiveOrg();
+    if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
+
+    const items = lines.filter((l) => l.product_id && l.qty > 0);
+    if (items.length === 0) throw new Error("Isi minimal satu produk yang laku");
+
+    const rows = await ambilItemAktif(supabase, organizationId, clientId);
+
+    // harga default dari harga_jual pengiriman bila tidak dikirim
+    const hargaOf = (l: OutletLine) => {
+      if (l.harga && l.harga > 0) return l.harga;
+      const r = rows.find(
+        (x) =>
+          x.product_id === l.product_id &&
+          vkey(x.varian_ukuran) === vkey(l.varian_ukuran)
+      );
+      return Number(r?.harga_jual || 0);
+    };
+
+    // 1) potong stok (qty_terjual) lintas pengiriman
+    for (const l of items) await distribusi(supabase, rows, l, "qty_terjual");
+
+    // 2) buat proforma invoice
+    const invItems = items.map((l) => ({
+      product_id: l.product_id,
+      varian_ukuran: l.varian_ukuran,
+      qty: l.qty,
+      harga: hargaOf(l),
+    }));
+    const { subtotal, total } = computeTotals(
+      invItems,
+      opts.diskon_percent,
+      opts.pakai_tax,
+      opts.tax_percent
+    );
+    const today = new Date().toLocaleDateString("sv-SE");
+    const jatuhTempo =
+      opts.top_days == null
+        ? null
+        : (() => {
+            const d = new Date(today + "T00:00:00");
+            d.setDate(d.getDate() + opts.top_days!);
+            return d.toLocaleDateString("sv-SE");
+          })();
+
+    const { data: invoiceId, error } = await supabase.rpc(
+      "create_sales_invoice_tx",
+      {
+        p_organization_id: organizationId,
+        p_header: {
+          tipe: "Proforma",
+          sumber: "Konsinyasi",
+          client_id: clientId,
+          tanggal: today,
+          diskon_percent: opts.diskon_percent,
+          pakai_tax: opts.pakai_tax,
+          tax_percent: opts.tax_percent,
+          subtotal,
+          total,
+          top_days: opts.top_days,
+          jatuh_tempo: jatuhTempo,
+          dibuat_oleh: profile?.id || null,
+        },
+        p_items: invItems,
+      }
+    );
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/consignments");
+    revalidatePath("/sales-invoices");
+    revalidatePath("/sales-payments");
+    revalidatePath("/finished-goods");
+    return { ok: true, invoiceId: invoiceId as string };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
+  }
+}
+
+/** Catat retur di sebuah outlet → barang kembali ke stok produk jadi. */
+export async function returOutlet(
+  clientId: string,
+  lines: OutletLine[]
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { organizationId } = await getEffectiveOrg();
+    if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
+
+    const items = lines.filter((l) => l.product_id && l.qty > 0);
+    if (items.length === 0) throw new Error("Isi minimal satu produk yang diretur");
+
+    const rows = await ambilItemAktif(supabase, organizationId, clientId);
+    for (const l of items) await distribusi(supabase, rows, l, "qty_retur");
+
+    revalidatePath("/consignments");
+    revalidatePath("/finished-goods");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
+  }
+}

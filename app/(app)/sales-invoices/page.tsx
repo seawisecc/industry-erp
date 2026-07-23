@@ -3,7 +3,6 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
-import ConvertButton from "./ConvertButton";
 import TableSearch from "@/components/TableSearch";
 
 type InvRow = {
@@ -146,11 +145,10 @@ export default async function SalesInvoicesPage() {
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <Link
                       href={`/print/invoice/${inv.id}`}
-                      className="text-muted text-[12.5px] font-medium hover:underline mr-3"
+                      className="text-botanical-700 text-[12.5px] font-medium hover:underline"
                     >
                       Cetak
                     </Link>
-                    {inv.tipe === "Proforma" && <ConvertButton id={inv.id} />}
                   </td>
                 </tr>
               ))

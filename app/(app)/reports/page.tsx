@@ -4,13 +4,21 @@ import PrintPageButton from "@/components/PrintPageButton";
 import { localDateStr, localMonthKey } from "@/lib/dates";
 import type { ExecutionData } from "@/app/(app)/production/actions";
 
-type ReportType = "sales" | "purchasing" | "production" | "stock";
+type ReportType =
+  | "sales"
+  | "consignment"
+  | "purchasing"
+  | "production"
+  | "stock"
+  | "finance";
 
 const TYPES: { key: ReportType; label: string; desc: string }[] = [
-  { key: "sales", label: "Sales Report", desc: "Penjualan per periode" },
-  { key: "purchasing", label: "Purchasing Report", desc: "Pembelian per periode" },
-  { key: "production", label: "Production Report", desc: "Batch, HPP & yield" },
-  { key: "stock", label: "Stock Movement", desc: "Mutasi stok bahan" },
+  { key: "sales", label: "Sales", desc: "Invoices & POS per period" },
+  { key: "consignment", label: "Consignment", desc: "Shipped, sold, returned & remaining per outlet" },
+  { key: "purchasing", label: "Purchasing", desc: "Purchase invoices per period" },
+  { key: "production", label: "Production", desc: "Batches, COGS & yield" },
+  { key: "stock", label: "Stock Movement", desc: "Material stock movement" },
+  { key: "finance", label: "Receivables & Payables", desc: "Open sales & purchase balances" },
 ];
 
 function formatRupiah(n: number) {
@@ -205,7 +213,7 @@ export default async function ReportsPage({
             <table className="w-full text-[12.5px]">
               <thead>
                 <tr className={thead}>
-                  <th className={th}>Rekap per Client</th>
+                  <th className={th}>Recap by Client</th>
                   <th className={`${th} text-right`}>Dokumen</th>
                   <th className={`${th} text-right`}>Total</th>
                 </tr>
@@ -356,7 +364,7 @@ export default async function ReportsPage({
             <table className="w-full text-[12.5px]">
               <thead>
                 <tr className={thead}>
-                  <th className={th}>Rekap per Supplier</th>
+                  <th className={th}>Recap by Supplier</th>
                   <th className={`${th} text-right`}>Total</th>
                 </tr>
               </thead>
@@ -686,6 +694,348 @@ export default async function ReportsPage({
     );
   }
 
+  if (type === "consignment") {
+    const { data } = await supabase
+      .from("consignments")
+      .select(
+        "no_konsinyasi, tanggal_kirim, status, clients(company_brand), consignment_items(qty_kirim, qty_terjual, qty_retur, harga_jual, varian_ukuran, products(nama_produk))"
+      )
+      .eq("organization_id", organizationId)
+      .gte("tanggal_kirim", from)
+      .lte("tanggal_kirim", to)
+      .order("tanggal_kirim");
+
+    type CItem = {
+      qty_kirim: number;
+      qty_terjual: number;
+      qty_retur: number;
+      harga_jual: number;
+      varian_ukuran: string | null;
+      products: { nama_produk: string } | null;
+    };
+    const rows = ((data || []) as unknown as {
+      no_konsinyasi: string | null;
+      tanggal_kirim: string;
+      status: string;
+      clients: { company_brand: string } | null;
+      consignment_items: CItem[];
+    }[]).map((c) => {
+      const kirim = c.consignment_items.reduce((s, i) => s + Number(i.qty_kirim), 0);
+      const terjual = c.consignment_items.reduce((s, i) => s + Number(i.qty_terjual), 0);
+      const retur = c.consignment_items.reduce((s, i) => s + Number(i.qty_retur), 0);
+      const nilai = c.consignment_items.reduce(
+        (s, i) => s + Number(i.qty_terjual) * Number(i.harga_jual),
+        0
+      );
+      return { ...c, kirim, terjual, retur, sisa: kirim - terjual - retur, nilai };
+    });
+
+    const tKirim = rows.reduce((s, r) => s + r.kirim, 0);
+    const tJual = rows.reduce((s, r) => s + r.terjual, 0);
+    const tRetur = rows.reduce((s, r) => s + r.retur, 0);
+    const tNilai = rows.reduce((s, r) => s + r.nilai, 0);
+
+    const perOutlet = new Map<string, { kirim: number; jual: number; sisa: number; nilai: number }>();
+    for (const r of rows) {
+      const nama = r.clients?.company_brand || "—";
+      const e = perOutlet.get(nama) || { kirim: 0, jual: 0, sisa: 0, nilai: 0 };
+      e.kirim += r.kirim;
+      e.jual += r.terjual;
+      e.sisa += r.sisa;
+      e.nilai += r.nilai;
+      perOutlet.set(nama, e);
+    }
+    const outletRekap = Array.from(perOutlet, ([nama, v]) => ({ nama, ...v })).sort(
+      (a, b) => b.nilai - a.nilai
+    );
+
+    content = (
+      <>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: "Total Terkirim", value: `${formatQty(tKirim)} pcs` },
+            { label: "Total Terjual", value: `${formatQty(tJual)} pcs` },
+            { label: "Nilai Laku", value: formatRupiah(tNilai) },
+            { label: "Sisa di Outlet", value: `${formatQty(tKirim - tJual - tRetur)} pcs` },
+          ].map((c) => (
+            <div key={c.label} className="glass rounded-xl p-3.5">
+              <div className="text-[10.5px] uppercase tracking-wide text-muted">
+                {c.label}
+              </div>
+              <div className="font-display text-[17px] font-semibold text-ink mt-1">
+                {c.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="glass rounded-2xl overflow-x-auto mb-5">
+          <table className="w-full min-w-[820px] text-[12.5px]">
+            <thead>
+              <tr className={thead}>
+                <th className={th}>No.</th>
+                <th className={th}>Tanggal</th>
+                <th className={th}>Outlet</th>
+                <th className={`${th} text-right`}>Kirim</th>
+                <th className={`${th} text-right`}>Laku</th>
+                <th className={`${th} text-right`}>Retur</th>
+                <th className={`${th} text-right`}>Sisa</th>
+                <th className={`${th} text-right`}>Nilai Laku</th>
+                <th className={th}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="text-center text-muted py-8">
+                    Tidak ada konsinyasi pada periode ini.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r, i) => (
+                  <tr key={i} className="border-b border-line last:border-0">
+                    <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
+                      {r.no_konsinyasi}
+                    </td>
+                    <td className={`${td} whitespace-nowrap`}>
+                      {formatTanggal(r.tanggal_kirim)}
+                    </td>
+                    <td className={td}>
+                      <div className="max-w-[160px] truncate">
+                        {r.clients?.company_brand || "—"}
+                      </div>
+                    </td>
+                    <td className={`${td} text-right`}>{formatQty(r.kirim)}</td>
+                    <td className={`${td} text-right text-botanical-700 font-medium`}>
+                      {formatQty(r.terjual)}
+                    </td>
+                    <td className={`${td} text-right`}>{formatQty(r.retur)}</td>
+                    <td className={`${td} text-right`}>{formatQty(r.sisa)}</td>
+                    <td className={`${td} text-right whitespace-nowrap font-medium`}>
+                      {formatRupiah(r.nilai)}
+                    </td>
+                    <td className={td}>{r.status}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {rows.length > 0 && (
+              <tfoot>
+                <tr className="border-t-2 border-line font-semibold">
+                  <td className={td} colSpan={3}>
+                    TOTAL ({rows.length} pengiriman)
+                  </td>
+                  <td className={`${td} text-right`}>{formatQty(tKirim)}</td>
+                  <td className={`${td} text-right`}>{formatQty(tJual)}</td>
+                  <td className={`${td} text-right`}>{formatQty(tRetur)}</td>
+                  <td className={`${td} text-right`}>{formatQty(tKirim - tJual - tRetur)}</td>
+                  <td className={`${td} text-right whitespace-nowrap`}>
+                    {formatRupiah(tNilai)}
+                  </td>
+                  <td className={td}></td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
+        {outletRekap.length > 0 && (
+          <div className="glass rounded-2xl overflow-x-auto max-w-2xl">
+            <table className="w-full text-[12.5px]">
+              <thead>
+                <tr className={thead}>
+                  <th className={th}>Recap by Outlet</th>
+                  <th className={`${th} text-right`}>Kirim</th>
+                  <th className={`${th} text-right`}>Laku</th>
+                  <th className={`${th} text-right`}>Sisa</th>
+                  <th className={`${th} text-right`}>Nilai Laku</th>
+                </tr>
+              </thead>
+              <tbody>
+                {outletRekap.map((o) => (
+                  <tr key={o.nama} className="border-b border-line last:border-0">
+                    <td className={td}>{o.nama}</td>
+                    <td className={`${td} text-right`}>{formatQty(o.kirim)}</td>
+                    <td className={`${td} text-right`}>{formatQty(o.jual)}</td>
+                    <td className={`${td} text-right`}>{formatQty(o.sisa)}</td>
+                    <td className={`${td} text-right whitespace-nowrap`}>
+                      {formatRupiah(o.nilai)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  if (type === "finance") {
+    const [{ data: piutangInv }, { data: pays }, { data: hutangRcv }] = await Promise.all([
+      supabase
+        .from("sales_invoices")
+        .select("id, no_invoice, tanggal, jatuh_tempo, total, nama_pembeli, clients(company_brand)")
+        .eq("organization_id", organizationId)
+        .eq("status_bayar", "Belum Lunas")
+        .order("jatuh_tempo", { nullsFirst: false }),
+      supabase
+        .from("sales_payments")
+        .select("invoice_id, jumlah")
+        .eq("organization_id", organizationId),
+      supabase
+        .from("receivings")
+        .select("no_invoice, tanggal_terima, jatuh_tempo, total_invoice, supplier_nama")
+        .eq("organization_id", organizationId)
+        .eq("status_bayar", "Belum Lunas")
+        .order("jatuh_tempo", { nullsFirst: false }),
+    ]);
+
+    const paidBy = new Map<string, number>();
+    for (const p of (pays || []) as { invoice_id: string; jumlah: number }[]) {
+      paidBy.set(p.invoice_id, (paidBy.get(p.invoice_id) || 0) + Number(p.jumlah));
+    }
+
+    const piutang = ((piutangInv || []) as unknown as {
+      id: string;
+      no_invoice: string | null;
+      tanggal: string;
+      jatuh_tempo: string | null;
+      total: number;
+      nama_pembeli: string | null;
+      clients: { company_brand: string } | null;
+    }[]).map((r) => ({
+      no: r.no_invoice,
+      pihak: r.clients?.company_brand || r.nama_pembeli || "—",
+      tanggal: r.tanggal,
+      jatuh_tempo: r.jatuh_tempo,
+      sisa: Number(r.total) - (paidBy.get(r.id) || 0),
+    }));
+
+    const hutang = ((hutangRcv || []) as unknown as {
+      no_invoice: string | null;
+      tanggal_terima: string;
+      jatuh_tempo: string | null;
+      total_invoice: number;
+      supplier_nama: string | null;
+    }[]).map((r) => ({
+      no: r.no_invoice,
+      pihak: r.supplier_nama || "—",
+      tanggal: r.tanggal_terima,
+      jatuh_tempo: r.jatuh_tempo,
+      sisa: Number(r.total_invoice),
+    }));
+
+    const totalPiutang = piutang.reduce((s, r) => s + r.sisa, 0);
+    const totalHutang = hutang.reduce((s, r) => s + r.sisa, 0);
+    const overdue = (d: string | null) => d !== null && d < todayStr;
+    const jt = (d: string | null) => (d ? formatTanggal(d) : "—");
+
+    const tabel = (
+      judul: string,
+      data: typeof piutang,
+      total: number,
+      pihakLabel: string,
+      tone: string
+    ) => (
+      <div className="glass rounded-2xl overflow-x-auto">
+        <table className="w-full min-w-[560px] text-[12.5px]">
+          <thead>
+            <tr className={thead}>
+              <th className={th} colSpan={5}>
+                <span className={`text-[13px] ${tone}`}>{judul}</span>
+              </th>
+            </tr>
+            <tr className={thead}>
+              <th className={th}>No.</th>
+              <th className={th}>{pihakLabel}</th>
+              <th className={th}>Tanggal</th>
+              <th className={th}>Jatuh Tempo</th>
+              <th className={`${th} text-right`}>Sisa</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center text-muted py-6">
+                  Tidak ada tagihan terbuka.
+                </td>
+              </tr>
+            ) : (
+              data.map((r, i) => (
+                <tr
+                  key={i}
+                  className={`border-b border-line last:border-0 ${
+                    overdue(r.jatuh_tempo) ? "bg-clay-100/30" : ""
+                  }`}
+                >
+                  <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
+                    {r.no || "—"}
+                  </td>
+                  <td className={td}>
+                    <div className="max-w-[180px] truncate">{r.pihak}</div>
+                  </td>
+                  <td className={`${td} whitespace-nowrap`}>{formatTanggal(r.tanggal)}</td>
+                  <td
+                    className={`${td} whitespace-nowrap ${
+                      overdue(r.jatuh_tempo) ? "text-clay-600 font-semibold" : ""
+                    }`}
+                  >
+                    {jt(r.jatuh_tempo)}
+                    {overdue(r.jatuh_tempo) && (
+                      <span className="block text-[10px]">terlambat</span>
+                    )}
+                  </td>
+                  <td className={`${td} text-right whitespace-nowrap font-medium`}>
+                    {formatRupiah(r.sisa)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          {data.length > 0 && (
+            <tfoot>
+              <tr className="border-t-2 border-line font-semibold">
+                <td className={td} colSpan={4}>
+                  TOTAL ({data.length})
+                </td>
+                <td className={`${td} text-right whitespace-nowrap`}>
+                  {formatRupiah(total)}
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    );
+
+    content = (
+      <>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          {[
+            { label: "Receivables (Outstanding)", value: formatRupiah(totalPiutang), tone: "text-botanical-700" },
+            { label: "Payables (Outstanding)", value: formatRupiah(totalHutang), tone: "text-clay-600" },
+            { label: "Net Position", value: formatRupiah(totalPiutang - totalHutang), tone: "text-ink" },
+          ].map((c) => (
+            <div key={c.label} className="glass rounded-xl p-3.5">
+              <div className="text-[10.5px] uppercase tracking-wide text-muted">
+                {c.label}
+              </div>
+              <div className={`font-display text-[17px] font-semibold mt-1 ${c.tone}`}>
+                {c.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {tabel("Accounts Receivable", piutang, totalPiutang, "Client", "text-botanical-700")}
+          {tabel("Accounts Payable", hutang, totalHutang, "Supplier", "text-clay-600")}
+        </div>
+      </>
+    );
+  }
+
   return (
     <div>
       {/* ===== Kop cetak (muncul hanya saat print) ===== */}
@@ -706,28 +1056,33 @@ export default async function ReportsPage({
         <PrintPageButton />
       </div>
 
-      {/* ===== Filter ===== */}
+      {/* ===== Tab jenis laporan ===== */}
+      <div className="mt-5 flex flex-wrap gap-2 print-hide">
+        {TYPES.map((t) => {
+          const isActive = t.key === type;
+          return (
+            <a
+              key={t.key}
+              href={`/reports?type=${t.key}&from=${from}&to=${to}`}
+              className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-medium transition-colors ${
+                isActive
+                  ? "bg-botanical-700 text-white shadow-sm"
+                  : "glass text-ink/70 hover:text-ink"
+              }`}
+            >
+              {t.label}
+            </a>
+          );
+        })}
+      </div>
+
+      {/* ===== Filter periode ===== */}
       <form
         method="get"
         action="/reports"
-        className="mt-5 glass rounded-2xl p-4 flex flex-wrap items-end gap-3 print-hide"
+        className="mt-3 glass rounded-2xl p-4 flex flex-wrap items-end gap-3 print-hide"
       >
-        <div className="w-full sm:w-56">
-          <label className="block text-[11.5px] font-medium text-muted mb-1">
-            Jenis Laporan
-          </label>
-          <select
-            name="type"
-            defaultValue={type}
-            className="w-full h-[42px] glass-input rounded-lg px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-botanical-700"
-          >
-            {TYPES.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <input type="hidden" name="type" value={type} />
         <div className="w-[calc(50%-6px)] sm:w-44">
           <label className="block text-[11.5px] font-medium text-muted mb-1">
             Dari

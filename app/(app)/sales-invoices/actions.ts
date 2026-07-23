@@ -96,6 +96,20 @@ export async function createInvoice(
     );
     if (error) throw new Error(error.message);
 
+    // POS / cash: langsung lunas → catat pembayaran penuh ke ledger supaya
+    // riwayat kas konsisten (dokumen tetap tidak muncul di Sales Payments
+    // karena statusnya sudah Lunas).
+    if (lunas && total > 0) {
+      await supabase.from("sales_payments").insert({
+        invoice_id: invoiceId as string,
+        tanggal: data.tanggal,
+        jumlah: total,
+        catatan: "Pembayaran tunai (POS)",
+        dibuat_oleh: profile?.id || null,
+        organization_id: organizationId,
+      });
+    }
+
     revalidatePath("/sales-invoices");
     revalidatePath("/sales-payments");
     revalidatePath("/finished-goods");

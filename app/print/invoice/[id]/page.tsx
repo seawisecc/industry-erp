@@ -81,6 +81,15 @@ export default async function PrintInvoicePage({
   if (!data) notFound();
   const inv = data as unknown as InvPrint;
 
+  // Rincian pembayaran (DP/cicilan) untuk Proforma yang menampilkan sisa tagihan
+  const { data: pays } = await supabase
+    .from("sales_payments")
+    .select("jumlah")
+    .eq("invoice_id", id)
+    .eq("organization_id", organizationId);
+  const dibayar = (pays || []).reduce((s, p) => s + Number(p.jumlah), 0);
+  const sisaTagihan = Number(inv.total) - dibayar;
+
   const diskonNilai = (Number(inv.subtotal) * Number(inv.diskon_percent)) / 100;
   const dpp = Number(inv.subtotal) - diskonNilai;
   const taxNilai = inv.pakai_tax ? (dpp * Number(inv.tax_percent)) / 100 : 0;
@@ -267,6 +276,27 @@ export default async function PrintInvoicePage({
                   Rp {formatNum(Number(inv.total))}
                 </span>
               </div>
+              {dibayar > 0 && sisaTagihan > 0.5 && (
+                <>
+                  <div className="flex justify-between py-1 px-2 mt-1">
+                    <span className="tracking-[0.15em] text-neutral-600">
+                      DEPOSIT / PAID :
+                    </span>
+                    <span>Rp {formatNum(dibayar)}</span>
+                  </div>
+                  <div className="border-y border-neutral-400 flex justify-between items-center px-2 py-2 font-bold tracking-[0.15em] text-[#A8502F]">
+                    <span>SISA TAGIHAN :</span>
+                    <span className="tracking-normal">
+                      Rp {formatNum(sisaTagihan)}
+                    </span>
+                  </div>
+                </>
+              )}
+              {sisaTagihan <= 0.5 && dibayar > 0 && (
+                <div className="text-right text-[11px] text-[#2F4D3A] font-semibold mt-1 px-2">
+                  ✓ LUNAS
+                </div>
+              )}
             </div>
           </div>
 
