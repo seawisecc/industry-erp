@@ -70,36 +70,43 @@ export default function InvoiceForm({
     if (loading) return;
     setLoading(true);
     setError("");
-    const result = await createInvoice({
-      tipe,
-      sumber: isPos ? "POS" : "Direct",
-      client_id: clientId || null,
-      nama_pembeli: namaPembeli || null,
-      tanggal,
-      diskon_percent: parseNum(diskon),
-      pakai_tax: pakaiTax,
-      tax_percent: parseNum(taxPercent),
-      top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
-      catatan: catatan || null,
-      langsung_lunas: isPos,
-      items: rows
-        .filter((r) => r.key)
-        .map((r) => {
-          const o = optOf(r.key)!;
-          return {
-            product_id: o.service_id ? null : o.product_id,
-            service_id: o.service_id,
-            varian_ukuran: o.service_id || o.varian === "-" ? null : o.varian,
-            qty: parseNum(r.qty),
-            harga: parseNum(r.harga),
-          };
-        }),
-    });
-    if (result.ok && result.invoiceId) {
-      router.push(`/print/invoice/${result.invoiceId}`);
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+      const result = await createInvoice({
+        tipe,
+        sumber: isPos ? "POS" : "Direct",
+        client_id: clientId || null,
+        nama_pembeli: namaPembeli || null,
+        tanggal,
+        diskon_percent: parseNum(diskon),
+        pakai_tax: pakaiTax,
+        tax_percent: parseNum(taxPercent),
+        top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
+        catatan: catatan || null,
+        langsung_lunas: isPos,
+        items: rows
+          .filter((r) => r.key)
+          .map((r) => {
+            const o = optOf(r.key)!;
+            return {
+              product_id: o.service_id ? null : o.product_id,
+              service_id: o.service_id,
+              varian_ukuran: o.service_id || o.varian === "-" ? null : o.varian,
+              qty: parseNum(r.qty),
+              harga: parseNum(r.harga),
+            };
+          }),
+      });
+      if (result.ok && result.invoiceId) {
+        router.push(`/print/invoice/${result.invoiceId}`);
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+        setLoading(false);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

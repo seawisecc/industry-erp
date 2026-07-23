@@ -25,21 +25,28 @@ export default function InciForm({
     if (loading) return; // guard: cegah double-submit
     setLoading(true);
     setError("");
-    const result = await saveInci(
-      {
-        inci_name: inciName,
-        cas_number: casNumber || null,
-        noael: noael || null,
-        function: fungsi || null,
-        reference: reference || null,
-      },
-      id
-    );
-    if (result.ok) {
-      router.push("/inci");
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+      const result = await saveInci(
+        {
+          inci_name: inciName,
+          cas_number: casNumber || null,
+          noael: noael || null,
+          function: fungsi || null,
+          reference: reference || null,
+        },
+        id
+      );
+      if (result.ok) {
+        router.push("/inci");
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+        setLoading(false);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

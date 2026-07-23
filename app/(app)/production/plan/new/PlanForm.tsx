@@ -35,18 +35,25 @@ export default function PlanForm({ products }: { products: ProductOpt[] }) {
     if (loading) return;
     setLoading(true);
     setError("");
-    const result = await createPlan({
-      product_id: productId,
-      no_batch: noBatch,
-      jumlah_batch: parseNum(jumlahBatch),
-      tanggal_rencana: tanggal,
-      catatan: catatan || null,
-    });
-    if (result.ok) {
-      router.push("/production");
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan plan");
+    try {
+      const result = await createPlan({
+        product_id: productId,
+        no_batch: noBatch,
+        jumlah_batch: parseNum(jumlahBatch),
+        tanggal_rencana: tanggal,
+        catatan: catatan || null,
+      });
+      if (result.ok) {
+        router.push("/production");
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan plan");
+        setLoading(false);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

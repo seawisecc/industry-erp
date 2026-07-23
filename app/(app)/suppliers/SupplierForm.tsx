@@ -26,22 +26,29 @@ export default function SupplierForm({
     if (loading) return; // guard: cegah double-submit
     setLoading(true);
     setError("");
-    const result = await saveSupplier(
-      {
-        nama,
-        alamat: alamat || null,
-        nama_kontak: namaKontak || null,
-        no_telp: noTelp || null,
-        email: email || null,
-        npwp: npwp || null,
-      },
-      id
-    );
-    if (result.ok) {
-      router.push("/suppliers");
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+      const result = await saveSupplier(
+        {
+          nama,
+          alamat: alamat || null,
+          nama_kontak: namaKontak || null,
+          no_telp: noTelp || null,
+          email: email || null,
+          npwp: npwp || null,
+        },
+        id
+      );
+      if (result.ok) {
+        router.push("/suppliers");
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+        setLoading(false);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

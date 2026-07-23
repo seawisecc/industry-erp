@@ -13,10 +13,15 @@ export default function ConvertButton({ id }: { id: string }) {
     const top = prompt("Jadikan Invoice — TOP berapa hari? (0 = tunai)", "0");
     if (top === null) return;
     setLoading(true);
-    const result = await convertToInvoice(id, Math.max(0, parseInt(top) || 0));
-    if (!result.ok) alert(result.error || "Gagal");
-    router.refresh();
-    setLoading(false);
+    try {
+      const result = await convertToInvoice(id, Math.max(0, parseInt(top) || 0));
+      if (!result.ok) alert(result.error || "Gagal");
+      router.refresh();
+    } catch {
+      alert("Gagal — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

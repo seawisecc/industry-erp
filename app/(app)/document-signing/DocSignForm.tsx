@@ -32,14 +32,21 @@ export default function DocSignForm({ initial }: { initial: DocSignInitial }) {
     setLoading(true);
     setError("");
     setSaved(false);
-    const result = await saveDocSignSettings(
-      DOC_TYPES.map((d) => ({ doc_type: d.key, slots: data[d.key] }))
-    );
-    if (result.ok) {
-      setSaved(true);
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+      const result = await saveDocSignSettings(
+        DOC_TYPES.map((d) => ({ doc_type: d.key, slots: data[d.key] }))
+      );
+      if (result.ok) {
+        setSaved(true);
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
+      setLoading(false);
     }
     setLoading(false);
   }

@@ -54,15 +54,24 @@ export default function ClientForm({ client }: Props) {
       alamat: alamat || null,
       aktif,
     };
-    const result =
-      isEdit && client
-        ? await updateClientData(client.id, payload)
-        : await createClientData(payload);
-    if (result.ok) {
-      router.push("/clients");
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan client");
+    try {
+      const result =
+        isEdit && client
+          ? await updateClientData(client.id, payload)
+          : await createClientData(payload);
+      if (result.ok) {
+        router.push("/clients");
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan client");
+        setLoading(false);
+      }
+    } catch {
+      // Mis. koneksi putus atau versi aplikasi baru saja ter-deploy —
+      // hentikan loading dan minta user coba lagi.
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

@@ -25,12 +25,19 @@ export default function FeaturesForm({
     setLoading(true);
     setError("");
     setSaved(false);
-    const result = await saveFeatures(flags);
-    if (result.ok) {
-      setSaved(true);
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+      const result = await saveFeatures(flags);
+      if (result.ok) {
+        setSaved(true);
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
+      setLoading(false);
     }
     setLoading(false);
   }

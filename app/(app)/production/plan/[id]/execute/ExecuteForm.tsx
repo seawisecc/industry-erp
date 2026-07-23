@@ -228,13 +228,27 @@ export default function ExecuteForm({
       langkah: plan.mesOn && stepLogs.length > 0 ? stepLogs : plan.saved?.langkah,
     };
 
-    const result = await saveExecution(plan.id, data);
-    if (result.ok) {
-      router.push("/production");
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+
+      const result = await saveExecution(plan.id, data);
+      if (result.ok) {
+        router.push("/production");
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+        setLoading(false);
+      }
+
+    } catch {
+
+      setError(
+
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+
+      );
+
       setLoading(false);
+
     }
   }
 

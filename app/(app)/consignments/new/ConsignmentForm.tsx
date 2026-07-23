@@ -38,27 +38,34 @@ export default function ConsignmentForm({
     if (loading) return;
     setLoading(true);
     setError("");
-    const result = await createConsignment({
-      client_id: clientId,
-      tanggal_kirim: tanggal,
-      catatan: catatan || null,
-      items: rows
-        .filter((r) => r.key)
-        .map((r) => {
-          const o = optOf(r.key)!;
-          return {
-            product_id: o.product_id,
-            varian_ukuran: o.varian === "-" ? null : o.varian,
-            qty_kirim: parseNum(r.qty),
-            harga_jual: parseNum(r.harga),
-          };
-        }),
-    });
-    if (result.ok) {
-      router.push("/consignments");
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+      const result = await createConsignment({
+        client_id: clientId,
+        tanggal_kirim: tanggal,
+        catatan: catatan || null,
+        items: rows
+          .filter((r) => r.key)
+          .map((r) => {
+            const o = optOf(r.key)!;
+            return {
+              product_id: o.product_id,
+              varian_ukuran: o.varian === "-" ? null : o.varian,
+              qty_kirim: parseNum(r.qty),
+              harga_jual: parseNum(r.harga),
+            };
+          }),
+      });
+      if (result.ok) {
+        router.push("/consignments");
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+        setLoading(false);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

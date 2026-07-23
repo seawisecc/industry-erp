@@ -90,20 +90,27 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
 
     setLoading(true);
     setError("");
-    const result = await createStockAdjustment({
-      tanggal,
-      catatan: catatan || null,
-      items: changed.map((it) => ({
-        item_id: it.id,
-        qty_aktual: parseNum(rows[it.id].qty),
-        harga: rows[it.id].harga ? parseNum(rows[it.id].harga) : null,
-      })),
-    });
-    if (result.ok) {
-      router.push("/data-migration/adjustment");
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+      const result = await createStockAdjustment({
+        tanggal,
+        catatan: catatan || null,
+        items: changed.map((it) => ({
+          item_id: it.id,
+          qty_aktual: parseNum(rows[it.id].qty),
+          harga: rows[it.id].harga ? parseNum(rows[it.id].harga) : null,
+        })),
+      });
+      if (result.ok) {
+        router.push("/data-migration/adjustment");
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+        setLoading(false);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

@@ -98,18 +98,25 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
     setLoading(true);
     setError("");
     setResult("");
-    const res = await createPOsFromGuide(lines, tanggal, parseNum(ppn));
-    if (res.ok) {
-      const gagal = res.failed && res.failed.length > 0
-        ? ` — ${res.failed.length} gagal: ${res.failed
-            .map((f) => `${f.supplier} (${f.error})`)
-            .join("; ")}`
-        : "";
-      setResult(`✓ ${res.created} PO berhasil dibuat${gagal}`);
-      router.refresh();
-      if (!gagal) setTimeout(() => router.push("/purchase-orders"), 1200);
-    } else {
-      setError(res.error || "Gagal membuat PO");
+    try {
+      const res = await createPOsFromGuide(lines, tanggal, parseNum(ppn));
+      if (res.ok) {
+        const gagal = res.failed && res.failed.length > 0
+          ? ` — ${res.failed.length} gagal: ${res.failed
+              .map((f) => `${f.supplier} (${f.error})`)
+              .join("; ")}`
+          : "";
+        setResult(`✓ ${res.created} PO berhasil dibuat${gagal}`);
+        router.refresh();
+        if (!gagal) setTimeout(() => router.push("/purchase-orders"), 1200);
+      } else {
+        setError(res.error || "Gagal membuat PO");
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
+      setLoading(false);
     }
     setLoading(false);
   }

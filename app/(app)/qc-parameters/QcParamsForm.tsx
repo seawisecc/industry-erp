@@ -50,12 +50,19 @@ export default function QcParamsForm({ initial }: { initial: QcParamInput[] }) {
     setLoading(true);
     setError("");
     setSaved(false);
-    const result = await saveQcParameters(rows);
-    if (result.ok) {
-      setSaved(true);
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+      const result = await saveQcParameters(rows);
+      if (result.ok) {
+        setSaved(true);
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
+      setLoading(false);
     }
     setLoading(false);
   }

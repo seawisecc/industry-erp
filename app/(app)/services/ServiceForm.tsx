@@ -35,20 +35,27 @@ export default function ServiceForm({
     if (loading) return; // guard: cegah double-submit
     setLoading(true);
     setError("");
-    const result = await saveService(
-      {
-        nama_jasa: nama,
-        keterangan: keterangan || null,
-        biaya: parseNum(biaya),
-        aktif,
-      },
-      id
-    );
-    if (result.ok) {
-      router.push("/services");
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal menyimpan");
+    try {
+      const result = await saveService(
+        {
+          nama_jasa: nama,
+          keterangan: keterangan || null,
+          biaya: parseNum(biaya),
+          aktif,
+        },
+        id
+      );
+      if (result.ok) {
+        router.push("/services");
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal menyimpan");
+        setLoading(false);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

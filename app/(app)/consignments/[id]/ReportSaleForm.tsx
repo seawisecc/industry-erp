@@ -52,23 +52,30 @@ export default function ReportSaleForm({
     if (loading || !adaLaku) return;
     setLoading(true);
     setError("");
-    const result = await reportConsignmentSale(consignmentId, {
-      items: items
-        .filter((it) => parseNum(laku[it.id] || "") > 0)
-        .map((it) => ({
-          consignment_item_id: it.id,
-          qty_laku: parseNum(laku[it.id]),
-        })),
-      diskon_percent: parseNum(diskon),
-      pakai_tax: pakaiTax,
-      tax_percent: parseNum(taxPercent),
-      top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
-    });
-    if (result.ok && result.invoiceId) {
-      router.push(`/print/invoice/${result.invoiceId}`);
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal");
+    try {
+      const result = await reportConsignmentSale(consignmentId, {
+        items: items
+          .filter((it) => parseNum(laku[it.id] || "") > 0)
+          .map((it) => ({
+            consignment_item_id: it.id,
+            qty_laku: parseNum(laku[it.id]),
+          })),
+        diskon_percent: parseNum(diskon),
+        pakai_tax: pakaiTax,
+        tax_percent: parseNum(taxPercent),
+        top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
+      });
+      if (result.ok && result.invoiceId) {
+        router.push(`/print/invoice/${result.invoiceId}`);
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal");
+        setLoading(false);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }
@@ -82,10 +89,15 @@ export default function ReportSaleForm({
     )
       return;
     setClosing(true);
-    const result = await closeConsignment(consignmentId);
-    if (!result.ok) alert(result.error || "Gagal");
-    router.refresh();
-    setClosing(false);
+    try {
+      const result = await closeConsignment(consignmentId);
+      if (!result.ok) alert(result.error || "Gagal");
+      router.refresh();
+    } catch {
+      alert("Gagal — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi.");
+    } finally {
+      setClosing(false);
+    }
   }
 
   const inputCls =

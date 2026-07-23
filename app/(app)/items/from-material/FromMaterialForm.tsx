@@ -75,20 +75,27 @@ export default function FromMaterialForm({ materials }: { materials: MaterialRow
     if (loading || checkedCount === 0) return;
     setLoading(true);
     setError("");
-    const result = await createItemsFromMaterials(
-      materials
-        .filter((m) => rows[m.id]?.checked)
-        .map((m) => ({
-          material_id: m.id,
-          satuan: rows[m.id].satuan,
-          stok_minimum: parseNum(rows[m.id].stokMin),
-        }))
-    );
-    if (result.ok) {
-      router.push("/items");
-      router.refresh();
-    } else {
-      setError(result.error || "Gagal membuat item");
+    try {
+      const result = await createItemsFromMaterials(
+        materials
+          .filter((m) => rows[m.id]?.checked)
+          .map((m) => ({
+            material_id: m.id,
+            satuan: rows[m.id].satuan,
+            stok_minimum: parseNum(rows[m.id].stokMin),
+          }))
+      );
+      if (result.ok) {
+        router.push("/items");
+        router.refresh();
+      } else {
+        setError(result.error || "Gagal membuat item");
+        setLoading(false);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }
