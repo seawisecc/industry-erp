@@ -160,6 +160,15 @@ body {
   box-shadow: 0 0 8px rgba(47, 77, 58, 0.5);
 }
 
+/* ---------- Bar navigasi HP bisa di-swipe tanpa scrollbar ---------- */
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ---------- Bottom-sheet navigasi HP ---------- */
 @keyframes fadeIn {
   from {

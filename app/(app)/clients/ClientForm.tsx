@@ -66,11 +66,11 @@ export default function ClientForm({ client }: Props) {
         setError(result.error || "Gagal menyimpan client");
         setLoading(false);
       }
-    } catch {
-      // Mis. koneksi putus atau versi aplikasi baru saja ter-deploy —
-      // hentikan loading dan minta user coba lagi.
+    } catch (err) {
+      // Tampilkan penyebab asli supaya mudah didiagnosa.
+      const detail = err instanceof Error ? err.message : String(err);
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        `Gagal menyimpan. ${detail}. Kalau muncul terus, muat ulang halaman (Cmd+Shift+R) lalu coba lagi.`
       );
       setLoading(false);
     }

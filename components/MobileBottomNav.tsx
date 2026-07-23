@@ -9,7 +9,7 @@
    Hanya tampil di layar kecil (sm:hidden).
    ============================================================ */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, X } from "lucide-react";
@@ -19,7 +19,6 @@ import {
   HUBS,
   SUBMENUS,
   MODULE_TITLE,
-  PRIMARY_HREFS,
   type SubItem,
 } from "@/lib/navConfig";
 
@@ -38,9 +37,20 @@ export default function MobileBottomNav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const barRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     setOpen(false);
+  }, [pathname]);
+
+  // Geser bar supaya tab aktif kelihatan (mis. Reports/Settings di kanan)
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({
+      inline: "center",
+      block: "nearest",
+      behavior: "smooth",
+    });
   }, [pathname]);
 
   const access = { isSuperAdmin, role, allowedModules };
@@ -54,9 +64,8 @@ export default function MobileBottomNav({
     return pathname?.startsWith(href);
   }
 
-  // Tab modul utama (yang boleh diakses)
+  // Semua modul yang boleh diakses — bisa di-swipe ke kanan
   const tabs = NAV.filter((item) => {
-    if (!PRIMARY_HREFS.includes(item.href)) return false;
     const pages = HUBS[item.href];
     if (pages) return pages.some((p) => canOpen(p));
     return canOpen(item.href);
@@ -127,7 +136,11 @@ export default function MobileBottomNav({
         }}
       >
         <div className="pointer-events-auto flex items-center gap-2 max-w-md mx-auto">
-          <div className="flex-1 glass rounded-full shadow-lg flex items-center justify-around px-1.5 py-1.5">
+          <div
+            ref={barRef}
+            className="flex-1 min-w-0 rounded-full shadow-lg flex items-center gap-1 px-1.5 py-1.5 overflow-x-auto no-scrollbar bg-white/95 border border-line"
+            style={{ WebkitBackdropFilter: "none", backdropFilter: "none" }}
+          >
             {tabs.map((item) => {
               const active = isActive(item.href);
               const Icon = item.icon;
@@ -135,13 +148,14 @@ export default function MobileBottomNav({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-1.5 rounded-full transition-all ${
+                  ref={active ? activeRef : undefined}
+                  className={`flex items-center gap-1.5 rounded-full transition-all flex-shrink-0 ${
                     active
                       ? "bg-botanical-700 text-white px-3.5 py-2"
-                      : "text-ink/55 px-3 py-2"
+                      : "text-ink/60 px-2.5 py-2"
                   }`}
                 >
-                  <Icon size={20} strokeWidth={2} />
+                  <Icon size={21} strokeWidth={2.2} />
                   {active && (
                     <span className="text-[12.5px] font-semibold whitespace-nowrap">
                       {shortLabel(item.label)}
@@ -157,13 +171,11 @@ export default function MobileBottomNav({
             <button
               onClick={() => setOpen((o) => !o)}
               aria-label="Sub-menu modul"
-              className={`flex-shrink-0 w-[52px] h-[52px] rounded-full shadow-lg flex items-center justify-center transition-all active:scale-95 ${
-                open
-                  ? "bg-botanical-800 text-white"
-                  : "bg-botanical-700 text-white"
+              className={`flex-shrink-0 w-[52px] h-[52px] rounded-full shadow-lg flex items-center justify-center text-white transition-all active:scale-95 ${
+                open ? "bg-botanical-800" : "bg-botanical-700"
               }`}
             >
-              {open ? <X size={24} strokeWidth={2.4} /> : <LayoutGrid size={23} strokeWidth={2.2} />}
+              {open ? <X size={24} strokeWidth={2.6} /> : <LayoutGrid size={23} strokeWidth={2.4} />}
             </button>
           )}
         </div>
@@ -186,7 +198,7 @@ function Tile({ item, active }: { item: SubItem; active: boolean }) {
             : "bg-botanical-100 text-botanical-700"
         }`}
       >
-        <Icon size={23} strokeWidth={2} />
+        <Icon size={23} strokeWidth={2.2} />
       </span>
       <span
         className={`text-[11px] font-medium text-center leading-tight ${
