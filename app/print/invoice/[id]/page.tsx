@@ -109,7 +109,7 @@ export default async function PrintInvoicePage({
     : [];
 
   return (
-    <div className="min-h-screen py-8 print:py-0">
+    <div className="min-h-screen py-4 sm:py-8 print:py-0">
       <style>{`
         @page { size: A4; margin: 12mm; }
         @media print { body { background: white !important; } }
@@ -117,7 +117,7 @@ export default async function PrintInvoicePage({
 
       <PrintButton />
 
-      <div className="bg-white text-[#1a1a1a] max-w-[210mm] mx-auto shadow-xl print:shadow-none rounded-sm print:rounded-none text-[12px] leading-relaxed overflow-hidden">
+      <div className="bg-white text-[#1a1a1a] a4-sheet max-w-[210mm] mx-auto shadow-xl print:shadow-none rounded-sm print:rounded-none text-[12px] leading-relaxed overflow-hidden">
         {/* ===== KOP (banner) ===== */}
         <div className="bg-botanical-100/60 px-[12mm] py-5 flex justify-between items-center border-b border-neutral-300">
           <div />

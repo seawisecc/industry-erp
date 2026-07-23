@@ -3,6 +3,8 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
+import CancelTxButton from "@/components/CancelTxButton";
+import { cancelReceiving } from "../actions";
 
 type RcvDetail = {
   id: string;
@@ -47,7 +49,9 @@ export default async function ReceivingDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+  const canCancel =
+    isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
 
   const { data } = await supabase
     .from("receivings")
@@ -104,12 +108,23 @@ export default async function ReceivingDetailPage({
         >
           {rcv.status_bayar}
         </span>
-        <Link
-          href={`/print/receiving/${rcv.id}`}
-          className="ml-auto flex items-center gap-1.5 bg-botanical-700 text-white text-[13px] font-medium px-3.5 py-2 rounded-lg hover:bg-botanical-800 transition-colors"
-        >
-          <Printer size={15} /> Cetak
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <CancelTxButton
+            id={rcv.id}
+            action={cancelReceiving}
+            canCancel={canCancel}
+            label="Batal Penerimaan"
+            judul="Batalkan Penerimaan"
+            keterangan="Stok yang masuk dari penerimaan ini akan dihapus dan status PO dikembalikan. Hanya bisa bila barangnya belum terpakai."
+            redirectTo="/receivings"
+          />
+          <Link
+            href={`/print/receiving/${rcv.id}`}
+            className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13px] font-medium px-3.5 py-2 rounded-lg hover:bg-botanical-800 transition-colors"
+          >
+            <Printer size={15} /> Cetak
+          </Link>
+        </div>
       </div>
       <p className="text-muted text-sm mb-6">
         {formatTanggal(rcv.tanggal_terima)} — {rcv.supplier_nama || "—"}

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
 import TableSearch from "@/components/TableSearch";
+import CancelTxButton from "@/components/CancelTxButton";
+import { cancelInvoice } from "./actions";
 
 type InvRow = {
   id: string;
@@ -32,7 +34,9 @@ function formatTanggal(iso: string) {
 
 export default async function SalesInvoicesPage() {
   const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+  const canCancel =
+    isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
 
   const { data: invoices } = await supabase
     .from("sales_invoices")
@@ -143,12 +147,25 @@ export default async function SalesInvoicesPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <Link
-                      href={`/print/invoice/${inv.id}`}
-                      className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                    >
-                      Cetak
-                    </Link>
+                    <div className="inline-flex items-center gap-3">
+                      {canCancel && inv.sumber !== "Konsinyasi" && (
+                        <CancelTxButton
+                          id={inv.id}
+                          action={cancelInvoice}
+                          canCancel={canCancel}
+                          variant="link"
+                          label="Batal"
+                          judul="Batalkan Dokumen Penjualan"
+                          keterangan="Dokumen dihapus dan stok produk jadi kembali. Tidak bisa bila client sudah membayar."
+                        />
+                      )}
+                      <Link
+                        href={`/print/invoice/${inv.id}`}
+                        className="text-botanical-700 text-[12.5px] font-medium hover:underline"
+                      >
+                        Cetak
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))

@@ -279,3 +279,62 @@ export async function createProduction(data: ProductionInput) {
   revalidatePath("/dashboard");
   return { success: true, batchId: batchId as string };
 }
+
+/**
+ * Batalkan batch produksi (koreksi operasional): kembalikan bahan yang
+ * terpakai ke stok, hapus output & batch, dan kembalikan plan ke tahap
+ * eksekusi. Hanya bila produk jadinya belum terjual/terkirim konsinyasi.
+ * Reversal dilakukan atomik di dalam RPC cancel_production.
+ */
+export async function cancelProduction(
+  batchId: string,
+  _alasan: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { getFinishedStock, fgKey } = await import("@/lib/salesStock");
+    const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+    if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
+    if (!(isSuperAdmin || profile?.role === "Admin" || profile?.can_cancel))
+      throw new Error("Tidak punya izin membatalkan transaksi");
+
+    const { data: batch } = await supabase
+      .from("production_batches")
+      .select(
+        "id, production_outputs(product_id, varian_ukuran, qty_hasil)"
+      )
+      .eq("id", batchId)
+      .eq("organization_id", organizationId)
+      .single();
+    if (!batch) throw new Error("Batch produksi tidak ditemukan");
+
+    // Guard: produk jadi dari batch ini belum boleh ada yang terjual.
+    // Jika stok tersedia < hasil batch → sebagian sudah keluar → tolak.
+    const stock = await getFinishedStock(organizationId);
+    for (const o of (batch.production_outputs as {
+      product_id: string;
+      varian_ukuran: string | null;
+      qty_hasil: number;
+    }[])) {
+      const avail = stock.get(fgKey(o.product_id, o.varian_ukuran))?.available ?? 0;
+      if (avail < Number(o.qty_hasil) - 0.001)
+        throw new Error(
+          "Sebagian produk jadi sudah terjual/terkirim — batch tidak bisa dibatalkan."
+        );
+    }
+
+    const { error } = await supabase.rpc("cancel_production", {
+      p_organization_id: organizationId,
+      p_batch_id: batchId,
+    });
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/production");
+    revalidatePath("/items");
+    revalidatePath("/finished-goods");
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
+  }
+}

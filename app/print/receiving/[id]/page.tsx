@@ -94,7 +94,7 @@ export default async function PrintReceivingPage({
     .join("  •  ");
 
   return (
-    <div className="min-h-screen py-8 print:py-0">
+    <div className="min-h-screen py-4 sm:py-8 print:py-0">
       <style>{`
         @page { size: A4; margin: 14mm; }
         @media print { body { background: white !important; } }
@@ -102,7 +102,7 @@ export default async function PrintReceivingPage({
 
       <PrintButton />
 
-      <div className="bg-white text-[#1a1a1a] max-w-[210mm] mx-auto shadow-xl print:shadow-none rounded-sm print:rounded-none p-[15mm] print:p-0 text-[12.5px] leading-relaxed">
+      <div className="bg-white text-[#1a1a1a] a4-sheet max-w-[210mm] mx-auto shadow-xl print:shadow-none rounded-sm print:rounded-none p-[15mm] print:p-0 text-[12.5px] leading-relaxed">
         {/* ===== KOP ===== */}
         <div className="flex justify-between items-start border-b-2 border-[#1a1a1a] pb-4">
           <div>

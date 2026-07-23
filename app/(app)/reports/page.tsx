@@ -1056,34 +1056,36 @@ export default async function ReportsPage({
         <PrintPageButton />
       </div>
 
-      {/* ===== Tab jenis laporan ===== */}
-      <div className="mt-5 flex flex-wrap gap-2 print-hide">
-        {TYPES.map((t) => {
-          const isActive = t.key === type;
-          return (
-            <a
-              key={t.key}
-              href={`/reports?type=${t.key}&from=${from}&to=${to}`}
-              className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-medium transition-colors ${
-                isActive
-                  ? "bg-botanical-700 text-white shadow-sm"
-                  : "glass text-ink/70 hover:text-ink"
-              }`}
-            >
-              {t.label}
-            </a>
-          );
-        })}
+      {/* ===== Tab jenis laporan (satu baris, bisa di-swipe) ===== */}
+      <div className="mt-5 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar print-hide">
+        <div className="flex gap-2 w-max">
+          {TYPES.map((t) => {
+            const isActive = t.key === type;
+            return (
+              <a
+                key={t.key}
+                href={`/reports?type=${t.key}&from=${from}&to=${to}`}
+                className={`inline-flex items-center px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-colors ${
+                  isActive
+                    ? "bg-botanical-700 text-white shadow-sm"
+                    : "glass text-ink/70 hover:text-ink"
+                }`}
+              >
+                {t.label}
+              </a>
+            );
+          })}
+        </div>
       </div>
 
       {/* ===== Filter periode ===== */}
       <form
         method="get"
         action="/reports"
-        className="mt-3 glass rounded-2xl p-4 flex flex-wrap items-end gap-3 print-hide"
+        className="mt-3 glass rounded-2xl p-4 grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-3 print-hide"
       >
         <input type="hidden" name="type" value={type} />
-        <div className="w-[calc(50%-6px)] sm:w-44">
+        <div className="min-w-0 sm:w-44">
           <label className="block text-[11.5px] font-medium text-muted mb-1">
             Dari
           </label>
@@ -1094,7 +1096,7 @@ export default async function ReportsPage({
             className="w-full h-[42px] glass-input rounded-lg px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-botanical-700"
           />
         </div>
-        <div className="w-[calc(50%-6px)] sm:w-44">
+        <div className="min-w-0 sm:w-44">
           <label className="block text-[11.5px] font-medium text-muted mb-1">
             Sampai
           </label>
@@ -1107,7 +1109,7 @@ export default async function ReportsPage({
         </div>
         <button
           type="submit"
-          className="h-[42px] bg-botanical-700 text-white text-[13px] font-medium px-5 rounded-lg hover:bg-botanical-800 transition-colors"
+          className="col-span-2 sm:col-auto h-[42px] bg-botanical-700 text-white text-[13px] font-medium px-5 rounded-lg hover:bg-botanical-800 transition-colors"
         >
           Terapkan
         </button>

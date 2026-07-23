@@ -3,6 +3,8 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
+import CancelTxButton from "@/components/CancelTxButton";
+import { cancelProduction } from "../actions";
 
 type BatchDetail = {
   id: string;
@@ -49,7 +51,9 @@ export default async function ProductionDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+  const canCancel =
+    isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
 
   const { data } = await supabase
     .from("production_batches")
@@ -88,12 +92,23 @@ export default async function ProductionDetailPage({
         <span className="inline-flex px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-botanical-100 text-botanical-700">
           {batch.status}
         </span>
-        <Link
-          href={`/print/production/${batch.id}`}
-          className="ml-auto inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
-        >
-          <Printer size={14} /> Cetak Batch Record
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <CancelTxButton
+            id={batch.id}
+            action={cancelProduction}
+            canCancel={canCancel}
+            label="Batal Produksi"
+            judul="Batalkan Batch Produksi"
+            keterangan="Bahan yang terpakai akan dikembalikan ke stok dan hasil produksi dihapus. Hanya bisa bila produk jadinya belum terjual/terkirim."
+            redirectTo="/production"
+          />
+          <Link
+            href={`/print/production/${batch.id}`}
+            className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+          >
+            <Printer size={14} /> Cetak Batch Record
+          </Link>
+        </div>
       </div>
       <p className="text-muted text-sm mb-6">
         {formatTanggal(batch.tanggal_produksi)}

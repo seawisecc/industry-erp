@@ -19,6 +19,7 @@ type Props = {
     can_plan_production: boolean;
     can_qc: boolean;
     can_qa: boolean;
+    can_cancel: boolean;
   };
 };
 
@@ -53,6 +54,7 @@ export default function UserForm({ user }: Props) {
   );
   const [canQc, setCanQc] = useState(user?.can_qc ?? false);
   const [canQa, setCanQa] = useState(user?.can_qa ?? false);
+  const [canCancel, setCanCancel] = useState(user?.can_cancel ?? false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -80,6 +82,7 @@ export default function UserForm({ user }: Props) {
         can_plan_production: isAdmin ? true : canPlanProduction,
         can_qc: isAdmin ? true : canQc,
         can_qa: isAdmin ? true : canQa,
+        can_cancel: isAdmin ? true : canCancel,
       };
       if (isEdit && user) {
         await updateUser(user.id, {
@@ -322,6 +325,30 @@ export default function UserForm({ user }: Props) {
               <span className="block text-[11.5px] text-muted">
                 Verifikasi checklist pelulusan dan release/reject batch ke stok
                 jual.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {!isAdmin && (
+          <label
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] cursor-pointer border transition-all ${
+              canCancel
+                ? "bg-clay-100/60 border-clay-500/40"
+                : "glass-input border-transparent"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={canCancel}
+              onChange={(e) => setCanCancel(e.target.checked)}
+              className="accent-[#2f4f3e]"
+            />
+            <span>
+              <b>Bisa membatalkan transaksi</b>
+              <span className="block text-[11.5px] text-muted">
+                Izin khusus koreksi operasional — membatalkan PO, penerimaan,
+                produksi, atau penjualan (stok otomatis dikembalikan).
               </span>
             </span>
           </label>

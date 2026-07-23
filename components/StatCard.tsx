@@ -22,19 +22,23 @@ export default function StatCard({
   tone?: Tone;
 }) {
   return (
-    <div className="glass rounded-2xl p-5">
-      <div className="flex items-center gap-3">
-        <div className={`rounded-xl p-2.5 ${TONE_STYLE[tone]}`}>
-          <Icon size={18} />
+    <div className="glass rounded-2xl p-4 sm:p-5 h-full flex flex-col">
+      <div className="flex items-center gap-2.5">
+        <div className={`rounded-xl p-2 sm:p-2.5 flex-shrink-0 ${TONE_STYLE[tone]}`}>
+          <Icon size={17} />
         </div>
-        <div className="text-[12px] text-muted uppercase tracking-wide font-medium">
+        <div className="text-[10.5px] sm:text-[12px] text-muted uppercase tracking-wide font-medium leading-tight">
           {label}
         </div>
       </div>
-      <div className="font-display text-[26px] font-semibold text-ink mt-3 leading-none">
+      <div className="font-display text-[21px] sm:text-[26px] font-semibold text-ink mt-2.5 sm:mt-3 leading-none break-words">
         {value}
       </div>
-      {sub && <div className="text-[12.5px] text-muted mt-2">{sub}</div>}
+      {sub && (
+        <div className="text-[11.5px] sm:text-[12.5px] text-muted mt-1.5 sm:mt-2 leading-snug line-clamp-2">
+          {sub}
+        </div>
+      )}
     </div>
   );
 }

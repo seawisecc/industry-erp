@@ -286,3 +286,47 @@ export async function deletePO(id: string) {
   revalidatePath("/purchase-orders");
   return { success: true };
 }
+
+/** Batalkan PO (koreksi operasional) — hanya bila belum ada barang diterima. */
+export async function cancelPO(
+  id: string,
+  alasan: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+    if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
+    if (!(isSuperAdmin || profile?.role === "Admin" || profile?.can_cancel))
+      throw new Error("Tidak punya izin membatalkan transaksi");
+    if (!alasan?.trim()) throw new Error("Alasan pembatalan wajib diisi");
+
+    const { data: po } = await supabase
+      .from("purchase_orders")
+      .select("id, status, po_items(qty_diterima)")
+      .eq("id", id)
+      .eq("organization_id", organizationId)
+      .single();
+    if (!po) throw new Error("PO tidak ditemukan");
+
+    const adaDiterima = (po.po_items as { qty_diterima: number }[]).some(
+      (it) => Number(it.qty_diterima) > 0
+    );
+    if (adaDiterima || ["Diterima Sebagian", "Selesai"].includes(po.status))
+      throw new Error(
+        "PO sudah ada barang diterima — batalkan penerimaannya dulu di menu Receiving."
+      );
+    if (po.status === "Dibatalkan") throw new Error("PO sudah dibatalkan");
+
+    const { error } = await supabase
+      .from("purchase_orders")
+      .update({ status: "Dibatalkan", catatan_batal: alasan.trim() })
+      .eq("id", id)
+      .eq("organization_id", organizationId);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/purchase-orders");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
+  }
+}

@@ -160,6 +160,36 @@ body {
   box-shadow: 0 0 8px rgba(47, 77, 58, 0.5);
 }
 
+/* ---------- Input tanggal/angka jangan tembus ke kanan di HP ---------- */
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="time"] {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* ---------- Preview cetak: A4 stabil, diperkecil proporsional di HP ---------- */
+.a4-sheet {
+  width: 210mm;
+}
+@media screen and (max-width: 470px) {
+  .a4-sheet {
+    zoom: 0.46;
+  }
+}
+@media screen and (min-width: 471px) and (max-width: 640px) {
+  .a4-sheet {
+    zoom: 0.66;
+  }
+}
+@media print {
+  .a4-sheet {
+    width: auto;
+    zoom: 1;
+  }
+}
+
 /* ---------- Bar navigasi HP bisa di-swipe tanpa scrollbar ---------- */
 @utility no-scrollbar {
   -ms-overflow-style: none;

@@ -14,6 +14,7 @@ export interface Profile {
   can_plan_production: boolean;
   can_qc: boolean;
   can_qa: boolean;
+  can_cancel: boolean;
 }
 
 export interface Organization {

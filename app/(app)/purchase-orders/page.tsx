@@ -4,8 +4,16 @@ import Link from "next/link";
 import { Plus, Wand2 } from "lucide-react";
 import PembelianShell from "@/components/PembelianShell";
 import TableSearch from "@/components/TableSearch";
+import CancelTxButton from "@/components/CancelTxButton";
+import { cancelPO } from "./actions";
 
-type POStatus = "Dibuat" | "Disetujui" | "Dikirim" | "Diterima Sebagian" | "Selesai";
+type POStatus =
+  | "Dibuat"
+  | "Disetujui"
+  | "Dikirim"
+  | "Diterima Sebagian"
+  | "Selesai"
+  | "Dibatalkan";
 
 type PORow = {
   id: string;
@@ -24,6 +32,7 @@ const STATUS_STYLE: Record<POStatus, string> = {
   Dikirim: "bg-clay-100 text-clay-600",
   "Diterima Sebagian": "bg-botanical-100 text-botanical-700",
   Selesai: "bg-botanical-700 text-white",
+  Dibatalkan: "bg-clay-100 text-clay-600",
 };
 
 function formatRupiah(n: number) {
@@ -40,7 +49,9 @@ function formatTanggal(iso: string) {
 
 export default async function PurchaseOrdersPage() {
   const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+  const canCancel =
+    isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
 
   const { data: pos } = await supabase
     .from("purchase_orders")
@@ -149,18 +160,34 @@ export default async function PurchaseOrdersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <Link
-                        href={`/print/po/${po.id}`}
-                        className="text-muted text-[12.5px] font-medium hover:underline mr-3"
-                      >
-                        Cetak
-                      </Link>
-                      <Link
-                        href={`/purchase-orders/${po.id}/edit`}
-                        className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        {editable ? "Edit" : "Detail"}
-                      </Link>
+                      <div className="inline-flex items-center gap-3">
+                        {canCancel &&
+                          po.status !== "Selesai" &&
+                          po.status !== "Diterima Sebagian" &&
+                          po.status !== "Dibatalkan" && (
+                            <CancelTxButton
+                              id={po.id}
+                              action={cancelPO}
+                              canCancel={canCancel}
+                              variant="link"
+                              label="Batal"
+                              judul="Batalkan Purchase Order"
+                              keterangan="PO akan ditandai Dibatalkan. Hanya bisa bila belum ada barang yang diterima."
+                            />
+                          )}
+                        <Link
+                          href={`/print/po/${po.id}`}
+                          className="text-muted text-[12.5px] font-medium hover:underline"
+                        >
+                          Cetak
+                        </Link>
+                        <Link
+                          href={`/purchase-orders/${po.id}/edit`}
+                          className="text-botanical-700 text-[12.5px] font-medium hover:underline"
+                        >
+                          {editable ? "Edit" : "Detail"}
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );

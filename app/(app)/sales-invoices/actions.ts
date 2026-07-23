@@ -155,3 +155,74 @@ export async function convertToInvoice(
     return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
   }
 }
+
+/**
+ * Batalkan invoice/proforma (koreksi operasional): hapus baris item &
+ * pembayaran, stok produk jadi otomatis kembali. Tidak bisa bila client
+ * sudah membayar (selain kas POS) atau bila berasal dari konsinyasi.
+ */
+export async function cancelInvoice(
+  id: string,
+  _alasan: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+    if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
+    if (!(isSuperAdmin || profile?.role === "Admin" || profile?.can_cancel))
+      throw new Error("Tidak punya izin membatalkan transaksi");
+
+    const { data: inv } = await supabase
+      .from("sales_invoices")
+      .select("id, sumber")
+      .eq("id", id)
+      .eq("organization_id", organizationId)
+      .single();
+    if (!inv) throw new Error("Dokumen tidak ditemukan");
+    if (inv.sumber === "Konsinyasi")
+      throw new Error(
+        "Dokumen dari konsinyasi — batalkan/koreksi lewat menu Consignment."
+      );
+
+    // Boleh batal hanya bila belum ada pembayaran dari client
+    // (kas otomatis POS tidak dihitung sebagai pembayaran client).
+    const { data: pays } = await supabase
+      .from("sales_payments")
+      .select("id, catatan")
+      .eq("invoice_id", id)
+      .eq("organization_id", organizationId);
+    const adaBayarClient = (pays || []).some(
+      (p) => (p.catatan || "") !== "Pembayaran tunai (POS)"
+    );
+    if (adaBayarClient)
+      throw new Error(
+        "Sudah ada pembayaran dari client — hapus dulu pembayarannya di Sales Payments."
+      );
+
+    // Hapus pembayaran (kas POS), item, lalu header
+    await supabase
+      .from("sales_payments")
+      .delete()
+      .eq("invoice_id", id)
+      .eq("organization_id", organizationId);
+    await supabase
+      .from("sales_invoice_items")
+      .delete()
+      .eq("invoice_id", id)
+      .eq("organization_id", organizationId);
+    const { error } = await supabase
+      .from("sales_invoices")
+      .delete()
+      .eq("id", id)
+      .eq("organization_id", organizationId);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/sales-invoices");
+    revalidatePath("/sales-payments");
+    revalidatePath("/finished-goods");
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
+  }
+}
