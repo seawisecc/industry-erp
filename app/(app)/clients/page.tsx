@@ -44,7 +44,7 @@ export default async function ClientsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Clients</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} client terdaftar — dipakai di konsinyasi, invoice, dan POS
+            {list.length} client terdaftar, dipakai di konsinyasi, invoice, dan POS
           </p>
         </div>
         <Link
@@ -88,7 +88,7 @@ export default async function ClientsPage() {
                   className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
                 >
                   <td className="px-4 py-3 font-mono text-[12.5px] whitespace-nowrap">
-                    {c.kode || "—"}
+                    {c.kode || "-"}
                   </td>
                   <td className="px-4 py-3">
                     <div
@@ -106,9 +106,9 @@ export default async function ClientsPage() {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap">{c.cp || "—"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{c.cp || "-"}</td>
                   <td className="px-4 py-3 whitespace-nowrap font-mono text-[12.5px]">
-                    {c.phone || "—"}
+                    {c.phone || "-"}
                   </td>
                   <td className="px-4 py-3">
                     <span

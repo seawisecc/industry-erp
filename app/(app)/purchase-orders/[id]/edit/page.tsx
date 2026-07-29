@@ -123,7 +123,7 @@ export default async function EditPOPage({
             <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">
               Supplier
             </div>
-            <div className="font-medium">{po.suppliers?.nama || "—"}</div>
+            <div className="font-medium">{po.suppliers?.nama || "-"}</div>
           </div>
           <div>
             <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">
@@ -135,7 +135,7 @@ export default async function EditPOPage({
             <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">
               Catatan
             </div>
-            <div>{po.catatan || "—"}</div>
+            <div>{po.catatan || "-"}</div>
           </div>
         </div>
 
@@ -215,7 +215,7 @@ export default async function EditPOPage({
       .order("created_at", { ascending: false }),
   ]);
 
-  // Harga beli terakhir per item — dipakai untuk prefill kolom harga
+  // Harga beli terakhir per item, dipakai untuk prefill kolom harga
   const lastHarga = new Map<string, number>();
   for (const b of (priceRows || []) as { item_id: string; harga_per_unit: number }[]) {
     const h = Number(b.harga_per_unit);

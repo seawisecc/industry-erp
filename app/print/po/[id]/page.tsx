@@ -137,7 +137,7 @@ export default async function PrintPOPage({
             {po.suppliers?.nama_kontak && (
               <div className="text-[11.5px] text-neutral-600 mt-0.5">
                 Up. {po.suppliers.nama_kontak}
-                {po.suppliers?.no_telp ? ` — ${po.suppliers.no_telp}` : ""}
+                {po.suppliers?.no_telp ? `, ${po.suppliers.no_telp}` : ""}
               </div>
             )}
           </div>
@@ -233,7 +233,7 @@ export default async function PrintPOPage({
         {/* ===== FOOTER ===== */}
         <div className="mt-10 pt-3 border-t border-neutral-300 text-[10px] text-neutral-400 flex justify-between">
           <span>
-            Dokumen ini diterbitkan melalui Seawise Enterprise Apps — Industry Edition
+            Dokumen ini diterbitkan melalui Industry Management by Seawise Studio
           </span>
           <span>{po.no_po}</span>
         </div>

@@ -26,7 +26,7 @@ const CARDS: SettingsCard[] = [
 ];
 
 /**
- * Kerangka halaman Pembelian: kartu navigasi kiri, konten kanan —
+ * Kerangka halaman Pembelian: kartu navigasi kiri, konten kanan -
  * dipakai bersama oleh /purchase-orders, /receivings, dan /payments.
  */
 export default async function PembelianShell({

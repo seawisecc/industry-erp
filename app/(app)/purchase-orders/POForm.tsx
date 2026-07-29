@@ -290,7 +290,7 @@ export default function POForm({ suppliers, items, po }: Props) {
 
         {!supplierId ? (
           <p className="text-muted text-[13px] py-3">
-            Pilih supplier dulu — daftar item akan mengikuti supplier yang dipilih.
+            Pilih supplier dulu, daftar item akan mengikuti supplier yang dipilih.
           </p>
         ) : supplierItems.length === 0 ? (
           <p className="text-clay-600 text-[13px] py-3">
@@ -349,7 +349,7 @@ export default function POForm({ suppliers, items, po }: Props) {
                               type="button"
                               onMouseDown={(e) => {
                                 e.preventDefault();
-                                // Harga otomatis dari pembelian terakhir —
+                                // Harga otomatis dari pembelian terakhir -
                                 // tetap bisa diubah manual bila ada perubahan
                                 const hargaPrefill =
                                   parseNum(row.harga) > 0
@@ -454,7 +454,7 @@ export default function POForm({ suppliers, items, po }: Props) {
                     <label className="block text-[11.5px] text-muted mb-1">Subtotal</label>
                   )}
                   <div className="px-1 py-2.5 text-[13px] text-right whitespace-nowrap">
-                    {rowSubtotal > 0 ? formatRupiah(rowSubtotal) : "—"}
+                    {rowSubtotal > 0 ? formatRupiah(rowSubtotal) : "-"}
                   </div>
                 </div>
 

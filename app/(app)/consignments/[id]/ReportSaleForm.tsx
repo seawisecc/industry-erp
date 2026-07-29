@@ -74,7 +74,7 @@ export default function ReportSaleForm({
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }
@@ -94,7 +94,7 @@ export default function ReportSaleForm({
       if (!result.ok) alert(result.error || "Gagal");
       router.refresh();
     } catch {
-      alert("Gagal — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi.");
+      alert("Gagal. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi.");
     } finally {
       setClosing(false);
     }
@@ -115,7 +115,7 @@ export default function ReportSaleForm({
             <p className="text-muted text-[12.5px] mt-0.5">
               {aktif
                 ? "Isi kolom Laku untuk melaporkan penjualan → generate proforma invoice."
-                : "Konsinyasi sudah selesai — sisa barang telah diretur ke stok."}
+                : "Konsinyasi sudah selesai, sisa barang telah diretur ke stok."}
             </p>
           </div>
           {aktif && (
@@ -240,7 +240,7 @@ export default function ReportSaleForm({
               />
               %
             </label>
-            <span>{pakaiTax ? formatRupiah(totals.tax) : "—"}</span>
+            <span>{pakaiTax ? formatRupiah(totals.tax) : "-"}</span>
           </div>
           <div className="flex justify-between items-center text-[13.5px]">
             <span className="text-muted flex items-center gap-1.5">

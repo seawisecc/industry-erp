@@ -135,17 +135,17 @@ export default async function PrintReceivingPage({
         <div className="mt-5 grid grid-cols-4 gap-4 text-[11.5px]">
           <div>
             <div className="uppercase tracking-wide text-neutral-500 mb-0.5">Supplier</div>
-            <div className="font-semibold text-[12.5px]">{rcv.supplier_nama || "—"}</div>
+            <div className="font-semibold text-[12.5px]">{rcv.supplier_nama || "-"}</div>
           </div>
           <div>
             <div className="uppercase tracking-wide text-neutral-500 mb-0.5">Ref. PO</div>
-            <div className="font-mono">{rcv.purchase_orders?.no_po || "—"}</div>
+            <div className="font-mono">{rcv.purchase_orders?.no_po || "-"}</div>
           </div>
           <div>
             <div className="uppercase tracking-wide text-neutral-500 mb-0.5">TOP</div>
             <div>
               {rcv.top_days == null
-                ? "—"
+                ? "-"
                 : rcv.top_days === 0
                   ? "Tunai / CIA"
                   : `${rcv.top_days} hari`}
@@ -155,7 +155,7 @@ export default async function PrintReceivingPage({
             <div className="uppercase tracking-wide text-neutral-500 mb-0.5">
               Jatuh Tempo
             </div>
-            <div>{rcv.jatuh_tempo ? formatTanggal(rcv.jatuh_tempo) : "—"}</div>
+            <div>{rcv.jatuh_tempo ? formatTanggal(rcv.jatuh_tempo) : "-"}</div>
           </div>
         </div>
 
@@ -183,7 +183,7 @@ export default async function PrintReceivingPage({
                   </div>
                 </td>
                 <td className="py-2 pr-2 align-top font-mono text-[11px]">
-                  {r.no_lot_supplier || "—"}
+                  {r.no_lot_supplier || "-"}
                 </td>
                 <td className="py-2 pr-2 align-top text-[11px]">
                   {r.exp_date
@@ -191,7 +191,7 @@ export default async function PrintReceivingPage({
                         month: "short",
                         year: "numeric",
                       })
-                    : "—"}
+                    : "-"}
                 </td>
                 <td className="py-2 pr-2 text-right align-top whitespace-nowrap">
                   {Number(r.qty_masuk).toLocaleString("id-ID")} {r.items?.satuan}
@@ -246,7 +246,7 @@ export default async function PrintReceivingPage({
 
         <div className="mt-10 pt-3 border-t border-neutral-300 text-[10px] text-neutral-400 flex justify-between">
           <span>
-            Dokumen ini diterbitkan melalui Seawise Enterprise Apps — Industry Edition
+            Dokumen ini diterbitkan melalui Industry Management by Seawise Studio
           </span>
           <span>{rcv.no_invoice || rcv.purchase_orders?.no_po}</span>
         </div>

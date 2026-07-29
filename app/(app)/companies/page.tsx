@@ -62,7 +62,7 @@ export default async function CompaniesPage() {
       <h1 className="font-display text-2xl font-semibold text-ink">Companies</h1>
       <p className="text-muted text-sm mt-1">
         {list.length} company terdaftar
-        {pending > 0 ? ` — ${pending} menunggu aktivasi` : ""}
+        {pending > 0 ? `, ${pending} menunggu aktivasi` : ""}
       </p>
 
       <div className="mt-4">
@@ -118,7 +118,7 @@ export default async function CompaniesPage() {
                         </div>
                       </>
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </td>
                   <td className="px-4 py-3">{o.profiles.length}</td>
@@ -131,7 +131,7 @@ export default async function CompaniesPage() {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {!o.aktif ? (
-                      "—"
+                      "-"
                     ) : o.aktif_sampai ? (
                       <span className={expired ? "text-clay-600 font-medium" : ""}>
                         {formatTanggal(o.aktif_sampai)}

@@ -75,7 +75,7 @@ export async function createPlan(data: {
       throw new Error("Jumlah batch harus lebih dari 0");
     if (!data.tanggal_rencana) throw new Error("Tanggal rencana wajib diisi");
 
-    // Snapshot cara pembuatan saat plan dibuat (jejak historis jujur —
+    // Snapshot cara pembuatan saat plan dibuat (jejak historis jujur -
     // perubahan prosedur di master tidak mengubah plan/batch lama)
     const { data: stepRows } = await supabase
       .from("product_process_steps")
@@ -209,7 +209,7 @@ export async function finishProduction(
     });
     if (error) throw new Error(error.message);
 
-    // QA Release aktif: batch baru berstatus Hold — produk jadi belum masuk
+    // QA Release aktif: batch baru berstatus Hold, produk jadi belum masuk
     // stok jual sampai diluluskan QA.
     const { qa: qaOn } = await getFeatures(organizationId);
     if (qaOn) {
@@ -319,7 +319,7 @@ export async function cancelProduction(
       const avail = stock.get(fgKey(o.product_id, o.varian_ukuran))?.available ?? 0;
       if (avail < Number(o.qty_hasil) - 0.001)
         throw new Error(
-          "Sebagian produk jadi sudah terjual/terkirim — batch tidak bisa dibatalkan."
+          "Sebagian produk jadi sudah terjual/terkirim, batch tidak bisa dibatalkan."
         );
     }
 

@@ -64,7 +64,7 @@ export default function MobileBottomNav({
     return pathname?.startsWith(href);
   }
 
-  // Semua modul yang boleh diakses — bisa di-swipe ke kanan
+  // Semua modul yang boleh diakses, bisa di-swipe ke kanan
   const tabs = NAV.filter((item) => {
     const pages = HUBS[item.href];
     if (pages) return pages.some((p) => canOpen(p));

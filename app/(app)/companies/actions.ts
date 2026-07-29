@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 
-// Nyalakan/matikan fitur berbayar (mis. MES) untuk satu company — Super Admin saja
+// Nyalakan/matikan fitur berbayar (mis. MES) untuk satu company, Super Admin saja
 export async function setCompanyFeature(
   organizationId: string,
   featureKey: "mes" | "qc" | "qa",

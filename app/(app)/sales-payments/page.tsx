@@ -87,7 +87,7 @@ export default async function SalesPaymentsPage() {
           Sales Payments
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          Tagihan Proforma menunggu pelunasan — catat DP/cicilan, lunas otomatis
+          Tagihan Proforma menunggu pelunasan. Catat DP/cicilan, lunas otomatis
           jadi Invoice. POS cash tidak muncul di sini.
         </p>
       </div>
@@ -171,7 +171,7 @@ export default async function SalesPaymentsPage() {
                     }`}
                   >
                     <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                      {inv.no_invoice || "—"}
+                      {inv.no_invoice || "-"}
                       <span className="block mt-1">
                         <span
                           className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
@@ -186,7 +186,7 @@ export default async function SalesPaymentsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="max-w-[170px] truncate font-medium">
-                        {inv.clients?.company_brand || inv.nama_pembeli || "—"}
+                        {inv.clients?.company_brand || inv.nama_pembeli || "-"}
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -201,7 +201,7 @@ export default async function SalesPaymentsPage() {
                           )}
                         </span>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -224,7 +224,7 @@ export default async function SalesPaymentsPage() {
                         <PaymentPanel
                           invoiceId={inv.id}
                           noInvoice={inv.no_invoice}
-                          client={inv.clients?.company_brand || inv.nama_pembeli || "—"}
+                          client={inv.clients?.company_brand || inv.nama_pembeli || "-"}
                           total={Number(inv.total)}
                           payments={paysByInv.get(inv.id) || []}
                         />

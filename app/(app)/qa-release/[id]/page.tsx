@@ -93,9 +93,9 @@ export default async function QaReviewPage({
     )
       .map((l) => ({
         batchId: l.id,
-        kode: l.items?.kode || "—",
-        nama: l.items?.nama || "—",
-        kategori: l.items?.kategori || "—",
+        kode: l.items?.kode || "-",
+        nama: l.items?.nama || "-",
+        kategori: l.items?.kategori || "-",
         lot: l.no_lot_supplier,
         status: l.qc_status || "Released",
         tanggal: l.qc_tanggal,
@@ -118,7 +118,7 @@ export default async function QaReviewPage({
   const info: QaReviewInfo = {
     batchId: batch.id,
     noBatch: batch.no_batch_produksi,
-    produkNama: produk?.nama_produk || "—",
+    produkNama: produk?.nama_produk || "-",
     produkKode: produk?.kode || null,
     brand: produk?.brand || null,
     tanggalProduksi: batch.tanggal_produksi,
@@ -151,7 +151,7 @@ export default async function QaReviewPage({
       </h1>
       <p className="text-muted text-sm mb-6">
         {info.produkNama} · batch{" "}
-        <span className="font-mono">{info.noBatch}</span> — tinjau seluruh bukti
+        <span className="font-mono">{info.noBatch}</span>, tinjau seluruh bukti
         pengujian &amp; dokumen, lalu putuskan pelulusan.
       </p>
 

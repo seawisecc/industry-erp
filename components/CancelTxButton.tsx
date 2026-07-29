@@ -1,7 +1,7 @@
 "use client";
 
 /* ============================================================
-   Tombol "Batal Transaksi" — koreksi operasional.
+   Tombol "Batal Transaksi", koreksi operasional.
    Muncul hanya untuk user berizin (canCancel). Membuka modal
    konfirmasi + alasan, lalu memanggil server action terkait.
    ============================================================ */
@@ -64,7 +64,7 @@ export default function CancelTxButton({
         setLoading(false);
       }
     } catch {
-      setError("Gagal — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang lalu coba lagi.");
+      setError("Gagal, koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang lalu coba lagi.");
       setLoading(false);
     }
   }

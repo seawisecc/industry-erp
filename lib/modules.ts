@@ -1,4 +1,4 @@
-// Registry modul aplikasi — dipakai Sidebar, guard akses, dan checklist di form Pengguna.
+// Registry modul aplikasi, dipakai Sidebar, guard akses, dan checklist di form Pengguna.
 // key = segmen pertama URL (mis. /purchase-orders/new → "purchase-orders")
 
 export const MODULES = [

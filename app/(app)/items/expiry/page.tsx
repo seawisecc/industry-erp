@@ -76,7 +76,7 @@ export default async function ExpiryPage() {
       </h1>
       <p className="text-muted text-sm mb-6">
         {list.length} batch mendekati / lewat expired
-        {expiredCount > 0 ? ` — ${expiredCount} sudah expired` : ""}. Tindak
+        {expiredCount > 0 ? `, ${expiredCount} sudah expired` : ""}. Tindak
         lanjut: Re-test (perpanjang exp) atau Musnahkan.
       </p>
 
@@ -123,7 +123,7 @@ export default async function ExpiryPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                      {b.no_lot_supplier || "—"}
+                      {b.no_lot_supplier || "-"}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span
@@ -145,7 +145,7 @@ export default async function ExpiryPage() {
                         className="max-w-[150px] truncate text-[12.5px]"
                         title={b.supplier_nama || undefined}
                       >
-                        {b.supplier_nama || "—"}
+                        {b.supplier_nama || "-"}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -207,7 +207,7 @@ export default async function ExpiryPage() {
                   </td>
                   <td className="px-4 py-3 text-[12.5px]">
                     {l.tipe === "Re-test"
-                      ? `${l.exp_lama ? formatTanggal(l.exp_lama) : "—"} → ${l.exp_baru ? formatTanggal(l.exp_baru) : "—"}`
+                      ? `${l.exp_lama ? formatTanggal(l.exp_lama) : ""} → ${l.exp_baru ? formatTanggal(l.exp_baru) : ""}`
                       : `${Number(l.qty || 0).toLocaleString("id-ID")} dimusnahkan`}
                     {l.catatan ? ` · ${l.catatan}` : ""}
                   </td>

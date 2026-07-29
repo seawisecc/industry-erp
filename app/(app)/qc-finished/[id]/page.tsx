@@ -82,7 +82,7 @@ export default async function QaSheetPage({
   ).map((p) => ({
     nama: p.nama,
     satuan: p.satuan,
-    // Spesifikasi produk ini (dari batch sebelumnya) — fallback ke default
+    // Spesifikasi produk ini (dari batch sebelumnya), fallback ke default
     spesifikasi: spec[p.nama] ?? p.spesifikasi,
     grup: p.grup,
     hasil: "",
@@ -92,7 +92,7 @@ export default async function QaSheetPage({
     batchId: batch.id,
     productId: produk?.id || null,
     noBatch: batch.no_batch_produksi,
-    produkNama: produk?.nama_produk || "—",
+    produkNama: produk?.nama_produk || "-",
     produkKode: produk?.kode || null,
     brand: produk?.brand || null,
     tanggalProduksi: batch.tanggal_produksi,
@@ -124,7 +124,7 @@ export default async function QaSheetPage({
       </h1>
       <p className="text-muted text-sm mb-6">
         {info.produkNama} · batch{" "}
-        <span className="font-mono">{info.noBatch}</span> — isi hasil uji produk
+        <span className="font-mono">{info.noBatch}</span>, isi hasil uji produk
         jadi, lalu kirim ke QA untuk pelulusan.
       </p>
 

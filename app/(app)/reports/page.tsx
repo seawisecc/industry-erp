@@ -179,10 +179,10 @@ export default async function ReportsPage({
                     <td className={`${td} text-right`}>
                       {Number(r.diskon_percent) > 0
                         ? `${Number(r.diskon_percent)}%`
-                        : "—"}
+                        : "-"}
                     </td>
                     <td className={`${td} text-right`}>
-                      {r.pakai_tax ? `${Number(r.tax_percent)}%` : "—"}
+                      {r.pakai_tax ? `${Number(r.tax_percent)}%` : "-"}
                     </td>
                     <td className={`${td} text-right whitespace-nowrap font-medium`}>
                       {formatRupiah(Number(r.total))}
@@ -264,7 +264,7 @@ export default async function ReportsPage({
 
     const perSupplier = new Map<string, number>();
     for (const r of rows) {
-      const nama = r.supplier_nama || "—";
+      const nama = r.supplier_nama || "-";
       perSupplier.set(nama, (perSupplier.get(nama) || 0) + Number(r.total_invoice));
     }
     const supplierRekap = Array.from(perSupplier, ([nama, t]) => ({ nama, t })).sort(
@@ -318,19 +318,19 @@ export default async function ReportsPage({
                       {formatTanggal(r.tanggal_terima)}
                     </td>
                     <td className={`${td} font-mono text-[11.5px]`}>
-                      {r.no_invoice || "—"}
+                      {r.no_invoice || "-"}
                     </td>
                     <td className={td}>
                       <div className="max-w-[180px] truncate">
-                        {r.supplier_nama || "—"}
+                        {r.supplier_nama || "-"}
                       </div>
                     </td>
                     <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
-                      {r.purchase_orders?.no_po || "—"}
+                      {r.purchase_orders?.no_po || "-"}
                     </td>
                     <td className={td}>
                       {r.top_days == null
-                        ? "—"
+                        ? "-"
                         : r.top_days === 0
                           ? "Tunai"
                           : `${r.top_days} hr`}
@@ -451,7 +451,7 @@ export default async function ReportsPage({
             {
               label: "Rata-rata HPP/pcs",
               value:
-                totalPcsAll > 0 ? formatRupiah(totalCost / totalPcsAll) : "—",
+                totalPcsAll > 0 ? formatRupiah(totalCost / totalPcsAll) : "-",
             },
           ].map((c) => (
             <div key={c.label} className="glass rounded-xl p-3.5">
@@ -496,7 +496,7 @@ export default async function ReportsPage({
                     </td>
                     <td className={td}>
                       <div className="max-w-[180px] truncate">
-                        {r.production_outputs[0]?.products?.nama_produk || "—"}
+                        {r.production_outputs[0]?.products?.nama_produk || "-"}
                       </div>
                     </td>
                     <td className={`${td} text-right whitespace-nowrap text-[11.5px]`}>
@@ -511,7 +511,7 @@ export default async function ReportsPage({
                       {formatRupiah(Number(r.total_cost_bahan))}
                     </td>
                     <td className={`${td} text-right whitespace-nowrap font-medium`}>
-                      {r.totalPcs > 0 ? formatRupiah(r.hpp) : "—"}
+                      {r.totalPcs > 0 ? formatRupiah(r.hpp) : "-"}
                     </td>
                     <td
                       className={`${td} text-right whitespace-nowrap font-medium ${
@@ -523,7 +523,7 @@ export default async function ReportsPage({
                       }`}
                     >
                       {r.yieldPct == null
-                        ? "—"
+                        ? "-"
                         : `${r.yieldPct.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`}
                     </td>
                   </tr>
@@ -667,14 +667,14 @@ export default async function ReportsPage({
                         r.masuk > 0 ? "text-botanical-700 font-medium" : ""
                       }`}
                     >
-                      {r.masuk > 0 ? `+${formatQty(r.masuk)}` : "—"}
+                      {r.masuk > 0 ? `+${formatQty(r.masuk)}` : "-"}
                     </td>
                     <td
                       className={`${td} text-right whitespace-nowrap ${
                         r.keluar > 0 ? "text-clay-600 font-medium" : ""
                       }`}
                     >
-                      {r.keluar > 0 ? `−${formatQty(r.keluar)}` : "—"}
+                      {r.keluar > 0 ? `−${formatQty(r.keluar)}` : "-"}
                     </td>
                     <td className={`${td} text-right whitespace-nowrap font-semibold`}>
                       {formatQty(r.akhir)} {r.satuan}
@@ -737,7 +737,7 @@ export default async function ReportsPage({
 
     const perOutlet = new Map<string, { kirim: number; jual: number; sisa: number; nilai: number }>();
     for (const r of rows) {
-      const nama = r.clients?.company_brand || "—";
+      const nama = r.clients?.company_brand || "-";
       const e = perOutlet.get(nama) || { kirim: 0, jual: 0, sisa: 0, nilai: 0 };
       e.kirim += r.kirim;
       e.jual += r.terjual;
@@ -802,7 +802,7 @@ export default async function ReportsPage({
                     </td>
                     <td className={td}>
                       <div className="max-w-[160px] truncate">
-                        {r.clients?.company_brand || "—"}
+                        {r.clients?.company_brand || "-"}
                       </div>
                     </td>
                     <td className={`${td} text-right`}>{formatQty(r.kirim)}</td>
@@ -906,7 +906,7 @@ export default async function ReportsPage({
       clients: { company_brand: string } | null;
     }[]).map((r) => ({
       no: r.no_invoice,
-      pihak: r.clients?.company_brand || r.nama_pembeli || "—",
+      pihak: r.clients?.company_brand || r.nama_pembeli || "-",
       tanggal: r.tanggal,
       jatuh_tempo: r.jatuh_tempo,
       sisa: Number(r.total) - (paidBy.get(r.id) || 0),
@@ -920,7 +920,7 @@ export default async function ReportsPage({
       supplier_nama: string | null;
     }[]).map((r) => ({
       no: r.no_invoice,
-      pihak: r.supplier_nama || "—",
+      pihak: r.supplier_nama || "-",
       tanggal: r.tanggal_terima,
       jatuh_tempo: r.jatuh_tempo,
       sisa: Number(r.total_invoice),
@@ -929,7 +929,7 @@ export default async function ReportsPage({
     const totalPiutang = piutang.reduce((s, r) => s + r.sisa, 0);
     const totalHutang = hutang.reduce((s, r) => s + r.sisa, 0);
     const overdue = (d: string | null) => d !== null && d < todayStr;
-    const jt = (d: string | null) => (d ? formatTanggal(d) : "—");
+    const jt = (d: string | null) => (d ? formatTanggal(d) : "-");
 
     const tabel = (
       judul: string,
@@ -970,7 +970,7 @@ export default async function ReportsPage({
                   }`}
                 >
                   <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
-                    {r.no || "—"}
+                    {r.no || "-"}
                   </td>
                   <td className={td}>
                     <div className="max-w-[180px] truncate">{r.pihak}</div>
@@ -1042,7 +1042,7 @@ export default async function ReportsPage({
       <div className="hidden print:block mb-4 border-b-2 border-ink pb-3">
         <div className="font-display text-xl font-bold">{org?.nama}</div>
         <div className="text-sm mt-0.5">
-          {active.label} — Periode {formatTanggal(from)} s/d {formatTanggal(to)}
+          {active.label} · Periode {formatTanggal(from)} s/d {formatTanggal(to)}
         </div>
       </div>
 
@@ -1050,7 +1050,7 @@ export default async function ReportsPage({
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">Reports</h1>
           <p className="text-muted text-sm mt-1">
-            Laporan operasional per periode — siap cetak dengan kop perusahaan
+            Laporan operasional per periode, siap cetak dengan kop perusahaan
           </p>
         </div>
         <PrintPageButton />
@@ -1120,7 +1120,7 @@ export default async function ReportsPage({
           {active.label}
         </h2>
         <p className="text-muted text-[12.5px]">
-          {active.desc} · {formatTanggal(from)} — {formatTanggal(to)}
+          {active.desc} · {formatTanggal(from)} · {formatTanggal(to)}
         </p>
       </div>
 

@@ -108,9 +108,9 @@ export default function LoginPage() {
             </div>
             <div>
               <div className="font-display font-semibold text-[16px]">
-                Seawise Enterprise Apps
+                Industry Management
               </div>
-              <div className="text-[11px] text-muted">Industry Edition</div>
+              <div className="text-[11px] text-muted">by Seawise Studio</div>
             </div>
           </div>
 
@@ -210,7 +210,7 @@ export default function LoginPage() {
                 Daftarkan Perusahaan
               </h1>
               <p className="text-muted text-[12.5px] mb-5">
-                Gratis mendaftar — aktivasi dilakukan oleh tim Seawise.
+                Gratis mendaftar, aktivasi dilakukan oleh tim Seawise.
               </p>
 
               <form onSubmit={handleRegister}>

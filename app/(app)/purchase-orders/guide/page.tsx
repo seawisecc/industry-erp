@@ -95,7 +95,7 @@ export default async function GuideOrderPage() {
       </h1>
       <p className="text-muted text-sm mb-6">
         {guideItems.length} item di bawah stok minimum. Qty sudah disarankan
-        (dibulatkan ke MOQ) — sesuaikan bila perlu, lalu sistem membuat PO
+        (dibulatkan ke MOQ), sesuaikan bila perlu, lalu sistem membuat PO
         terpisah untuk tiap supplier.
       </p>
 

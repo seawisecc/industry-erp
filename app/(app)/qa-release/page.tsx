@@ -25,7 +25,7 @@ type BatchRow = {
 };
 
 function formatTanggal(iso: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
@@ -67,7 +67,7 @@ export default async function QaReleasePage() {
   const logs = (history || []) as unknown as BatchRow[];
 
   const produkOf = (b: BatchRow) =>
-    b.production_outputs?.[0]?.products?.nama_produk || "—";
+    b.production_outputs?.[0]?.products?.nama_produk || "-";
   const hasilOf = (b: BatchRow) =>
     b.production_outputs
       .map(
@@ -85,7 +85,7 @@ export default async function QaReleasePage() {
           QA Release
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          {list.length} batch menunggu review — produk jadi belum masuk stok jual
+          {list.length} batch menunggu review, produk jadi belum masuk stok jual
           sampai batch di-release QA.
         </p>
       </div>
@@ -109,7 +109,7 @@ export default async function QaReleasePage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  Tidak ada batch menunggu review 🎉 — batch baru dari Production
+                  Tidak ada batch menunggu review 🎉, batch baru dari Production
                   akan muncul di sini.
                 </td>
               </tr>
@@ -211,11 +211,11 @@ export default async function QaReleasePage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                    {b.qa_oleh || "—"}
+                    {b.qa_oleh || "-"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="max-w-[220px] line-clamp-2 text-[12.5px]" title={b.qa_note || undefined}>
-                      {b.qa_note || "—"}
+                      {b.qa_note || "-"}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">

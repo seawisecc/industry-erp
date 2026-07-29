@@ -13,7 +13,7 @@ export type InciInput = {
   reference: string | null;
 };
 
-// Simpan INCI (baru atau edit). Return {ok, error} — tidak throw,
+// Simpan INCI (baru atau edit). Return {ok, error} · tidak throw,
 // supaya pesan error asli tetap terlihat di production.
 export async function saveInci(
   input: InciInput,

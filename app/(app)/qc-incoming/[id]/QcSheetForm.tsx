@@ -1,7 +1,7 @@
 "use client";
 
 /* ============================================================
-   Lembar Pengujian QC — bahan masuk.
+   Lembar Pengujian QC, bahan masuk.
    Tim QC mengisi jumlah sampel, tanggal sampling & uji, lalu hasil
    tiap parameter (spesifikasi diambil dari master Parameter Uji).
    Keputusan Release/Reject dilakukan dari halaman ini.
@@ -134,7 +134,7 @@ export default function QcSheetForm({
             <div className="text-[11px] uppercase tracking-wide text-muted mb-0.5">
               No. Batch / Lot
             </div>
-            <div className="font-mono">{info.noLot || "—"}</div>
+            <div className="font-mono">{info.noLot || "-"}</div>
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-wide text-muted mb-0.5">
@@ -149,7 +149,7 @@ export default function QcSheetForm({
               Supplier
             </div>
             <div className="truncate" title={info.supplier || undefined}>
-              {info.supplier || "—"}
+              {info.supplier || "-"}
             </div>
           </div>
         </div>
@@ -220,7 +220,7 @@ export default function QcSheetForm({
               {terisi}/{rows.length} parameter terisi
             </span>
             <span className="text-[11px] text-muted/80">
-              Spesifikasi tersimpan ke master bahan — pengujian berikutnya terisi
+              Spesifikasi tersimpan ke master bahan, pengujian berikutnya terisi
               otomatis
             </span>
           </div>
@@ -378,7 +378,7 @@ export default function QcSheetForm({
         </div>
         ) : (
           <p className="text-muted text-[12.5px] bg-white/50 rounded-lg px-3 py-2.5">
-            Mode lihat saja — hanya petugas dengan izin QC yang bisa menyimpan
+            Mode lihat saja, hanya petugas dengan izin QC yang bisa menyimpan
             dan memutuskan hasil uji. Minta Admin mengaktifkan izin ini di menu
             Users.
           </p>

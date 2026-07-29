@@ -1,7 +1,7 @@
 "use client";
 
 /* ============================================================
-   Lembar Uji Produk Jadi — dikerjakan tim QC.
+   Lembar Uji Produk Jadi, dikerjakan tim QC.
    Hasil uji dikirim ke QA sebagai dasar pelulusan batch.
    ============================================================ */
 
@@ -208,7 +208,7 @@ export default function QcProdukForm({
               {terisi}/{rows.length} parameter terisi
             </span>
             <span className="text-[11px] text-muted/80">
-              Spesifikasi tersimpan ke master produk — batch berikutnya terisi
+              Spesifikasi tersimpan ke master produk, batch berikutnya terisi
               otomatis
             </span>
           </div>
@@ -349,12 +349,12 @@ export default function QcProdukForm({
             ) : (
               <Check size={15} />
             )}
-            Selesai — Kirim ke QA
+            Selesai, Kirim ke QA
           </button>
         </div>
         ) : (
           <p className="text-muted text-[12.5px] bg-white/50 rounded-lg px-3 py-2.5">
-            Mode lihat saja — hanya petugas dengan izin QC yang bisa menyimpan
+            Mode lihat saja, hanya petugas dengan izin QC yang bisa menyimpan
             dan memutuskan hasil uji. Minta Admin mengaktifkan izin ini di menu
             Users.
           </p>

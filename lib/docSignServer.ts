@@ -7,7 +7,7 @@ import {
 } from "@/lib/docSign";
 
 /**
- * Slot tanda tangan AKTIF untuk satu jenis dokumen — dipakai halaman cetak.
+ * Slot tanda tangan AKTIF untuk satu jenis dokumen, dipakai halaman cetak.
  * Kalau belum pernah diatur, fallback ke 3 key person lama (semua aktif).
  */
 export async function getDocSigners(

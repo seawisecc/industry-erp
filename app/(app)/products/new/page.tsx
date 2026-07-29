@@ -28,7 +28,7 @@ export default async function NewProductPage() {
         Tambah Produk
       </h1>
       <p className="text-muted text-sm mb-6">
-        Kode produk bebas diisi sendiri — kosongkan untuk otomatis (PRD-XXXX).
+        Kode produk bebas diisi sendiri, kosongkan untuk otomatis (PRD-XXXX).
       </p>
 
       <ProductForm items={(items || []) as ItemOption[]} />

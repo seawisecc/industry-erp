@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { runImport, ImportKind } from "./actions";
 
-// Ikon dipilih di sini (client) — komponen/function tidak boleh dioper
+// Ikon dipilih di sini (client), komponen/function tidak boleh dioper
 // sebagai prop dari Server Component.
 const ICONS: Record<ImportKind, LucideIcon> = {
   suppliers: Briefcase,
@@ -40,7 +40,7 @@ export type ImportCardConfig = {
   previewCols: string[]; // kolom yang ditampilkan di preview (max 3)
 };
 
-/** Deteksi delimiter dari baris header — Excel region Indonesia sering pakai ";" */
+/** Deteksi delimiter dari baris header, Excel region Indonesia sering pakai ";" */
 function detectDelimiter(firstLine: string): string {
   const commaCount = (firstLine.match(/,/g) || []).length;
   const semicolonCount = (firstLine.match(/;/g) || []).length;

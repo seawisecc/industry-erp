@@ -1,7 +1,7 @@
 "use client";
 
 /* ============================================================
-   Guide Order — panduan belanja otomatis.
+   Guide Order, panduan belanja otomatis.
    Sistem menarik item yang stoknya di bawah/mendekati stok minimum,
    menyarankan qty (dibulatkan ke MOQ), lalu membuat PO terpisah
    per supplier dalam sekali klik.
@@ -62,7 +62,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
     .filter((it) => it.supplier_id && parseNum(qty[it.id] || "") > 0)
     .map((it) => ({
       supplier_id: it.supplier_id!,
-      supplier_nama: it.supplier_nama || "—",
+      supplier_nama: it.supplier_nama || "-",
       item_id: it.id,
       qty: parseNum(qty[it.id]),
       harga: it.harga ?? 0,
@@ -102,7 +102,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
       const res = await createPOsFromGuide(lines, tanggal, parseNum(ppn));
       if (res.ok) {
         const gagal = res.failed && res.failed.length > 0
-          ? ` — ${res.failed.length} gagal: ${res.failed
+          ? `, ${res.failed.length} gagal: ${res.failed
               .map((f) => `${f.supplier} (${f.error})`)
               .join("; ")}`
           : "";
@@ -114,7 +114,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }
@@ -179,7 +179,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
             {items.length === 0 ? (
               <tr>
                 <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  Semua stok aman 🎉 — tidak ada item di bawah stok minimum.
+                  Semua stok aman 🎉, tidak ada item di bawah stok minimum.
                 </td>
               </tr>
             ) : (
@@ -220,7 +220,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
                       {formatNum(it.stokMin)}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap text-muted">
-                      {it.moq ? formatNum(it.moq) : "—"}
+                      {it.moq ? formatNum(it.moq) : "-"}
                     </td>
                     <td className="px-4 py-3">
                       <input
@@ -243,10 +243,10 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {it.harga != null ? formatRupiah(it.harga) : "—"}
+                      {it.harga != null ? formatRupiah(it.harga) : "-"}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap font-medium">
-                      {q > 0 && it.harga != null ? formatRupiah(q * it.harga) : "—"}
+                      {q > 0 && it.harga != null ? formatRupiah(q * it.harga) : "-"}
                     </td>
                   </tr>
                 );
@@ -258,7 +258,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
 
       {tanpaSupplier > 0 && (
         <p className="text-amber-500 text-[12px] bg-amber-100 rounded-lg px-3 py-2">
-          {tanpaSupplier} item belum punya supplier — hubungkan Item ke Material
+          {tanpaSupplier} item belum punya supplier, hubungkan Item ke Material
           yang bersupplier dulu supaya bisa dipesan lewat Guide Order.
         </p>
       )}

@@ -1,5 +1,5 @@
 /* ============================================================
-   Master parameter uji QC — tipe, kategori, dan daftar standar.
+   Master parameter uji QC, tipe, kategori, dan daftar standar.
    File netral (bukan "use server") supaya bisa dipakai komponen
    client maupun server action.
    ============================================================ */
@@ -31,7 +31,7 @@ export const GRUP_SARAN = [
   "Lainnya",
 ];
 
-// Parameter standar per kategori — dipakai tombol "Isi Parameter Standar"
+// Parameter standar per kategori, dipakai tombol "Isi Parameter Standar"
 export const PARAM_STANDAR: Record<QcKategoriKey, Omit<QcParamInput, "id">[]> = {
   bahan_baku: [
     { kategori: "bahan_baku", nama: "Warna", satuan: null, spesifikasi: null, grup: "Organoleptis", aktif: true },

@@ -21,15 +21,15 @@ const siteUrl =
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Seawise Enterprise Apps — Industry Edition",
-    template: "%s · Seawise Industry",
+    default: "Industry Management | Seawise Studio",
+    template: "%s | Industry Management",
   },
   description:
     "ERP manufaktur siap audit CPKB: purchase order, stok FEFO, produksi & HPP real per batch, MES, QC/QA, penjualan, dan regulasi INCI.",
   openGraph: {
     type: "website",
-    siteName: "Seawise Enterprise Apps — Industry Edition",
-    title: "Seawise Enterprise Apps — Industry Edition",
+    siteName: "Industry Management | Seawise Studio",
+    title: "Industry Management | Seawise Studio",
     description:
       "ERP manufaktur siap audit CPKB: purchase order, stok FEFO, produksi & HPP real per batch, MES, QC/QA, penjualan, dan regulasi INCI.",
     locale: "id_ID",
@@ -37,9 +37,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Seawise Enterprise Apps — Industry Edition",
+    title: "Industry Management | Seawise Studio",
     description:
-      "ERP manufaktur siap audit CPKB — dari PO sampai Certificate of Analysis dalam satu sistem.",
+      "ERP manufaktur siap audit CPKB, dari PO sampai Certificate of Analysis dalam satu sistem.",
     images: ["/og.png"],
   },
 };

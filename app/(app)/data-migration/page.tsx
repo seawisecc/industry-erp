@@ -38,7 +38,7 @@ const CARDS: ImportCardConfig[] = [
     desc: "Impor material (raw material & kemasan) beserta supplier-nya.",
     requiredCols: ["material_code", "tradename"],
     optionalCols: ["nama_supplier", "origin", "noc", "kategori", "keterangan"],
-    note: "Import Supplier dulu — nama_supplier harus sama persis dengan yang terdaftar. Kategori: Bahan Baku / Kemasan. Komposisi INCI diisi lewat form Material.",
+    note: "Import Supplier dulu, nama_supplier harus sama persis dengan yang terdaftar. Kategori: Bahan Baku / Kemasan. Komposisi INCI diisi lewat form Material.",
     templateSample: [
       "RM-001",
       "Niacinamide PC Grade",
@@ -94,7 +94,7 @@ export default function DataMigrationPage() {
     <SettingsShell>
       <h2 className="font-display text-lg font-semibold text-ink">Data Migration</h2>
       <p className="text-muted text-[12.5px] mt-0.5">
-        Satu pintu untuk onboarding &amp; update data massal — download template,
+        Satu pintu untuk onboarding &amp; update data massal, download template,
         isi, upload.
       </p>
 
@@ -115,7 +115,7 @@ export default function DataMigrationPage() {
               Adjustment Stok
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              Input stok awal &amp; stock opname — seluruh item tampil dalam satu
+              Input stok awal &amp; stock opname, seluruh item tampil dalam satu
               form, tinggal sesuaikan qty &amp; harga.
             </p>
           </div>

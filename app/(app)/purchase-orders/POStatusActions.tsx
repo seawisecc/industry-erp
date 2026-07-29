@@ -91,7 +91,7 @@ export default function POStatusActions({
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <div className="text-[13.5px] font-semibold text-ink">
-              Disetujui — siap dikirim
+              Disetujui, siap dikirim
             </div>
             <p className="text-muted text-[12.5px]">
               Cetak PO, kirim ke supplier, lalu tandai sebagai terkirim.
@@ -120,7 +120,7 @@ export default function POStatusActions({
               )}
             </div>
             <p className="text-muted text-[12.5px]">
-              Diisi saat proforma invoice keluar — jadi dasar jatuh tempo di menu
+              Diisi saat proforma invoice keluar, jadi dasar jatuh tempo di menu
               Pembayaran.
             </p>
           </div>

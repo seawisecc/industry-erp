@@ -127,25 +127,25 @@ export default async function ReceivingDetailPage({
         </div>
       </div>
       <p className="text-muted text-sm mb-6">
-        {formatTanggal(rcv.tanggal_terima)} — {rcv.supplier_nama || "—"}
+        {formatTanggal(rcv.tanggal_terima)} · {rcv.supplier_nama || "-"}
       </p>
 
       <div className="glass rounded-2xl p-6 mb-5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13.5px]">
         <div>
           <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">No. PO</div>
-          <div className="font-mono text-[12.5px]">{rcv.purchase_orders?.no_po || "—"}</div>
+          <div className="font-mono text-[12.5px]">{rcv.purchase_orders?.no_po || "-"}</div>
         </div>
         <div>
           <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">
             No. Invoice
           </div>
-          <div className="font-mono text-[12.5px]">{rcv.no_invoice || "—"}</div>
+          <div className="font-mono text-[12.5px]">{rcv.no_invoice || "-"}</div>
         </div>
         <div>
           <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">TOP</div>
           <div>
             {rcv.top_days == null
-              ? "—"
+              ? "-"
               : rcv.top_days === 0
                 ? "Tunai / CIA"
                 : `${rcv.top_days} hari`}
@@ -155,7 +155,7 @@ export default async function ReceivingDetailPage({
           <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">
             Jatuh Tempo
           </div>
-          <div>{rcv.jatuh_tempo ? formatTanggal(rcv.jatuh_tempo) : "—"}</div>
+          <div>{rcv.jatuh_tempo ? formatTanggal(rcv.jatuh_tempo) : "-"}</div>
         </div>
       </div>
 
@@ -181,7 +181,7 @@ export default async function ReceivingDetailPage({
                   {r.items?.nama}
                 </td>
                 <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                  {r.no_lot_supplier || "—"}
+                  {r.no_lot_supplier || "-"}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
                   {r.exp_date
@@ -189,7 +189,7 @@ export default async function ReceivingDetailPage({
                         month: "short",
                         year: "numeric",
                       })
-                    : "—"}
+                    : "-"}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   {Number(r.qty_masuk).toLocaleString("id-ID")} {r.items?.satuan}

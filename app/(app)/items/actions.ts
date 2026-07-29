@@ -127,7 +127,7 @@ export async function createItemsFromMaterials(
     for (const r of rows) {
       const mat = (materials || []).find((m) => m.id === r.material_id);
       if (!mat) throw new Error("Ada material yang tidak ditemukan");
-      if (mat.item_id) continue; // sudah pernah dibuatkan item — lewati
+      if (mat.item_id) continue; // sudah pernah dibuatkan item, lewati
 
       const { data: item, error } = await supabase
         .from("items")

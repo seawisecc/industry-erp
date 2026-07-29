@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
@@ -127,7 +128,7 @@ export default async function ProductDetailPage({
     .map((f) => {
       const it = itemMap.get(f.item_id);
       return {
-        kode: it?.kode || "—",
+        kode: it?.kode || "-",
         nama: it?.nama || "(item terhapus)",
         satuan: it?.satuan || "",
         fase: f.fase || "",
@@ -135,8 +136,32 @@ export default async function ProductDetailPage({
         qtyPerBatch: (Number(f.percentage) / 100) * batchKg,
       };
     })
-    .sort((a, b) => b.pct - a.pct);
+    // Urut per fase (A, B, C...), lalu dalam tiap fase dari % terbesar.
+    // Bahan tanpa fase ditaruh paling akhir.
+    .sort((a, b) => {
+      const fa = a.fase.trim().toUpperCase();
+      const fb = b.fase.trim().toUpperCase();
+      if (fa !== fb) {
+        if (!fa) return 1;
+        if (!fb) return -1;
+        return fa.localeCompare(fb);
+      }
+      return b.pct - a.pct;
+    });
   const totalPct = formulaRows.reduce((s, r) => s + r.pct, 0);
+
+  // Kelompokkan untuk baris pemisah fase + subtotal per fase
+  const faseGroups: { fase: string; rows: typeof formulaRows; total: number }[] = [];
+  for (const r of formulaRows) {
+    const key = r.fase.trim().toUpperCase() || "-";
+    const last = faseGroups[faseGroups.length - 1];
+    if (last && last.fase === key) {
+      last.rows.push(r);
+      last.total += r.pct;
+    } else {
+      faseGroups.push({ fase: key, rows: [r], total: r.pct });
+    }
+  }
 
   const stepRows = (product.product_process_steps || []).sort(
     (a, b) => a.urutan - b.urutan
@@ -212,7 +237,7 @@ export default async function ProductDetailPage({
         </Link>
       </div>
       <p className="text-muted text-sm mb-6">
-        {[product.brand, product.kategori].filter(Boolean).join(" · ") || "—"}
+        {[product.brand, product.kategori].filter(Boolean).join(" · ") || "-"}
         {batchKg > 0 ? ` · 1 batch = ${batchKg.toLocaleString("id-ID")} kg bulk` : ""}
       </p>
 
@@ -248,31 +273,61 @@ export default async function ProductDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {formulaRows.map((r) => (
-                  <tr key={r.kode + r.nama} className="border-b border-line last:border-0">
-                    <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">
-                      {r.kode}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="max-w-[280px] truncate" title={r.nama}>
-                        {r.nama}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      {r.fase || "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                      {r.pct.toLocaleString("id-ID", { maximumFractionDigits: 3 })}%
-                    </td>
-                    {batchKg > 0 && (
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                        {r.qtyPerBatch.toLocaleString("id-ID", {
-                          maximumFractionDigits: 3,
-                        })}{" "}
-                        {r.satuan || "kg"}
+                {faseGroups.map((g) => (
+                  <Fragment key={g.fase}>
+                    <tr className="bg-botanical-100/50 border-b border-line">
+                      <td
+                        colSpan={batchKg > 0 ? 3 : 3}
+                        className="px-3 py-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-botanical-700"
+                      >
+                        {g.fase === "-" ? "Tanpa Fase" : `Fase ${g.fase}`}
+                        <span className="font-normal text-muted normal-case tracking-normal">
+                          {" "}
+                          · {g.rows.length} bahan
+                        </span>
                       </td>
-                    )}
-                  </tr>
+                      <td className="px-3 py-1.5 text-right text-[11.5px] font-semibold text-botanical-700 whitespace-nowrap">
+                        {g.total.toLocaleString("id-ID", { maximumFractionDigits: 3 })}%
+                      </td>
+                      {batchKg > 0 && (
+                        <td className="px-3 py-1.5 text-right text-[11.5px] font-semibold text-botanical-700 whitespace-nowrap">
+                          {((g.total / 100) * batchKg).toLocaleString("id-ID", {
+                            maximumFractionDigits: 3,
+                          })}{" "}
+                          kg
+                        </td>
+                      )}
+                    </tr>
+                    {g.rows.map((r) => (
+                      <tr
+                        key={r.kode + r.nama}
+                        className="border-b border-line last:border-0"
+                      >
+                        <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">
+                          {r.kode}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="max-w-[280px] truncate" title={r.nama}>
+                            {r.nama}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap text-muted">
+                          {r.fase || "-"}
+                        </td>
+                        <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                          {r.pct.toLocaleString("id-ID", { maximumFractionDigits: 3 })}%
+                        </td>
+                        {batchKg > 0 && (
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                            {r.qtyPerBatch.toLocaleString("id-ID", {
+                              maximumFractionDigits: 3,
+                            })}{" "}
+                            {r.satuan || "kg"}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -321,7 +376,7 @@ export default async function ProductDetailPage({
               Estimasi Harga Pokok (HPP)
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              Dihitung dari harga pembelian terakhir bahan baku &amp; kemasan —
+              Dihitung dari harga pembelian terakhir bahan baku &amp; kemasan -
               sebagai informasi, bukan angka akuntansi final.
             </p>
           </div>
@@ -329,7 +384,7 @@ export default async function ProductDetailPage({
 
         {missingPrice.length > 0 && (
           <div className="bg-amber-100 text-amber-500 rounded-lg px-3 py-2.5 text-[12px] leading-relaxed">
-            ⚠ Belum ada harga pembelian untuk: {missingPrice.join(", ")} — estimasi
+            ⚠ Belum ada harga pembelian untuk: {missingPrice.join(", ")} · estimasi
             di bawah belum lengkap.
           </div>
         )}
@@ -380,7 +435,7 @@ export default async function ProductDetailPage({
                       {formatRupiah(v.total)}
                     </td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap font-semibold">
-                      {v.hargaJual != null ? formatRupiah(v.hargaJual) : "—"}
+                      {v.hargaJual != null ? formatRupiah(v.hargaJual) : "-"}
                     </td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
                       {v.margin != null ? (
@@ -403,7 +458,7 @@ export default async function ProductDetailPage({
                           )}
                         </span>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </td>
                   </tr>

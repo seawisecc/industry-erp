@@ -30,7 +30,7 @@ type BatchRaw = {
 };
 
 function formatTanggal(iso: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
     day: "numeric",
     month: "long",
@@ -70,15 +70,15 @@ export default async function QcDetailPage({
   const lulus = b.qc_status === "Released";
 
   const INFO = [
-    { label: "Nama Bahan", value: b.items?.nama || "—" },
-    { label: "Kode Bahan", value: b.items?.kode || "—", mono: true },
-    { label: "No. Batch / Lot", value: b.no_lot_supplier || "—", mono: true },
-    { label: "Supplier", value: b.supplier_nama || "—" },
+    { label: "Nama Bahan", value: b.items?.nama || "-" },
+    { label: "Kode Bahan", value: b.items?.kode || "-", mono: true },
+    { label: "No. Batch / Lot", value: b.no_lot_supplier || "-", mono: true },
+    { label: "Supplier", value: b.supplier_nama || "-" },
     {
       label: "Jumlah Diterima",
       value: `${Number(b.qty_masuk).toLocaleString("id-ID")} ${b.items?.satuan || ""}`,
     },
-    { label: "Jumlah Sampel", value: b.qc_jumlah_sampel || "—" },
+    { label: "Jumlah Sampel", value: b.qc_jumlah_sampel || "-" },
     { label: "Tanggal Penerimaan", value: formatTanggal(b.tanggal_terima) },
     { label: "Tanggal Sampling", value: formatTanggal(b.qc_tanggal_sampling) },
     { label: "Tanggal Uji", value: formatTanggal(b.qc_tanggal_uji) },
@@ -183,10 +183,10 @@ export default async function QcDetailPage({
                                 )}
                               </td>
                               <td className="px-4 py-2.5 text-muted text-[12.5px]">
-                                {h.spesifikasi || "—"}
+                                {h.spesifikasi || "-"}
                               </td>
                               <td className="px-4 py-2.5 font-medium">
-                                {h.hasil || "—"}
+                                {h.hasil || "-"}
                               </td>
                             </tr>
                           ))}
@@ -209,7 +209,7 @@ export default async function QcDetailPage({
         <p className="text-[13px]">
           Batch dinyatakan{" "}
           <b className={lulus ? "text-botanical-700" : "text-clay-600"}>
-            {lulus ? "LULUS — masuk stok siap pakai" : "TIDAK LULUS — stok tidak digunakan"}
+            {lulus ? "LULUS, masuk stok siap pakai" : "TIDAK LULUS, stok tidak digunakan"}
           </b>
         </p>
         {b.qc_note && (

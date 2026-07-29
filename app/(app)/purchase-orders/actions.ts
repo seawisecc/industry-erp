@@ -31,7 +31,7 @@ function validatePO(data: POInput) {
   }
   const ids = data.items.map((i) => i.item_id);
   if (new Set(ids).size !== ids.length)
-    throw new Error("Ada item yang dipilih dua kali — gabungkan qty-nya");
+    throw new Error("Ada item yang dipilih dua kali, gabungkan qty-nya");
 }
 
 
@@ -76,7 +76,7 @@ export async function createPO(data: POInput) {
   validatePO(data);
   await assertMoq(organizationId, data.items);
 
-  // 1. Insert PO — no_po diisi otomatis oleh trigger database (PO-MMYY-001)
+  // 1. Insert PO, no_po diisi otomatis oleh trigger database (PO-MMYY-001)
   const { data: po, error } = await supabase
     .from("purchase_orders")
     .insert({
@@ -124,7 +124,7 @@ async function getEditablePO(id: string) {
   if (error || !po) throw new Error("PO tidak ditemukan");
   if (po.status !== "Dibuat") {
     throw new Error(
-      `PO ini statusnya "${po.status}" — hanya PO berstatus "Dibuat" yang bisa diubah/dihapus.`
+      `PO ini statusnya "${po.status}", hanya PO berstatus "Dibuat" yang bisa diubah/dihapus.`
     );
   }
   return po;
@@ -287,7 +287,7 @@ export async function deletePO(id: string) {
   return { success: true };
 }
 
-/** Batalkan PO (koreksi operasional) — hanya bila belum ada barang diterima. */
+/** Batalkan PO (koreksi operasional), hanya bila belum ada barang diterima. */
 export async function cancelPO(
   id: string,
   alasan: string
@@ -313,7 +313,7 @@ export async function cancelPO(
     );
     if (adaDiterima || ["Diterima Sebagian", "Selesai"].includes(po.status))
       throw new Error(
-        "PO sudah ada barang diterima — batalkan penerimaannya dulu di menu Receiving."
+        "PO sudah ada barang diterima, batalkan penerimaannya dulu di menu Receiving."
       );
     if (po.status === "Dibatalkan") throw new Error("PO sudah dibatalkan");
 

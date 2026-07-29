@@ -52,7 +52,7 @@ export default function PlanForm({ products }: { products: ProductOpt[] }) {
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }
@@ -73,10 +73,10 @@ export default function PlanForm({ products }: { products: ProductOpt[] }) {
           required
           className={inputCls}
         >
-          <option value="">— Pilih produk —</option>
+          <option value="">Pilih produk</option>
           {products.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.kode} — {p.nama_produk}
+              {p.kode} · {p.nama_produk}
               {p.brand ? ` (${p.brand})` : ""}
             </option>
           ))}

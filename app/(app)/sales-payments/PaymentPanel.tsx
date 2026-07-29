@@ -73,7 +73,7 @@ export default function PaymentPanel({
         setError(res.error || "Gagal mencatat pembayaran");
       }
     } catch {
-      setError("Gagal — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang lalu coba lagi.");
+      setError("Gagal, koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang lalu coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -86,7 +86,7 @@ export default function PaymentPanel({
       if (!res.ok) alert(res.error || "Gagal");
       router.refresh();
     } catch {
-      alert("Gagal — muat ulang halaman lalu coba lagi.");
+      alert("Gagal, muat ulang halaman lalu coba lagi.");
     }
   }
 
@@ -257,7 +257,7 @@ export default function PaymentPanel({
             ) : (
               <div className="px-5 pb-5">
                 <p className="text-botanical-700 text-[13px] font-medium bg-botanical-100/60 rounded-lg px-4 py-3">
-                  ✓ Sudah lunas — dokumen otomatis menjadi Invoice.
+                  ✓ Sudah lunas, dokumen otomatis menjadi Invoice.
                 </p>
               </div>
             )}

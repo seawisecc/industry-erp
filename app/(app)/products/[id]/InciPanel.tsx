@@ -55,7 +55,7 @@ export default function InciPanel({
 
       {entries.length === 0 && (
         <p className="text-muted text-[13px]">
-          Tidak ada data INCI — pastikan item formula ter-link ke Material dan
+          Tidak ada data INCI, pastikan item formula ter-link ke Material dan
           material punya komposisi INCI.
         </p>
       )}

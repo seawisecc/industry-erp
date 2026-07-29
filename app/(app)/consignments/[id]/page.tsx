@@ -48,7 +48,7 @@ export default async function ConsignmentDetailPage({
 
   const items: ConsItem[] = cons.consignment_items.map((it) => ({
     id: it.id,
-    nama: it.products?.nama_produk || "—",
+    nama: it.products?.nama_produk || "-",
     varian: it.varian_ukuran,
     qty_kirim: Number(it.qty_kirim),
     qty_terjual: Number(it.qty_terjual),
@@ -82,7 +82,7 @@ export default async function ConsignmentDetailPage({
       <p className="text-muted text-sm mb-6">
         {cons.clients?.company_brand}
         {cons.clients?.cp ? ` · UP ${cons.clients.cp}` : ""}
-        {cons.catatan ? ` — ${cons.catatan}` : ""}
+        {cons.catatan ? `, ${cons.catatan}` : ""}
       </p>
 
       <ReportSaleForm

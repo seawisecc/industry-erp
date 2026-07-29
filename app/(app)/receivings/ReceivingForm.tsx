@@ -149,10 +149,10 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
               required
               className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
             >
-              <option value="">— Pilih PO yang barangnya datang —</option>
+              <option value="">Pilih PO yang barangnya datang</option>
               {pos.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.no_po} — {p.supplier_nama} ({p.status})
+                  {p.no_po} · {p.supplier_nama} ({p.status})
                 </option>
               ))}
             </select>
@@ -239,7 +239,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
             Barang yang Diterima
           </h2>
           <p className="text-muted text-[12.5px] -mt-2">
-            Qty terisi otomatis sebesar sisa PO — ubah kalau barang datang sebagian.
+            Qty terisi otomatis sebesar sisa PO, ubah kalau barang datang sebagian.
             Item yang tidak datang, isi qty 0. Harga diisi sesuai faktur aktual.
           </p>
 

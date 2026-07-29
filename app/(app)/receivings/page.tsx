@@ -46,7 +46,7 @@ export default async function ReceivingsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Receiving</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} penerimaan — stok bertambah lewat halaman ini
+            {list.length} penerimaan, stok bertambah lewat halaman ini
           </p>
         </div>
         <Link
@@ -91,14 +91,14 @@ export default async function ReceivingsPage() {
                     {formatTanggal(r.tanggal_terima)}
                   </td>
                   <td className="px-4 py-3 font-mono text-[12.5px]">
-                    {r.purchase_orders?.no_po || "—"}
+                    {r.purchase_orders?.no_po || "-"}
                   </td>
                   <td className="px-4 py-3 font-mono text-[12.5px]">
-                    {r.no_invoice || "—"}
+                    {r.no_invoice || "-"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="max-w-[220px] truncate font-medium">
-                      {r.supplier_nama || "—"}
+                      {r.supplier_nama || "-"}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">

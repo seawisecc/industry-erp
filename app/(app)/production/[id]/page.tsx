@@ -112,7 +112,7 @@ export default async function ProductionDetailPage({
       </div>
       <p className="text-muted text-sm mb-6">
         {formatTanggal(batch.tanggal_produksi)}
-        {batch.catatan ? ` — ${batch.catatan}` : ""}
+        {batch.catatan ? `, ${batch.catatan}` : ""}
       </p>
 
       <div className="glass rounded-2xl p-6 mb-5 grid grid-cols-1 sm:grid-cols-3 gap-4 text-[13.5px]">
@@ -120,7 +120,7 @@ export default async function ProductionDetailPage({
           <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">
             Produk
           </div>
-          <div className="font-medium">{out?.products?.nama_produk || "—"}</div>
+          <div className="font-medium">{out?.products?.nama_produk || "-"}</div>
           <div className="text-[12px] text-muted">
             {out?.products?.brand || out?.products?.kode || ""}
           </div>
@@ -174,7 +174,7 @@ export default async function ProductionDetailPage({
                   )}
                 </td>
                 <td className="px-4 py-3 font-mono text-[12px]">
-                  {c.purchase_batches?.no_lot_supplier || "—"}
+                  {c.purchase_batches?.no_lot_supplier || "-"}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
                   {c.purchase_batches?.exp_date
@@ -184,7 +184,7 @@ export default async function ProductionDetailPage({
                         month: "short",
                         year: "numeric",
                       })
-                    : "—"}
+                    : "-"}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   {Number(c.qty_terpakai).toLocaleString("id-ID")} {c.items?.satuan}

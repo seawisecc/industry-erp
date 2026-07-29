@@ -35,7 +35,7 @@ export default async function UsersPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Users</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} pengguna — atur akses modul per user
+            {list.length} pengguna, atur akses modul per user
           </p>
         </div>
         <Link

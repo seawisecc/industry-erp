@@ -100,7 +100,7 @@ export default function OutletActions({
         setError(res.error || "Gagal");
       }
     } catch {
-      setError("Gagal — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang lalu coba lagi.");
+      setError("Gagal, koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang lalu coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -139,7 +139,7 @@ export default function OutletActions({
             <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-4 border-b border-line">
               <div>
                 <h3 className="font-display text-[16px] font-semibold text-ink">
-                  {mode === "laku" ? "Catat Laku" : "Catat Retur"} — {clientName}
+                  {mode === "laku" ? "Catat Laku" : "Catat Retur"} · {clientName}
                 </h3>
                 <p className="text-[12px] text-muted mt-0.5">
                   {mode === "laku"

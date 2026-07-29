@@ -83,7 +83,7 @@ export default async function QcSheetPage({
   ).map((p) => ({
     nama: p.nama,
     satuan: p.satuan,
-    // Spesifikasi bahan ini (dari pengujian sebelumnya) — fallback ke
+    // Spesifikasi bahan ini (dari pengujian sebelumnya), fallback ke
     // default parameter bila bahan belum pernah diuji.
     spesifikasi: itemSpec[p.nama] ?? p.spesifikasi,
     grup: p.grup,
@@ -92,8 +92,8 @@ export default async function QcSheetPage({
 
   const info: SheetInfo = {
     batchId: batch.id,
-    itemKode: batch.items?.kode || "—",
-    itemNama: batch.items?.nama || "—",
+    itemKode: batch.items?.kode || "-",
+    itemNama: batch.items?.nama || "-",
     satuan: batch.items?.satuan || "",
     qty: Number(batch.qty_karantina || batch.qty_masuk),
     noLot: batch.no_lot_supplier,
@@ -120,8 +120,8 @@ export default async function QcSheetPage({
         Lembar Pengujian
       </h1>
       <p className="text-muted text-sm mb-6">
-        {info.itemNama} · lot {info.noLot || "—"} · parameter{" "}
-        {kategoriParam === "bahan_kemas" ? "Bahan Kemas" : "Bahan Baku"} — isi hasil
+        {info.itemNama} · lot {info.noLot || "-"} · parameter{" "}
+        {kategoriParam === "bahan_kemas" ? "Bahan Kemas" : "Bahan Baku"} · isi hasil
         uji tiap parameter, lalu putuskan Release atau Reject.
       </p>
 

@@ -1,4 +1,4 @@
-// Grafik batang ringan tanpa library — server component, zero JS di client.
+// Grafik batang ringan tanpa library, server component, zero JS di client.
 
 export type BarGroup = {
   label: string;

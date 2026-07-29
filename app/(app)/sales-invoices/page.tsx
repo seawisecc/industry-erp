@@ -54,7 +54,7 @@ export default async function SalesInvoicesPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Invoices</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} dokumen — proforma &amp; invoice, dengan/tanpa tax
+            {list.length} dokumen, proforma &amp; invoice, dengan/tanpa tax
           </p>
         </div>
         <Link
@@ -115,7 +115,7 @@ export default async function SalesInvoicesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="max-w-[180px] truncate font-medium">
-                      {inv.clients?.company_brand || inv.nama_pembeli || "—"}
+                      {inv.clients?.company_brand || inv.nama_pembeli || "-"}
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">

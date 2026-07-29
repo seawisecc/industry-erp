@@ -1,11 +1,11 @@
 "use client";
 
 /* ============================================================
-   PPIC Planner — kalkulator kebutuhan produksi.
+   PPIC Planner, kalkulator kebutuhan produksi.
    Input: daftar (produk × jumlah batch).
    Output: kebutuhan bahan per item vs stok, lalu daftar belanja
    dengan pembulatan MOQ, supplier, dan estimasi dana.
-   Murni kalkulasi di layar — tidak menyimpan apa pun.
+   Murni kalkulasi di layar, tidak menyimpan apa pun.
    ============================================================ */
 
 import { useState } from "react";
@@ -137,10 +137,10 @@ export default function PpicPlanner({
                 }
                 className={inputCls}
               >
-                <option value="">— Pilih produk —</option>
+                <option value="">Pilih produk</option>
                 {products.map((pr) => (
                   <option key={pr.id} value={pr.id}>
-                    {pr.kode} — {pr.nama}
+                    {pr.kode} · {pr.nama}
                   </option>
                 ))}
               </select>
@@ -184,7 +184,7 @@ export default function PpicPlanner({
 
         {batchTanpaUkuran && (
           <p className="text-amber-500 text-[12px] bg-amber-100 rounded-lg px-3 py-2">
-            Ada produk tanpa ukuran batch (kg bulk) — isi dulu di master produk
+            Ada produk tanpa ukuran batch (kg bulk), isi dulu di master produk
             supaya kebutuhannya bisa dihitung.
           </p>
         )}
@@ -202,7 +202,7 @@ export default function PpicPlanner({
                 Kebutuhan Bahan vs Stok
               </h3>
               <p className="text-muted text-[12px]">
-                {calcs.length} bahan terlibat — {perluBeli.length} perlu dibeli
+                {calcs.length} bahan terlibat · {perluBeli.length} perlu dibeli
               </p>
             </div>
           </div>
@@ -238,7 +238,7 @@ export default function PpicPlanner({
                           {formatNum(c.kurang)} {c.item.satuan}
                         </span>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </td>
                     <td className="px-4 py-2.5">
@@ -300,23 +300,23 @@ export default function PpicPlanner({
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap text-[12.5px]">
                       <div className="max-w-[160px] truncate" title={c.item.supplier || undefined}>
-                        {c.item.supplier || <span className="text-muted">—</span>}
+                        {c.item.supplier || <span className="text-muted">-</span>}
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
                       {formatNum(c.kurang)} {c.item.satuan}
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {c.item.moq ? `${formatNum(c.item.moq)} ${c.item.satuan}` : "—"}
+                      {c.item.moq ? `${formatNum(c.item.moq)} ${c.item.satuan}` : "-"}
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap font-semibold text-botanical-700">
                       {formatNum(c.qtyBeli)} {c.item.satuan}
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {c.item.harga != null ? formatRupiah(c.item.harga) : "—"}
+                      {c.item.harga != null ? formatRupiah(c.item.harga) : "-"}
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap font-medium">
-                      {c.dana != null ? formatRupiah(c.dana) : "—"}
+                      {c.dana != null ? formatRupiah(c.dana) : "-"}
                     </td>
                   </tr>
                 ))}
@@ -335,7 +335,7 @@ export default function PpicPlanner({
           </div>
           {adaTanpaHarga && (
             <p className="text-amber-500 text-[12px] px-6 py-3 bg-amber-100/60">
-              ⚠ Ada bahan tanpa riwayat harga pembelian — total dana di atas belum
+              ⚠ Ada bahan tanpa riwayat harga pembelian, total dana di atas belum
               mencakup bahan tersebut.
             </p>
           )}
@@ -344,7 +344,7 @@ export default function PpicPlanner({
 
       {calcs.length > 0 && perluBeli.length === 0 && (
         <div className="glass rounded-2xl p-6 text-center text-botanical-700 text-sm font-medium">
-          ✓ Stok bahan cukup untuk seluruh rencana produksi — tidak perlu belanja.
+          ✓ Stok bahan cukup untuk seluruh rencana produksi, tidak perlu belanja.
         </div>
       )}
     </div>

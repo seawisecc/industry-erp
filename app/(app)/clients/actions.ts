@@ -5,7 +5,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 
 // Catatan: JANGAN di-export dari file "use server" (hanya fungsi async yang
-// boleh di-export) — export const di sini menyebabkan server action error 500
+// boleh di-export), export const di sini menyebabkan server action error 500
 // di production. Dipakai hanya di dalam file ini.
 const CLIENT_KATEGORI = [
   "Brand Owner",

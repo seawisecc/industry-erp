@@ -29,7 +29,7 @@ type HistoryRow = {
 };
 
 function formatTanggal(iso: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
@@ -74,7 +74,7 @@ export default async function QcIncomingPage() {
           QC Incoming
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          {list.length} batch menunggu pemeriksaan — barang karantina belum bisa
+          {list.length} batch menunggu pemeriksaan, barang karantina belum bisa
           dipakai produksi sampai di-release.
         </p>
       </div>
@@ -99,7 +99,7 @@ export default async function QcIncomingPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  Tidak ada batch dalam karantina 🎉 — barang baru dari Receiving
+                  Tidak ada batch dalam karantina 🎉, barang baru dari Receiving
                   akan muncul di sini.
                 </td>
               </tr>
@@ -116,7 +116,7 @@ export default async function QcIncomingPage() {
                     <div className="text-[11px] text-muted font-mono">{b.items?.kode}</div>
                   </td>
                   <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                    {b.no_lot_supplier || "—"}
+                    {b.no_lot_supplier || "-"}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {formatTanggal(b.tanggal_terima)}
@@ -127,14 +127,14 @@ export default async function QcIncomingPage() {
                           month: "short",
                           year: "numeric",
                         })
-                      : "—"}
+                      : "-"}
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap font-medium">
                     {Number(b.qty_karantina).toLocaleString("id-ID")} {b.items?.satuan}
                   </td>
                   <td className="px-4 py-3">
                     <div className="max-w-[150px] truncate text-[12.5px]" title={b.supplier_nama || undefined}>
-                      {b.supplier_nama || "—"}
+                      {b.supplier_nama || "-"}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -204,11 +204,11 @@ export default async function QcIncomingPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                    {l.qc_oleh || "—"}
+                    {l.qc_oleh || "-"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="max-w-[240px] line-clamp-2 text-[12.5px]" title={l.qc_note || undefined}>
-                      {l.qc_note || "—"}
+                      {l.qc_note || "-"}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">

@@ -41,11 +41,11 @@ export default function ExportCard() {
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
           Unduh seluruh data company (supplier, material, stok, PO, produksi,
-          client, dst.) dalam satu file JSON — simpan rutin sebagai pengamanan.
+          client, dst.) dalam satu file JSON, simpan rutin sebagai pengamanan.
         </p>
       </div>
       <p className="text-[11.5px] text-muted">
-        Berisi hanya data company-mu. Simpan di tempat aman — file ini memuat
+        Berisi hanya data company-mu. Simpan di tempat aman, file ini memuat
         data bisnis lengkap.
       </p>
       <div className="mt-auto">

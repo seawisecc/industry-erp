@@ -35,7 +35,7 @@ export default async function QcParametersPage() {
           Parameter Uji QC
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          Master parameter pemeriksaan per kategori — bahan baku, bahan kemas,
+          Master parameter pemeriksaan per kategori, bahan baku, bahan kemas,
           IPC/produk ruahan, dan produk jadi. Centang parameter yang ingin
           ditampilkan di lembar pengujian.
         </p>

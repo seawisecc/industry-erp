@@ -27,7 +27,7 @@ const CARDS: SettingsCard[] = [
 ];
 
 /**
- * Kerangka halaman Bahan & Stok: kartu navigasi kiri, konten kanan —
+ * Kerangka halaman Bahan & Stok: kartu navigasi kiri, konten kanan -
  * dipakai bersama oleh /items, /materials, dan /inci.
  */
 export default async function BahanShell({

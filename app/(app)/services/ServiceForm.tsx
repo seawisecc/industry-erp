@@ -54,7 +54,7 @@ export default function ServiceForm({
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }

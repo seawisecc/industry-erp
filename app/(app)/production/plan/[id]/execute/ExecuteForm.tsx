@@ -243,7 +243,7 @@ export default function ExecuteForm({
 
       setError(
 
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
 
       );
 
@@ -257,7 +257,7 @@ export default function ExecuteForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      {/* ============ TAHAP 1 — CATATAN PENGOLAHAN BATCH ============ */}
+      {/* ============ TAHAP 1, CATATAN PENGOLAHAN BATCH ============ */}
       <div className="flex items-center gap-3">
         <div className="bg-botanical-700 text-white rounded-lg px-3 py-1.5 text-[12px] font-semibold">
           TAHAP 1
@@ -340,12 +340,12 @@ export default function ExecuteForm({
                   return (
                     <tr key={f.item_id} className="border-b border-line last:border-0">
                       <td className="px-4 py-2 text-center font-semibold text-botanical-700">
-                        {f.fase || "—"}
+                        {f.fase || "-"}
                       </td>
                       <td className="px-4 py-2 font-mono text-[11.5px] whitespace-nowrap">
                         {it?.kode}
                       </td>
-                      <td className="px-4 py-2">{it?.nama || "—"}</td>
+                      <td className="px-4 py-2">{it?.nama || "-"}</td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
                         {f.percentage.toLocaleString("id-ID")}%
                       </td>
@@ -393,7 +393,7 @@ export default function ExecuteForm({
                 return (
                   <tr key={f.item_id} className="border-b border-line last:border-0">
                     <td className="px-2 py-2.5">
-                      <div className="font-medium">{it?.nama || "—"}</div>
+                      <div className="font-medium">{it?.nama || "-"}</div>
                       <div className="text-[11px] text-muted font-mono">
                         {it?.kode} · stok {formatId(it?.stok || 0)} {it?.satuan}
                       </div>
@@ -425,7 +425,7 @@ export default function ExecuteForm({
                       }`}
                     >
                       {Math.abs(diff) < 0.0001
-                        ? "—"
+                        ? "-"
                         : `${diff > 0 ? "+" : ""}${formatId(diff)}`}
                     </td>
                   </tr>
@@ -462,7 +462,7 @@ export default function ExecuteForm({
         </div>
 
         {adjustRows.length === 0 && (
-          <p className="text-muted text-[12.5px]">Tidak ada — opsional.</p>
+          <p className="text-muted text-[12.5px]">Tidak ada, opsional.</p>
         )}
         {adjustRows.map((row, idx) => {
           const options = adjustOptions(row);
@@ -558,7 +558,7 @@ export default function ExecuteForm({
                 </span>
               </h2>
               <p className="text-muted text-[12.5px] mt-0.5">
-                Tap Mulai saat mengerjakan, Selesai saat rampung — waktu &amp;
+                Tap Mulai saat mengerjakan, Selesai saat rampung, waktu &amp;
                 operator terekam otomatis ke Batch Record.
               </p>
             </div>
@@ -603,7 +603,7 @@ export default function ExecuteForm({
                     {(log.mulai || log.selesai) && (
                       <div className="text-[11.5px] text-muted mt-1">
                         {log.mulai ? `Mulai ${jam(log.mulai)}` : ""}
-                        {log.selesai ? ` — Selesai ${jam(log.selesai)}` : ""}
+                        {log.selesai ? `, Selesai ${jam(log.selesai)}` : ""}
                         {log.oleh ? ` · ${log.oleh}` : ""}
                       </div>
                     )}
@@ -660,7 +660,7 @@ export default function ExecuteForm({
           })}
         </div>
       )}
-      {/* ===== IPC — QC PRODUK RUAHAN ===== */}
+      {/* ===== IPC, QC PRODUK RUAHAN ===== */}
       {plan.qcOn && ipcRows.length > 0 && (
         <div className="glass rounded-2xl overflow-hidden">
           <div className="px-6 pt-5 pb-3 flex items-center justify-between flex-wrap gap-2">
@@ -781,7 +781,7 @@ export default function ExecuteForm({
         </div>
       </div>
 
-      {/* ============ TAHAP 2 — CATATAN PENGEMASAN BATCH ============ */}
+      {/* ============ TAHAP 2, CATATAN PENGEMASAN BATCH ============ */}
       <div className="flex items-center gap-3 mt-2">
         <div className="bg-botanical-700 text-white rounded-lg px-3 py-1.5 text-[12px] font-semibold">
           TAHAP 2
@@ -798,7 +798,7 @@ export default function ExecuteForm({
             Hasil Kemas &amp; Pengambilan Kemasan
           </h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            Isi jumlah real yang dihasilkan per ukuran — kebutuhan kemasan
+            Isi jumlah real yang dihasilkan per ukuran, kebutuhan kemasan
             terhitung otomatis, jumlah ambil bisa disesuaikan.
           </p>
         </div>
@@ -846,7 +846,7 @@ export default function ExecuteForm({
                   return (
                     <tr key={id} className="border-b border-line last:border-0">
                       <td className="px-2 py-2.5">
-                        <div className="font-medium">{it?.nama || "—"}</div>
+                        <div className="font-medium">{it?.nama || "-"}</div>
                         <div className="text-[11px] text-muted font-mono">
                           {it?.kode} · stok {formatId(it?.stok || 0)} {it?.satuan}
                         </div>
@@ -882,7 +882,7 @@ export default function ExecuteForm({
               Rekonsiliasi Kemasan
             </h3>
             <p className="text-muted text-[12px] mt-0.5">
-              Diambil vs terpakai, rusak, dan sisa dikembalikan ke gudang —
+              Diambil vs terpakai, rusak, dan sisa dikembalikan ke gudang -
               selisih harus nol.
             </p>
           </div>
@@ -914,7 +914,7 @@ export default function ExecuteForm({
                     <tr key={id} className="border-b border-line last:border-0">
                       <td className="px-4 py-2">
                         <div className="font-medium max-w-[180px] truncate">
-                          {it?.nama || "—"}
+                          {it?.nama || "-"}
                         </div>
                         <div className="text-[11px] text-muted font-mono">{it?.kode}</div>
                       </td>
@@ -960,7 +960,7 @@ export default function ExecuteForm({
                             {seimbang ? "Seimbang" : "Kurang"}
                           </span>
                         ) : (
-                          <span className="text-muted text-[11.5px]">—</span>
+                          <span className="text-muted text-[11.5px]">-</span>
                         )}
                       </td>
                     </tr>
@@ -985,7 +985,7 @@ export default function ExecuteForm({
         {loading ? "Menyimpan..." : "Simpan Data Eksekusi"}
       </button>
       <p className="text-muted text-[12px] text-center -mt-3">
-        Stok belum terpotong di tahap ini — pemotongan terjadi saat Input Hasil
+        Stok belum terpotong di tahap ini, pemotongan terjadi saat Input Hasil
         (Result).
       </p>
     </form>

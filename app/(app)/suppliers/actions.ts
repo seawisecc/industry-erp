@@ -13,7 +13,7 @@ export type SupplierInput = {
   npwp: string | null;
 };
 
-// Simpan supplier (baru atau edit). Return {ok, error} — tidak throw,
+// Simpan supplier (baru atau edit). Return {ok, error} · tidak throw,
 // supaya pesan error asli tetap terlihat di production.
 export async function saveSupplier(
   input: SupplierInput,

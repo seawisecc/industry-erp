@@ -87,7 +87,7 @@ export default async function ExecutePage({
     stok: (it.purchase_batches || []).reduce((s, b) => s + Number(b.qty_sisa), 0),
   }));
 
-  // Parameter IPC (produk ruahan) — hanya bila QC Module aktif
+  // Parameter IPC (produk ruahan), hanya bila QC Module aktif
   const { data: ipcRows } = features.qc
     ? await supabase
         .from("qc_parameters")
@@ -146,7 +146,7 @@ export default async function ExecutePage({
       </Link>
 
       <h1 className="font-display text-2xl font-semibold text-ink mb-1">
-        Execution — <span className="font-mono text-[20px]">{plan.no_batch}</span>
+        Execution, <span className="font-mono text-[20px]">{plan.no_batch}</span>
       </h1>
       <p className="text-muted text-sm mb-6">
         {plan.products.nama_produk} · {Number(plan.jumlah_batch).toLocaleString("id-ID")}{" "}

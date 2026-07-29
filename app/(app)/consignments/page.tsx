@@ -74,7 +74,7 @@ export default async function ConsignmentsPage() {
         Number(it.qty_kirim) - Number(it.qty_terjual) - Number(it.qty_retur);
       if (sisa <= 0) continue;
       o.totalSisa += sisa;
-      const nama = it.products?.nama_produk || "—";
+      const nama = it.products?.nama_produk || "-";
       const varian = it.varian_ukuran || "-";
       const key = `${it.product_id}|${varian}`;
       const p =
@@ -102,7 +102,7 @@ export default async function ConsignmentsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Consignment</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} pengiriman — catat laku/retur per outlet dari rekap di
+            {list.length} pengiriman. Catat laku/retur per outlet dari rekap di
             bawah
           </p>
         </div>
@@ -126,7 +126,7 @@ export default async function ConsignmentsPage() {
                 Stok per Outlet
               </h3>
               <p className="text-muted text-[11.5px]">
-                Total barang yang masih ada di tiap outlet — catat laku/retur
+                Total barang yang masih ada di tiap outlet, catat laku/retur
                 langsung dari sini.
               </p>
             </div>
@@ -247,7 +247,7 @@ export default async function ConsignmentsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="max-w-[200px] truncate font-medium">
-                        {c.clients?.company_brand || "—"}
+                        {c.clients?.company_brand || "-"}
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">

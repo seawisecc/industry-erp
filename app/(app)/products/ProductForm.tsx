@@ -428,7 +428,7 @@ export default function ProductForm({ items, product }: Props) {
                 value={row.fase}
                 onChange={(e) => updateFRow(idx, { fase: e.target.value })}
                 placeholder="Fase"
-                title="Fase (A/B/C — opsional)"
+                title="Fase (A/B/C, opsional)"
                 className={`${inputCls} text-center`}
               />
 
@@ -472,7 +472,7 @@ export default function ProductForm({ items, product }: Props) {
               Cara Pembuatan
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              Langkah proses berurutan — tampil di Batch Record. Parameter suhu,
+              Langkah proses berurutan, tampil di Batch Record. Parameter suhu,
               kecepatan, dan waktu opsional.
             </p>
           </div>
@@ -509,7 +509,7 @@ export default function ProductForm({ items, product }: Props) {
                   ss.map((x, i) => (i === idx ? { ...x, instruksi: e.target.value } : x))
                 )
               }
-              placeholder="Instruksi — misal: Campurkan Fase B ke Fase A perlahan"
+              placeholder="Instruksi, misal: Campurkan Fase B ke Fase A perlahan"
               className={inputCls}
             />
             <input
@@ -598,7 +598,7 @@ export default function ProductForm({ items, product }: Props) {
               Varian / Gramasi &amp; Kemasannya
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              Satu produk bisa dikemas dalam beberapa ukuran — tiap ukuran punya
+              Satu produk bisa dikemas dalam beberapa ukuran, tiap ukuran punya
               daftar kemasan sendiri (per 1 pcs).
             </p>
           </div>

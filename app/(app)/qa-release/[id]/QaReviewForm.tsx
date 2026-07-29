@@ -1,7 +1,7 @@
 "use client";
 
 /* ============================================================
-   Lembar Pelulusan QA — tinjauan menyeluruh sebelum batch dijual.
+   Lembar Pelulusan QA, tinjauan menyeluruh sebelum batch dijual.
    QA tidak menguji; QA memverifikasi bukti: hasil uji bahan baku &
    kemas, IPC, uji produk jadi oleh QC, batch record, lalu checklist
    kesesuaian dokumen. Release baru terbuka setelah semua tercentang.
@@ -73,7 +73,7 @@ const CHECKLIST_DEF = [
 ];
 
 function formatTanggal(iso: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
@@ -104,8 +104,8 @@ function TabelUji({ rows }: { rows: UjiRow[] }) {
                   <span className="text-muted text-[11px]"> ({r.satuan})</span>
                 )}
               </td>
-              <td className="px-4 py-1.5 text-muted">{r.spesifikasi || "—"}</td>
-              <td className="px-4 py-1.5 font-medium">{r.hasil || "—"}</td>
+              <td className="px-4 py-1.5 text-muted">{r.spesifikasi || "-"}</td>
+              <td className="px-4 py-1.5 font-medium">{r.hasil || "-"}</td>
             </tr>
           ))}
         </tbody>
@@ -222,7 +222,7 @@ export default function QaReviewForm({ info,
             1. Uji Bahan Baku &amp; Bahan Kemas
           </h3>
           <p className="text-muted text-[12px] mt-0.5">
-            Lot yang terpakai di batch ini — klik untuk melihat hasil ujinya.
+            Lot yang terpakai di batch ini, klik untuk melihat hasil ujinya.
           </p>
         </div>
         {info.bahan.length === 0 ? (
@@ -304,7 +304,7 @@ export default function QaReviewForm({ info,
             </h3>
             <p className="text-muted text-[12px] mt-0.5">
               Dikerjakan tim QC
-              {info.produkJadiOleh ? ` — ${info.produkJadiOleh}` : ""}
+              {info.produkJadiOleh ? `, ${info.produkJadiOleh}` : ""}
               {info.produkJadiTanggal
                 ? ` · ${formatTanggal(info.produkJadiTanggal)}`
                 : ""}
@@ -433,7 +433,7 @@ export default function QaReviewForm({ info,
         </div>
         ) : (
           <p className="text-muted text-[12.5px] bg-white/50 rounded-lg px-3 py-2.5">
-            Mode lihat saja — hanya petugas dengan izin QA yang bisa meluluskan
+            Mode lihat saja, hanya petugas dengan izin QA yang bisa meluluskan
             atau menolak batch. Minta Admin mengaktifkan izin ini di menu Users.
           </p>
         )}

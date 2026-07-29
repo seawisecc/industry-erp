@@ -62,7 +62,7 @@ export async function createInvoice(
     const lunas = !!data.langsung_lunas;
 
     // Cek stok + penomoran + insert dilakukan atomik di database
-    // (advisory lock per organisasi) — anti-oversell & anti-duplikat nomor.
+    // (advisory lock per organisasi), anti-oversell & anti-duplikat nomor.
     const { data: invoiceId, error } = await supabase.rpc(
       "create_sales_invoice_tx",
       {
@@ -181,7 +181,7 @@ export async function cancelInvoice(
     if (!inv) throw new Error("Dokumen tidak ditemukan");
     if (inv.sumber === "Konsinyasi")
       throw new Error(
-        "Dokumen dari konsinyasi — batalkan/koreksi lewat menu Consignment."
+        "Dokumen dari konsinyasi, batalkan/koreksi lewat menu Consignment."
       );
 
     // Boleh batal hanya bila belum ada pembayaran dari client
@@ -196,7 +196,7 @@ export async function cancelInvoice(
     );
     if (adaBayarClient)
       throw new Error(
-        "Sudah ada pembayaran dari client — hapus dulu pembayarannya di Sales Payments."
+        "Sudah ada pembayaran dari client, hapus dulu pembayarannya di Sales Payments."
       );
 
     // Hapus pembayaran (kas POS), item, lalu header

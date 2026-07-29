@@ -15,7 +15,7 @@ export async function saveFeatures(
     if (!isSuperAdmin && profile?.role !== "Admin")
       throw new Error("Hanya Admin yang bisa mengubah fitur");
 
-    // MES dikendalikan Super Admin (paket berbayar) — Admin biasa tidak
+    // MES dikendalikan Super Admin (paket berbayar), Admin biasa tidak
     // bisa mengubahnya; nilai lama dipertahankan.
     const { data: existing } = await supabase
       .from("organization_settings")

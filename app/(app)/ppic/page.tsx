@@ -110,7 +110,7 @@ export default async function PpicPage() {
           PPIC Planner
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          Susun rencana produksi — sistem menghitung kebutuhan bahan dari formula,
+          Susun rencana produksi. Sistem menghitung kebutuhan bahan dari formula,
           membandingkan dengan stok, lalu merekomendasikan pembelian (MOQ,
           supplier, estimasi dana).
         </p>

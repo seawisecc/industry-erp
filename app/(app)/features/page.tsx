@@ -12,7 +12,7 @@ export default async function FeaturesPage() {
       <div>
         <h2 className="font-display text-lg font-semibold text-ink">Features</h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          Aktifkan fitur lanjutan sesuai kesiapan pabrik Anda — bisa dinyalakan
+          Aktifkan fitur lanjutan sesuai kesiapan pabrik Anda, bisa dinyalakan
           atau dimatikan kapan saja tanpa memengaruhi data.
         </p>
       </div>

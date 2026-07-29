@@ -1,7 +1,7 @@
 /* ============================================================
    Pengaturan pengesahan dokumen (kolom tanda tangan) per jenis
    dokumen cetak. Tiap dokumen punya 3 slot: Dibuat / Disetujui /
-   Mengetahui — masing-masing bisa diaktifkan/dimatikan.
+   Mengetahui, masing-masing bisa diaktifkan/dimatikan.
    Fallback: kalau belum pernah diatur, pakai 3 key person lama
    dari organization_settings (semuanya aktif).
    ============================================================ */
@@ -19,7 +19,7 @@ export type DocTypeKey = (typeof DOC_TYPES)[number]["key"];
 
 export type SignSlot = {
   key: "dibuat" | "disetujui" | "mengetahui";
-  label: string; // "Dibuat oleh," dst — tampil di dokumen
+  label: string; // "Dibuat oleh," dst, tampil di dokumen
   nama: string;
   jabatan: string;
   aktif: boolean;

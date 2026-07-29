@@ -301,7 +301,7 @@ export async function exportBackup(): Promise<
 
     const backup: Record<string, unknown> = {
       _meta: {
-        app: "Seawise Enterprise Apps — Industry Edition",
+        app: "Industry Management by Seawise Studio",
         exported_at: new Date().toISOString(),
         organization_id: organizationId,
       },

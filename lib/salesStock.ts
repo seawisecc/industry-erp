@@ -20,7 +20,7 @@ export function fgKey(productId: string, varian: string | null): FgKey {
  * available = produced − (kirim konsinyasi − retur) − terjual Direct/POS.
  * Penjualan dari konsinyasi TIDAK mengurangi lagi (barang sudah keluar saat kirim).
  *
- * Jalur utama: RPC get_finished_stock — agregasi dikerjakan database
+ * Jalur utama: RPC get_finished_stock, agregasi dikerjakan database
  * (satu query, hasil sudah per produk+varian) sehingga tetap ringan
  * walau riwayat transaksi sudah puluhan ribu baris. Kalau RPC belum
  * terpasang, otomatis jatuh ke perhitungan lama di server.

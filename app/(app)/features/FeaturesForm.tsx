@@ -35,7 +35,7 @@ export default function FeaturesForm({
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }
@@ -92,7 +92,7 @@ export default function FeaturesForm({
                 <p className="text-[11.5px] text-muted mt-1">
                   {on
                     ? "Aktif sesuai paket berlangganan Anda."
-                    : "Fitur paket Full — hubungi Seawise untuk mengaktifkan."}
+                    : "Fitur paket Full, hubungi Seawise untuk mengaktifkan."}
                 </p>
               )}
             </div>

@@ -132,7 +132,7 @@ export default async function ProductionPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="max-w-[220px] truncate font-medium">
-                      {p.products?.nama_produk || "—"}
+                      {p.products?.nama_produk || "-"}
                     </div>
                     <div className="text-[11px] text-muted font-mono">
                       {p.products?.kode}
@@ -232,12 +232,12 @@ export default async function ProductionPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="max-w-[220px] truncate font-medium">
-                          {out?.products?.nama_produk || "—"}
+                          {out?.products?.nama_produk || "-"}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap text-[12.5px]">
                         {b.production_outputs.length === 0
-                          ? "—"
+                          ? "-"
                           : b.production_outputs
                               .map(
                                 (o) =>

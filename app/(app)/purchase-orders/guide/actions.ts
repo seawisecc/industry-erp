@@ -13,7 +13,7 @@ export type GuideLine = {
 };
 
 /**
- * Buat PO massal dari Guide Order — baris dikelompokkan per supplier,
+ * Buat PO massal dari Guide Order, baris dikelompokkan per supplier,
  * satu PO per supplier. Kalau ada yang gagal, PO lain tetap jalan dan
  * kegagalannya dilaporkan per supplier.
  */

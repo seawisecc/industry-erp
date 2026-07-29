@@ -1,10 +1,10 @@
 "use client";
 
 /* ============================================================
-   TableSearch — pencarian & filter instan untuk tabel data.
+   TableSearch, pencarian & filter instan untuk tabel data.
    Bekerja client-side: menyaring <tbody> <tr> di halaman ini
    berdasarkan teks (search) dan kecocokan persis (filter badge/
-   status). Tidak perlu reload — hasil langsung terlihat.
+   status). Tidak perlu reload, hasil langsung terlihat.
    ============================================================ */
 
 import { useEffect, useRef, useState } from "react";
@@ -16,7 +16,7 @@ export type TableFilterDef = {
 };
 
 // Baris cocok bila ada elemen (td/span/div) yang teksnya persis sama.
-// Dipakai untuk filter status — "Lunas" tidak ikut menangkap "Belum Lunas".
+// Dipakai untuk filter status, "Lunas" tidak ikut menangkap "Belum Lunas".
 function rowHasExact(tr: Element, value: string) {
   const v = value.trim().toLowerCase();
   for (const el of Array.from(tr.querySelectorAll("td, span, div"))) {

@@ -14,8 +14,8 @@ export type ProductVariantOpt = {
 };
 
 /**
- * Opsi client aktif + produk-varian dengan stok tersedia — dipakai Invoice,
- * POS, Konsinyasi. includeServices: sertakan layanan jasa (Invoice & POS saja —
+ * Opsi client aktif + produk-varian dengan stok tersedia, dipakai Invoice,
+ * POS, Konsinyasi. includeServices: sertakan layanan jasa (Invoice & POS saja -
  * jasa tidak bisa dikonsinyasikan).
  */
 export async function getSalesOptions(
@@ -70,7 +70,7 @@ export async function getSalesOptions(
       key: `${s.product_id}|${s.varian}`,
       product_id: s.product_id,
       varian: s.varian,
-      label: `${p.kode || ""} — ${p.nama_produk}${s.varian !== "-" ? ` (${s.varian})` : ""}`,
+      label: `${p.kode || ""}, ${p.nama_produk}${s.varian !== "-" ? ` (${s.varian})` : ""}`,
       available: s.available,
       harga_jual: hargaMap.get(`${s.product_id}|${s.varian}`) ?? null,
       service_id: null,
@@ -78,7 +78,7 @@ export async function getSalesOptions(
   }
   options.sort((a, b) => a.label.localeCompare(b.label));
 
-  // Layanan jasa (tanpa stok) — tampil setelah produk
+  // Layanan jasa (tanpa stok), tampil setelah produk
   if (includeServices) {
     const { data: services } = await supabase
       .from("services")
@@ -96,7 +96,7 @@ export async function getSalesOptions(
         key: `svc|${s.id}`,
         product_id: "",
         varian: "-",
-        label: `${s.kode || "JASA"} — ${s.nama_jasa} (Jasa)`,
+        label: `${s.kode || "JASA"}, ${s.nama_jasa} (Jasa)`,
         available: 0,
         harga_jual: s.biaya == null ? null : Number(s.biaya),
         service_id: s.id,

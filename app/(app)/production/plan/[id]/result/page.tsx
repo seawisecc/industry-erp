@@ -48,7 +48,7 @@ export default async function ResultPage({
       </Link>
 
       <h1 className="font-display text-2xl font-semibold text-ink mb-1">
-        Result — <span className="font-mono text-[20px]">{plan.no_batch}</span>
+        Result, <span className="font-mono text-[20px]">{plan.no_batch}</span>
       </h1>
       <p className="text-muted text-sm mb-6">{plan.products?.nama_produk}</p>
 

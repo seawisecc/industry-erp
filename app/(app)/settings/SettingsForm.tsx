@@ -130,7 +130,7 @@ export default function SettingsForm({ initial }: Props) {
           Pengesahan Dokumen
         </h2>
         <p className="text-muted text-[12.5px] mt-1">
-          Pengaturan kolom tanda tangan kini punya menu sendiri — bisa diatur
+          Pengaturan kolom tanda tangan kini punya menu sendiri, bisa diatur
           per jenis dokumen (PO, Penerimaan, Produksi, Invoice) di{" "}
           <a
             href="/document-signing"

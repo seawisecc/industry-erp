@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { setCompanyFeature } from "./actions";
 
-// Chip toggle fitur berbayar per company (MES / QC / QA) — paket Full
+// Chip toggle fitur berbayar per company (MES / QC / QA), paket Full
 export default function MesToggle({
   organizationId,
   initialOn,

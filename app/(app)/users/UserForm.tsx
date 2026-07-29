@@ -251,7 +251,7 @@ export default function UserForm({ user }: Props) {
             <span>
               <b>Bisa menyetujui Purchase Order</b>
               <span className="block text-[11.5px] text-muted">
-                Izin khusus — PO baru harus disetujui sebelum bisa dikirim ke
+                Izin khusus, PO baru harus disetujui sebelum bisa dikirim ke
                 supplier.
               </span>
             </span>
@@ -275,7 +275,7 @@ export default function UserForm({ user }: Props) {
             <span>
               <b>Bisa membuat instruksi produksi (Plan)</b>
               <span className="block text-[11.5px] text-muted">
-                Izin khusus — eksekusi produksi hanya bisa dimulai dari plan yang
+                Izin khusus, eksekusi produksi hanya bisa dimulai dari plan yang
                 sudah dibuat.
               </span>
             </span>
@@ -297,7 +297,7 @@ export default function UserForm({ user }: Props) {
               className="accent-[#2f4f3e]"
             />
             <span>
-              <b>Petugas QC — mengisi &amp; memutuskan hasil uji</b>
+              <b>Petugas QC, mengisi &amp; memutuskan hasil uji</b>
               <span className="block text-[11.5px] text-muted">
                 Uji bahan baku/kemas, IPC, dan produk jadi. Tanpa izin ini user
                 hanya bisa melihat lembar uji.
@@ -321,7 +321,7 @@ export default function UserForm({ user }: Props) {
               className="accent-[#2f4f3e]"
             />
             <span>
-              <b>Petugas QA — meninjau &amp; meluluskan batch</b>
+              <b>Petugas QA, meninjau &amp; meluluskan batch</b>
               <span className="block text-[11.5px] text-muted">
                 Verifikasi checklist pelulusan dan release/reject batch ke stok
                 jual.
@@ -347,7 +347,7 @@ export default function UserForm({ user }: Props) {
             <span>
               <b>Bisa membatalkan transaksi</b>
               <span className="block text-[11.5px] text-muted">
-                Izin khusus koreksi operasional — membatalkan PO, penerimaan,
+                Izin khusus koreksi operasional, membatalkan PO, penerimaan,
                 produksi, atau penjualan (stok otomatis dikembalikan).
               </span>
             </span>

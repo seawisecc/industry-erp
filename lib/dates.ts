@@ -1,4 +1,4 @@
-// Helper tanggal LOKAL — jangan pakai toISOString() untuk tanggal kalender!
+// Helper tanggal LOKAL, jangan pakai toISOString() untuk tanggal kalender!
 // toISOString() mengonversi ke UTC, sehingga di zona UTC+8 tanggal bisa
 // mundur satu hari (mis. 1 Juli 00:00 WITA → "2026-06-30").
 

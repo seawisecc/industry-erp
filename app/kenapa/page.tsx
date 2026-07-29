@@ -1,9 +1,9 @@
 "use client";
 
 /* ============================================================
-   /kenapa — halaman marketing publik (tanpa login)
-   "Kenapa harus pakai Seawise Enterprise Apps?"
-   Gaya: Apple-like — tipografi besar, banyak ruang, section
+   /kenapa, halaman marketing publik (tanpa login)
+   "Kenapa harus pakai Industry Management?"
+   Gaya: Apple-like, tipografi besar, banyak ruang, section
    gelap/terang bergantian, animasi reveal halus saat scroll.
    ============================================================ */
 
@@ -28,7 +28,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 
-/* ---------- KONFIGURASI — ganti di sini saja ---------- */
+/* ---------- KONFIGURASI, ganti di sini saja ---------- */
 const WA_NUMBER = "628123757759"; // TODO: ganti dengan nomor WhatsApp bisnis
 const CONTACT_EMAIL = "seawise.cc@gmail.com";
 const HARGA_AKTIVASI = "Rp 25.000.000";
@@ -36,10 +36,10 @@ const HARGA_MAINTENANCE = "Rp 9.500.000";
 const HARGA_BUNDLE = "Rp 35.000.000"; // Standar + Industri+ (MES · QC · QA)
 
 const WA_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
-  "Halo, saya tertarik dengan Seawise Enterprise Apps (Industry Edition). Boleh minta info lebih lanjut?"
+  "Halo, saya tertarik dengan Industry Management by Seawise Studio. Boleh minta info lebih lanjut?"
 )}`;
 const EMAIL_LINK = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-  "Tanya Seawise Enterprise Apps — Industry Edition"
+  "Tanya Industry Management | Seawise Studio"
 )}`;
 
 /* ---------- Reveal on scroll (hormati prefers-reduced-motion) ---------- */
@@ -113,13 +113,13 @@ const FLOW = [
   {
     no: "04",
     title: "Jual",
-    desc: "Konsinyasi, invoice pajak / non-pajak, sampai POS walk-in — semua memotong stok produk jadi dan tercatat sebagai piutang.",
+    desc: "Konsinyasi, invoice pajak / non-pajak, sampai POS walk-in, semua memotong stok produk jadi dan tercatat sebagai piutang.",
     chip: "INV.202607-014 · Lunas",
   },
   {
     no: "05",
     title: "Laporan",
-    desc: "Setiap transaksi di atas otomatis menjadi laporan penjualan, pembelian, produksi, dan mutasi stok — siap cetak dengan kop perusahaan.",
+    desc: "Setiap transaksi di atas otomatis menjadi laporan penjualan, pembelian, produksi, dan mutasi stok, siap cetak dengan kop perusahaan.",
     chip: "Laporan Juli 2026 · siap cetak",
   },
 ];
@@ -143,7 +143,7 @@ const FEATURES = [
   {
     icon: Calculator,
     title: "HPP real per batch",
-    desc: "Bukan estimasi — HPP dihitung dari timbangan real dan harga lot yang benar-benar terpakai, termasuk adjusting dan kemasan.",
+    desc: "Bukan estimasi, HPP dihitung dari timbangan real dan harga lot yang benar-benar terpakai, termasuk adjusting dan kemasan.",
   },
   {
     icon: Store,
@@ -153,7 +153,7 @@ const FEATURES = [
   {
     icon: CalendarClock,
     title: "Reminder jatuh tempo",
-    desc: "Hutang supplier dan piutang penjualan terpantau dengan term of payment — yang lewat jatuh tempo langsung disorot.",
+    desc: "Hutang supplier dan piutang penjualan terpantau dengan term of payment, yang lewat jatuh tempo langsung disorot.",
   },
   {
     icon: BarChart3,
@@ -168,7 +168,7 @@ const FEATURES = [
   {
     icon: DatabaseBackup,
     title: "Migrasi & backup data",
-    desc: "Pindahkan data lama lewat import CSV — supplier, bahan, client, produk. Seluruh database bisa di-backup kapan saja.",
+    desc: "Pindahkan data lama lewat import CSV, supplier, bahan, client, produk. Seluruh database bisa di-backup kapan saja.",
   },
 ];
 
@@ -177,21 +177,21 @@ const INDUSTRI = [
     icon: ListChecks,
     name: "MES",
     full: "Manufacturing Execution System",
-    desc: "Cara pembuatan tiap formula tampil sebagai checklist digital saat produksi — operator mencentang langkah demi langkah. Batch record dua tahap (Catatan Pengolahan & Catatan Pengemasan) tersusun otomatis, lengkap dengan rekonsiliasi kemasan.",
+    desc: "Cara pembuatan tiap formula tampil sebagai checklist digital saat produksi, operator mencentang langkah demi langkah. Batch record dua tahap (Catatan Pengolahan & Catatan Pengemasan) tersusun otomatis, lengkap dengan rekonsiliasi kemasan.",
     chip: "BATCH BS-26-018 · 12/12 langkah ✓",
   },
   {
     icon: FlaskConical,
     name: "QC",
     full: "Quality Control",
-    desc: "Barang datang masuk karantina — tidak bisa dipakai produksi sebelum lulus uji. Lembar pengujian digital untuk bahan baku, bahan kemas, IPC, dan produk jadi; spesifikasi tersimpan per bahan dan terisi otomatis di pengujian berikutnya.",
+    desc: "Barang datang masuk karantina, tidak bisa dipakai produksi sebelum lulus uji. Lembar pengujian digital untuk bahan baku, bahan kemas, IPC, dan produk jadi; spesifikasi tersimpan per bahan dan terisi otomatis di pengujian berikutnya.",
     chip: "LOT SC-0143 · Released QC",
   },
   {
     icon: BadgeCheck,
     name: "QA",
     full: "Quality Assurance",
-    desc: "Batch tidak bisa dijual sebelum diluluskan QA. Seluruh bukti — riwayat uji bahan, IPC, uji produk jadi, batch record — dalam satu layar, ditutup checklist pelulusan (izin edar, label, no. batch, expiry) dan Certificate of Analysis siap cetak.",
+    desc: "Batch tidak bisa dijual sebelum diluluskan QA. Seluruh bukti, riwayat uji bahan, IPC, uji produk jadi, batch record, dalam satu layar, ditutup checklist pelulusan (izin edar, label, no. batch, expiry) dan Certificate of Analysis siap cetak.",
     chip: "BATCH BS-26-018 · Released + CoA",
   },
 ];
@@ -215,10 +215,10 @@ export default function KenapaPage() {
               <Logo size={18} />
             </div>
             <span className="font-display font-semibold text-[14.5px]">
-              Seawise Enterprise
+              Industry Management
               <span className="hidden sm:inline text-muted font-normal">
                 {" "}
-                — Industry Edition
+                | Seawise Studio
               </span>
             </span>
           </Link>
@@ -253,7 +253,7 @@ export default function KenapaPage() {
         <div className="max-w-6xl mx-auto px-5 pt-40 pb-28 sm:pt-48 sm:pb-36 text-center">
           <Reveal>
             <div className="text-[11.5px] uppercase tracking-[0.25em] text-amber-500 font-semibold mb-6">
-              Seawise Enterprise Apps — Industry Edition
+              Industry Management | Seawise Studio
             </div>
           </Reveal>
           <Reveal delay={100}>
@@ -265,7 +265,7 @@ export default function KenapaPage() {
           </Reveal>
           <Reveal delay={220}>
             <p className="mt-7 text-white/70 text-[16px] sm:text-[18px] max-w-2xl mx-auto leading-relaxed">
-              Dari purchase order bahan baku sampai invoice penjualan — pembelian,
+              Dari purchase order bahan baku sampai invoice penjualan, pembelian,
               stok FEFO, formula, produksi, HPP real, dan penjualan terhubung dalam
               satu sumber data. Dibuat khusus untuk industri.
             </p>
@@ -314,7 +314,7 @@ export default function KenapaPage() {
           </h2>
           <p className="text-muted text-[15px] max-w-xl leading-relaxed">
             Setiap tahap di pabrik meninggalkan dokumen. Seawise merangkainya jadi
-            satu benang merah — angka yang sama dari awal sampai akhir.
+            satu benang merah, angka yang sama dari awal sampai akhir.
           </p>
         </Reveal>
 
@@ -393,7 +393,7 @@ export default function KenapaPage() {
                   Data perusahaan Anda, milik Anda sendiri
                 </h3>
                 <p className="text-white/60 text-[13.5px] leading-relaxed max-w-3xl">
-                  Setiap perusahaan berjalan di ruang data yang terisolasi penuh —
+                  Setiap perusahaan berjalan di ruang data yang terisolasi penuh -
                   tidak ada data yang bisa dilihat perusahaan lain. Formula dan
                   harga adalah rahasia dagang Anda; sistem kami memperlakukannya
                   seperti itu.
@@ -419,7 +419,7 @@ export default function KenapaPage() {
               Tiga modul industri yang membuat mutu bukan sekadar SOP di atas
               kertas: bahan tidak bisa dipakai sebelum lulus QC, produksi
               mengikuti checklist digital, dan produk tidak bisa dijual sebelum
-              diluluskan QA. Jejak dokumennya lengkap — dari lembar uji sampai
+              diluluskan QA. Jejak dokumennya lengkap, dari lembar uji sampai
               Certificate of Analysis.
             </p>
           </div>
@@ -454,7 +454,7 @@ export default function KenapaPage() {
         <Reveal delay={200}>
           <p className="text-center text-muted text-[13px] mt-8">
             Ketiga modul dibundel dalam satu paket dan diaktifkan langsung di
-            akun perusahaan Anda — tanpa instalasi terpisah.
+            akun perusahaan Anda, tanpa instalasi terpisah.
           </p>
         </Reveal>
       </section>
@@ -470,7 +470,7 @@ export default function KenapaPage() {
               Sederhana dan transparan.
             </h2>
             <p className="text-muted text-[15px] mt-4 max-w-lg mx-auto leading-relaxed">
-              Satu kali biaya aktivasi — pilih paket sesuai kebutuhan pabrik —
+              Satu kali biaya aktivasi, pilih paket sesuai kebutuhan pabrik -
               lalu biaya pemeliharaan tahunan yang sama untuk semua paket. Tanpa
               biaya per user, tanpa biaya tersembunyi.
             </p>
@@ -585,7 +585,7 @@ export default function KenapaPage() {
               Siap merapikan pabrik Anda?
             </h2>
             <p className="text-white/65 text-[15.5px] mt-5 max-w-xl mx-auto leading-relaxed">
-              Ceritakan proses pabrik Anda — kami tunjukkan bagaimana Seawise
+              Ceritakan proses pabrik Anda, kami tunjukkan bagaimana Seawise
               menjalankannya. Demo langsung, tanpa komitmen.
             </p>
           </Reveal>
@@ -615,7 +615,7 @@ export default function KenapaPage() {
             <div className="flex items-center gap-2">
               <Logo size={15} />
               <span>
-                Seawise Enterprise Apps — Industry Edition ·{" "}
+                Industry Management by Seawise Studio ·{" "}
                 {new Date().getFullYear()}
               </span>
             </div>

@@ -35,7 +35,7 @@ export default async function MaterialsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Materials</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} material terdaftar — data regulasi/komposisi bahan baku
+            {list.length} material terdaftar, data regulasi/komposisi bahan baku
           </p>
         </div>
         <Link

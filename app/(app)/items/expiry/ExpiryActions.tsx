@@ -75,7 +75,7 @@ export default function ExpiryActions({
               {mode === "retest" ? "Re-test Batch" : "Musnahkan Batch"}
             </div>
             <p className="text-[12px] text-muted mb-3">
-              {itemNama} — sisa {qtySisa.toLocaleString("id-ID")} {satuan}
+              {itemNama} · sisa {qtySisa.toLocaleString("id-ID")} {satuan}
             </p>
 
             {mode === "retest" && (

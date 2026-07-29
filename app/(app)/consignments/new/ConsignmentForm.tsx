@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { createConsignment } from "../actions";
 import type { ClientOpt, ProductVariantOpt } from "@/lib/salesOptions";
+import ClientPicker from "@/components/ClientPicker";
 
 type Row = { key: string; qty: string; harga: string };
 
@@ -64,7 +65,7 @@ export default function ConsignmentForm({
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }
@@ -75,24 +76,17 @@ export default function ConsignmentForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div className="glass rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="relative z-40 glass rounded-2xl p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">
             Client (Lokasi Konsinyasi)
           </label>
-          <select
+          <ClientPicker
+            clients={clients}
             value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            required
-            className={inputCls}
-          >
-            <option value="">— Pilih client —</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.kode} — {c.company_brand}
-              </option>
-            ))}
-          </select>
+            onChange={setClientId}
+            placeholder="Ketik nama client..."
+          />
         </div>
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">
@@ -118,7 +112,7 @@ export default function ConsignmentForm({
         </div>
       </div>
 
-      <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+      <div className="relative z-10 glass rounded-2xl p-5 sm:p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-display text-[15.5px] font-semibold text-ink">
@@ -156,7 +150,7 @@ export default function ConsignmentForm({
                   }}
                   className={inputCls}
                 >
-                  <option value="">— Pilih produk & varian —</option>
+                  <option value="">Pilih produk & varian</option>
                   {options.map((opt) => (
                     <option key={opt.key} value={opt.key}>
                       {opt.label} · stok {opt.available.toLocaleString("id-ID")}

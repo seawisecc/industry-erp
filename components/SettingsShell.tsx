@@ -37,7 +37,7 @@ const CARDS: SettingsCard[] = [
 ];
 
 /**
- * Kerangka halaman Pengaturan: kartu navigasi di kiri, konten di kanan —
+ * Kerangka halaman Pengaturan: kartu navigasi di kiri, konten di kanan -
  * dipakai bersama oleh /settings, /data-migration, dan /users.
  */
 export default async function SettingsShell({

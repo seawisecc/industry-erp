@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { createInvoice } from "./actions";
 import { computeTotals } from "@/lib/invoiceMath";
+import ClientPicker from "@/components/ClientPicker";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -12,7 +13,7 @@ export type ProductVariantOpt = {
   key: string; // product_id|varian, atau svc|id untuk jasa
   product_id: string; // "" untuk jasa
   varian: string; // "-" jika tanpa varian
-  label: string; // "PRD-0001 — Serum (30 g)"
+  label: string; // "PRD-0001, Serum (30 g)"
   available: number;
   harga_jual: number | null;
   service_id: string | null; // terisi bila baris ini layanan jasa
@@ -104,7 +105,7 @@ export default function InvoiceForm({
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }
@@ -116,34 +117,31 @@ export default function InvoiceForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div className="glass rounded-2xl p-6 flex flex-col gap-4">
+      <div className="relative z-40 glass rounded-2xl p-5 sm:p-6 flex flex-col gap-4">
         {!isPos && (
-          <div className="text-[12px] text-muted bg-white/50 rounded-lg px-3 py-2 -mb-1">
+          <div className="text-[12px] text-muted bg-white/50 rounded-lg px-3 py-2">
             Dibuat sebagai <b>Proforma Invoice</b> (tagihan tempo). Setelah lunas
             di menu Sales Payments, otomatis menjadi Invoice.
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
+          <div className="relative z-50">
             <label className={labelCls}>Client</label>
-            <select
+            <ClientPicker
+              clients={clients}
               value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              className={inputCls}
-            >
-              <option value="">— {isPos ? "Walk-in (tanpa client)" : "Pilih client"} —</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.kode} — {c.company_brand}
-                </option>
-              ))}
-            </select>
+              onChange={setClientId}
+              placeholder="Ketik nama client..."
+              allowEmpty={isPos}
+              emptyLabel="Walk-in (tanpa client)"
+            />
           </div>
           <div>
             <label className={labelCls}>
-              Nama Pembeli{" "}
+              Nama Pembeli
               <span className="font-normal text-muted/70">
-                ({clientId ? "opsional" : "wajib jika tanpa client"})
+                {" "}
+                {clientId ? "(opsional)" : "(wajib bila tanpa client)"}
               </span>
             </label>
             <input
@@ -153,32 +151,20 @@ export default function InvoiceForm({
               className={inputCls}
             />
           </div>
-          {isPos && (
-            <div>
-              <label className={labelCls}>Tanggal</label>
-              <input
-                type="date"
-                value={tanggal}
-                onChange={(e) => setTanggal(e.target.value)}
-                required
-                className={inputCls}
-              />
-            </div>
-          )}
+          <div>
+            <label className={labelCls}>Tanggal</label>
+            <input
+              type="date"
+              value={tanggal}
+              onChange={(e) => setTanggal(e.target.value)}
+              required
+              className={inputCls}
+            />
+          </div>
         </div>
 
         {!isPos && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className={labelCls}>Tanggal</label>
-              <input
-                type="date"
-                value={tanggal}
-                onChange={(e) => setTanggal(e.target.value)}
-                required
-                className={inputCls}
-              />
-            </div>
             <div>
               <label className={labelCls}>TOP (hari)</label>
               <input
@@ -190,12 +176,15 @@ export default function InvoiceForm({
                 className={inputCls}
               />
             </div>
-            <div>
-              <label className={labelCls}>Catatan</label>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>
+                Catatan{" "}
+                <span className="font-normal text-muted/70">(opsional)</span>
+              </label>
               <input
                 value={catatan}
                 onChange={(e) => setCatatan(e.target.value)}
-                placeholder="Cust. PO, dsb. (opsional)"
+                placeholder="Cust. PO, dsb."
                 className={inputCls}
               />
             </div>
@@ -204,7 +193,7 @@ export default function InvoiceForm({
       </div>
 
       {/* ===== Item ===== */}
-      <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+      <div className="relative z-10 glass rounded-2xl p-5 sm:p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-[15.5px] font-semibold text-ink">
             Produk yang Dijual
@@ -222,8 +211,11 @@ export default function InvoiceForm({
           const o = optOf(row.key);
           const over = o && !o.service_id && parseNum(row.qty) > o.available;
           return (
-            <div key={idx} className="flex flex-col gap-1">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_100px_150px_120px_32px] gap-2 items-center">
+            <div
+              key={idx}
+              className="flex flex-col gap-1 rounded-xl border border-line/70 bg-white/40 p-3 sm:border-0 sm:bg-transparent sm:p-0"
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-[1fr_100px_150px_120px_32px] gap-2 items-center">
                 <select
                   value={row.key}
                   onChange={(e) => {
@@ -235,9 +227,9 @@ export default function InvoiceForm({
                         opt?.harga_jual != null ? String(opt.harga_jual) : row.harga,
                     });
                   }}
-                  className={inputCls}
+                  className={`${inputCls} col-span-2 sm:col-span-1`}
                 >
-                  <option value="">— Pilih produk & varian —</option>
+                  <option value="">Pilih produk & varian</option>
                   {options.map((opt) => (
                     <option key={opt.key} value={opt.key}>
                       {opt.label}
@@ -263,10 +255,13 @@ export default function InvoiceForm({
                   placeholder="Harga/pcs (Rp)"
                   className={inputCls}
                 />
-                <div className="text-right text-[13px] whitespace-nowrap px-1">
-                  {row.key && parseNum(row.qty) > 0
-                    ? formatRupiah(parseNum(row.qty) * parseNum(row.harga))
-                    : "—"}
+                <div className="flex items-center justify-between sm:justify-end gap-2 text-[13px] whitespace-nowrap px-1">
+                  <span className="text-muted text-[11.5px] sm:hidden">Subtotal</span>
+                  <span className="font-medium">
+                    {row.key && parseNum(row.qty) > 0
+                      ? formatRupiah(parseNum(row.qty) * parseNum(row.harga))
+                      : "-"}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -277,7 +272,7 @@ export default function InvoiceForm({
                         : [{ key: "", qty: "", harga: "" }]
                     )
                   }
-                  className="text-muted hover:text-clay-600 p-2"
+                  className="text-muted hover:text-clay-600 p-2 justify-self-end"
                 >
                   <Trash2 size={15} />
                 </button>
@@ -333,7 +328,7 @@ export default function InvoiceForm({
             />
             %
           </label>
-          <span>{pakaiTax ? formatRupiah(totals.tax) : "—"}</span>
+          <span>{pakaiTax ? formatRupiah(totals.tax) : "-"}</span>
         </div>
         <div className="flex justify-between font-semibold text-[15px] border-t border-line pt-2 mt-1">
           <span>TOTAL</span>

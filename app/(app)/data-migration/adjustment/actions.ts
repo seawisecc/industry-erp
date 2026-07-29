@@ -30,7 +30,7 @@ export async function createStockAdjustment(
 
     const items = data.items.filter((it) => it.item_id && it.qty_aktual >= 0);
     if (items.length === 0)
-      throw new Error("Tidak ada item yang berubah — sesuaikan minimal satu item.");
+      throw new Error("Tidak ada item yang berubah, sesuaikan minimal satu item.");
 
     const { error } = await supabase.rpc("create_stock_adjustment", {
       p_organization_id: organizationId,

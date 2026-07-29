@@ -79,7 +79,7 @@ export default function SidebarNav({
         <Logo size={22} />
         <div className="leading-tight">
           <div className="font-display font-semibold text-[13.5px]">
-            Seawise Enterprise
+            Industry Management
           </div>
           <div className="text-[10px] text-white/50">{currentOrgNama}</div>
         </div>
@@ -110,10 +110,10 @@ export default function SidebarNav({
           <Logo size={28} />
           <div className={`flex-1 ${collapsed ? "sm:hidden" : ""}`}>
             <div className="font-display font-semibold text-[15px] text-white leading-tight">
-              Seawise Enterprise
+              Industry Management
             </div>
             <div className="text-[11px] text-white/50 tracking-wide">
-              Industry Edition
+              by Seawise Studio
             </div>
           </div>
           {/* Tombol minimize (desktop) */}

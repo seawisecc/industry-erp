@@ -31,7 +31,7 @@ type BatchPrint = {
 };
 
 function formatTanggal(iso: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
     day: "numeric",
     month: "long",
@@ -134,10 +134,10 @@ export default async function PrintQcProdukPage({
             <tr>
               <td className="py-1 pr-3 text-neutral-500 w-[32mm]">Nama Produk</td>
               <td className="py-1 pr-6 font-semibold">
-                {produk?.nama_produk || "—"}
+                {produk?.nama_produk || "-"}
               </td>
               <td className="py-1 pr-3 text-neutral-500 w-[32mm]">Kode Produk</td>
-              <td className="py-1 font-mono">{produk?.kode || "—"}</td>
+              <td className="py-1 font-mono">{produk?.kode || "-"}</td>
             </tr>
             <tr>
               <td className="py-1 pr-3 text-neutral-500">No. Batch</td>
@@ -145,13 +145,13 @@ export default async function PrintQcProdukPage({
                 {b.no_batch_produksi}
               </td>
               <td className="py-1 pr-3 text-neutral-500">Brand</td>
-              <td className="py-1">{produk?.brand || "—"}</td>
+              <td className="py-1">{produk?.brand || "-"}</td>
             </tr>
             <tr>
               <td className="py-1 pr-3 text-neutral-500">Tanggal Produksi</td>
               <td className="py-1 pr-6">{formatTanggal(b.tanggal_produksi)}</td>
               <td className="py-1 pr-3 text-neutral-500">Jumlah Sampel</td>
-              <td className="py-1">{b.qc_produk_jumlah_sampel || "—"}</td>
+              <td className="py-1">{b.qc_produk_jumlah_sampel || "-"}</td>
             </tr>
             <tr>
               <td className="py-1 pr-3 text-neutral-500 align-top">Hasil Produksi</td>
@@ -217,9 +217,9 @@ export default async function PrintQcProdukPage({
                                   )}
                                 </td>
                                 <td className="py-2 pr-2 text-neutral-600">
-                                  {h.spesifikasi || "—"}
+                                  {h.spesifikasi || "-"}
                                 </td>
-                                <td className="py-2 font-medium">{h.hasil || "—"}</td>
+                                <td className="py-2 font-medium">{h.hasil || "-"}</td>
                               </tr>
                             );
                           })}
@@ -281,7 +281,7 @@ export default async function PrintQcProdukPage({
         )}
 
         <div className="mt-10 pt-3 border-t border-neutral-300 text-[10px] text-neutral-400 flex justify-between">
-          <span>Lembar Pengujian Produk Jadi — batch {b.no_batch_produksi}</span>
+          <span>Lembar Pengujian Produk Jadi, batch {b.no_batch_produksi}</span>
           <span>{org?.nama}</span>
         </div>
       </div>

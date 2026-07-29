@@ -71,7 +71,7 @@ export default async function PurchaseOrdersPage() {
             Purchase Orders
           </h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} PO — alur: Dibuat → Disetujui → Dikirim → Diterima
+            {list.length} PO, alur: Dibuat → Disetujui → Dikirim → Diterima
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -131,14 +131,14 @@ export default async function PurchaseOrdersPage() {
                     className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
                   >
                     <td className="px-4 py-3 font-mono text-[12.5px]">
-                      {po.no_po || "—"}
+                      {po.no_po || "-"}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {formatTanggal(po.tanggal_po)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="max-w-[220px] truncate font-medium">
-                        {po.suppliers?.nama || "—"}
+                        {po.suppliers?.nama || "-"}
                       </div>
                     </td>
                     <td className="px-4 py-3">{po.po_items.length}</td>
@@ -147,7 +147,7 @@ export default async function PurchaseOrdersPage() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
                       {po.top_days == null
-                        ? "—"
+                        ? "-"
                         : po.top_days === 0
                           ? "Tunai"
                           : `${po.top_days} hr`}

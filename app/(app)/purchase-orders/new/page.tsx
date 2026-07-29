@@ -28,7 +28,7 @@ export default async function NewPOPage() {
       .order("created_at", { ascending: false }),
   ]);
 
-  // Harga beli terakhir per item — dipakai untuk prefill kolom harga
+  // Harga beli terakhir per item, dipakai untuk prefill kolom harga
   const lastHarga = new Map<string, number>();
   for (const b of (priceRows || []) as { item_id: string; harga_per_unit: number }[]) {
     const h = Number(b.harga_per_unit);

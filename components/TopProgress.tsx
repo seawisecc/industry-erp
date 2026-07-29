@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 /**
- * Progress bar tipis di atas layar — langsung muncul begitu link internal
+ * Progress bar tipis di atas layar, langsung muncul begitu link internal
  * diklik, hilang begitu halaman tujuan selesai render. Feedback instan
  * tanpa library tambahan.
  */

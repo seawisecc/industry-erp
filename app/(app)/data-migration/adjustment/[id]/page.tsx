@@ -103,7 +103,7 @@ export default async function AdjustmentDetailPage({
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     {r.harga_per_unit != null
                       ? "Rp " + Number(r.harga_per_unit).toLocaleString("id-ID")
-                      : "—"}
+                      : "-"}
                   </td>
                 </tr>
               );

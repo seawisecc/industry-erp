@@ -43,7 +43,7 @@ export default async function DocumentSigningPage() {
           Document Signing
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          Atur kolom tanda tangan per jenis dokumen cetak — centang hanya yang
+          Atur kolom tanda tangan per jenis dokumen cetak, centang hanya yang
           dipakai perusahaan Anda. Kolom yang tidak dicentang tidak akan muncul
           saat dokumen dicetak.
         </p>

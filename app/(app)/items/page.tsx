@@ -70,7 +70,7 @@ export default async function ItemsPage() {
             Stock Items
           </h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} item terdaftar — stok masuk lewat menu Receiving
+            {list.length} item terdaftar, stok masuk lewat menu Receiving
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -193,7 +193,7 @@ export default async function ItemsPage() {
                           )}
                         </div>
                       ) : (
-                        <span className="text-muted">—</span>
+                        <span className="text-muted">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">

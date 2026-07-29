@@ -96,7 +96,7 @@ export const MODULE_TITLE: Record<string, string> = {
   "/settings": "Settings",
 };
 
-/** Sub-menu tiap modul (hub) — ditampilkan sebagai ikon di dropup HP. */
+/** Sub-menu tiap modul (hub), ditampilkan sebagai ikon di dropup HP. */
 export const SUBMENUS: Record<string, SubItem[]> = {
   "/items": [
     { href: "/items", label: "Stock Items", icon: Boxes },

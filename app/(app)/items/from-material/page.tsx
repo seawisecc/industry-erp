@@ -46,7 +46,7 @@ export default async function FromMaterialPage() {
       </h1>
       <p className="text-muted text-sm mb-6">
         {rows.length} material belum punya item stok. Satuan otomatis: kg (bahan
-        baku) / pcs (kemasan) — bisa diubah per baris.
+        baku) / pcs (kemasan), bisa diubah per baris.
       </p>
 
       <FromMaterialForm materials={rows} />

@@ -145,7 +145,7 @@ export default async function PaymentsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={9} className="text-center text-muted py-10 text-sm">
-                  Belum ada faktur — faktur muncul otomatis dari Receiving.
+                  Belum ada faktur. Faktur muncul otomatis dari Receiving.
                 </td>
               </tr>
             ) : (
@@ -161,25 +161,25 @@ export default async function PaymentsPage() {
                     }`}
                   >
                     <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                      {inv.no_invoice || "—"}
+                      {inv.no_invoice || "-"}
                     </td>
                     <td className="px-4 py-3">
                       <div
                         className="max-w-[190px] truncate font-medium"
                         title={inv.supplier_nama || undefined}
                       >
-                        {inv.supplier_nama || "—"}
+                        {inv.supplier_nama || "-"}
                       </div>
                     </td>
                     <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                      {inv.purchase_orders?.no_po || "—"}
+                      {inv.purchase_orders?.no_po || "-"}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {formatTanggal(inv.tanggal_terima)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
                       {inv.top_days == null
-                        ? "—"
+                        ? "-"
                         : inv.top_days === 0
                           ? "Tunai"
                           : `${inv.top_days} hr`}
@@ -199,7 +199,7 @@ export default async function PaymentsPage() {
                           )}
                         </span>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">

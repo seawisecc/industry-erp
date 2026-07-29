@@ -24,7 +24,7 @@ type BatchRow = {
 };
 
 function formatTanggal(iso: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
@@ -66,7 +66,7 @@ export default async function QcFinishedPage() {
   const belum = list.length;
 
   const produkOf = (b: BatchRow) =>
-    b.production_outputs?.[0]?.products?.nama_produk || "—";
+    b.production_outputs?.[0]?.products?.nama_produk || "-";
   const hasilOf = (b: BatchRow) =>
     b.production_outputs
       .map(
@@ -84,7 +84,7 @@ export default async function QcFinishedPage() {
           QC Produk Jadi
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          {belum} batch menunggu pengujian — hasil uji dikirim ke QA sebagai
+          {belum} batch menunggu pengujian, hasil uji dikirim ke QA sebagai
           dasar pelulusan batch.
         </p>
       </div>
@@ -196,7 +196,7 @@ export default async function QcFinishedPage() {
                     {hasilOf(b)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                    {b.qc_produk_oleh || "—"}
+                    {b.qc_produk_oleh || "-"}
                   </td>
                   <td className="px-4 py-3">
                     <span

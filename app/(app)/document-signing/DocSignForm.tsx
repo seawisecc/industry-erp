@@ -44,7 +44,7 @@ export default function DocSignForm({ initial }: { initial: DocSignInitial }) {
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }
@@ -77,13 +77,13 @@ export default function DocSignForm({ initial }: { initial: DocSignInitial }) {
               </span>
               {doc.key === "qa" && (
                 <span className="w-full text-[11.5px] text-muted">
-                  Muncul di Sertifikat Analisa produk jadi — biasanya Diperiksa
+                  Muncul di Sertifikat Analisa produk jadi, biasanya Diperiksa
                   oleh (analis) dan Disetujui oleh (Manager QA).
                 </span>
               )}
               {doc.key === "qc" && (
                 <span className="w-full text-[11.5px] text-muted">
-                  Muncul di cetakan lembar pengujian — biasanya Diperiksa oleh
+                  Muncul di cetakan lembar pengujian, biasanya Diperiksa oleh
                   (analis QC) dan Disetujui oleh (Manager QC).
                 </span>
               )}

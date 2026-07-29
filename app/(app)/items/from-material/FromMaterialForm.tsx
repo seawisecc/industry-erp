@@ -94,7 +94,7 @@ export default function FromMaterialForm({ materials }: { materials: MaterialRow
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }
@@ -108,7 +108,7 @@ export default function FromMaterialForm({ materials }: { materials: MaterialRow
       <div className="glass rounded-2xl p-5 flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
           <p className="text-muted text-[12.5px]">
-            Centang material yang stoknya mau dilacak di gudang — item dibuat
+            Centang material yang stoknya mau dilacak di gudang, item dibuat
             otomatis dengan nama tradename &amp; langsung ter-link.
           </p>
           <div className="relative sm:w-[240px] flex-shrink-0">

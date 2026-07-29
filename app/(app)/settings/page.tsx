@@ -25,7 +25,7 @@ export default async function SettingsPage() {
     <SettingsShell>
       <div className="max-w-3xl">
         <h2 className="font-display text-lg font-semibold text-ink mb-4">
-          Company Profile — {org?.nama}
+          Company Profile · {org?.nama}
         </h2>
 
         <AccountForm

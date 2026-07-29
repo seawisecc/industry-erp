@@ -155,7 +155,7 @@ export default function ProductionForm({
       .slice(0, 8);
   }
 
-  // Total isi varian (kg) vs bulk — indikator kasar keseimbangan
+  // Total isi varian (kg) vs bulk, indikator kasar keseimbangan
   const totalIsiKg = selectedProduct
     ? selectedProduct.variants.reduce((s, v) => {
         const pcs = parseNum(variantQty[v.id] || "");
@@ -302,7 +302,7 @@ export default function ProductionForm({
         </div>
         {kurang && (
           <p className="text-clay-600 text-[12px]">
-            Stok tidak cukup — tersedia {formatId(row.item!.stok)} {row.item!.satuan}
+            Stok tidak cukup, tersedia {formatId(row.item!.stok)} {row.item!.satuan}
           </p>
         )}
       </div>
@@ -324,10 +324,10 @@ export default function ProductionForm({
               required
               className={inputCls}
             >
-              <option value="">— Pilih produk —</option>
+              <option value="">Pilih produk</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.kode} — {p.nama_produk}
+                  {p.kode} · {p.nama_produk}
                   {p.brand ? ` (${p.brand})` : ""}
                 </option>
               ))}
@@ -407,14 +407,14 @@ export default function ProductionForm({
               Ukuran yang Diproduksi
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              Isi jumlah pcs per ukuran — kemasan otomatis dihitung dari sini.
+              Isi jumlah pcs per ukuran, kemasan otomatis dihitung dari sini.
               Kosongkan yang tidak diproduksi.
             </p>
           </div>
 
           {selectedProduct.variants.length === 0 ? (
             <p className="text-clay-600 text-[13px]">
-              Produk ini belum punya varian/gramasi — isi dulu di menu Produk.
+              Produk ini belum punya varian/gramasi, isi dulu di menu Produk.
             </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -443,7 +443,7 @@ export default function ProductionForm({
               }`}
             >
               Total isi varian ≈ {formatId(totalIsiKg)} kg dari {formatId(bulkKg)} kg
-              bulk{totalIsiKg > bulkKg ? " — melebihi bulk yang diproduksi!" : ""}
+              bulk{totalIsiKg > bulkKg ? ", melebihi bulk yang diproduksi!" : ""}
             </p>
           )}
         </div>
@@ -457,13 +457,13 @@ export default function ProductionForm({
               Bahan Baku (dari formula %)
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              Qty = persentase × {formatId(bulkKg)} kg bulk. Bisa diubah manual —
+              Qty = persentase × {formatId(bulkKg)} kg bulk. Bisa diubah manual -
               tapi terhitung ulang kalau jumlah batch diganti.
             </p>
           </div>
           {bahanRows.length === 0 ? (
             <p className="text-clay-600 text-[13px]">
-              Produk ini belum punya formulasi — isi dulu di menu Produk.
+              Produk ini belum punya formulasi, isi dulu di menu Produk.
             </p>
           ) : (
             bahanRows.map((row, idx) => renderRow(row, idx, setBahanRows, false))
@@ -512,7 +512,7 @@ export default function ProductionForm({
             </button>
           </div>
           {adjustRows.length === 0 && (
-            <p className="text-muted text-[12.5px]">Tidak ada — opsional.</p>
+            <p className="text-muted text-[12.5px]">Tidak ada, opsional.</p>
           )}
           {adjustRows.map((row, idx) => renderRow(row, idx, setAdjustRows, true))}
         </div>

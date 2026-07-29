@@ -122,7 +122,7 @@ export default function ResultForm({
                             : "text-botanical-700"
                       }`}
                     >
-                      {diff === 0 ? "—" : `${diff > 0 ? "+" : ""}${diff.toLocaleString("id-ID")}`}
+                      {diff === 0 ? "-" : `${diff > 0 ? "+" : ""}${diff.toLocaleString("id-ID")}`}
                     </td>
                   </tr>
                 );

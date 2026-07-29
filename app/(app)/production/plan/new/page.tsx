@@ -31,7 +31,7 @@ export default async function NewPlanPage() {
         Buat Plan Produksi
       </h1>
       <p className="text-muted text-sm mb-6">
-        Instruksi produksi untuk tim — eksekusi &amp; penimbangan dilakukan
+        Instruksi produksi untuk tim, eksekusi &amp; penimbangan dilakukan
         setelah plan dibuat.
       </p>
 

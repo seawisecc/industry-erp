@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 export type FormulaInput = {
   item_id: string;
   percentage: number;
-  fase: string | null; // pengelompokan fase (A/B/C) — opsional
+  fase: string | null; // pengelompokan fase (A/B/C), opsional
 };
 
 export type StepInput = {
@@ -26,7 +26,7 @@ export type VariantInput = {
 };
 
 export type ProductInput = {
-  kode: string | null; // manual (bebas format) — kosong = otomatis PRD-XXXX
+  kode: string | null; // manual (bebas format), kosong = otomatis PRD-XXXX
   nama_produk: string;
   brand: string | null;
   kategori: string | null;

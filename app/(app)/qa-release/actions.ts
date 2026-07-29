@@ -104,12 +104,12 @@ async function setQaStatus(
   }
 }
 
-/** Release: batch lulus QA — produk jadi masuk stok jual. */
+/** Release: batch lulus QA, produk jadi masuk stok jual. */
 export async function qaReleaseBatch(batchId: string, note: string | null) {
   return setQaStatus(batchId, "Released", note);
 }
 
-/** Reject: batch tidak lulus — produk jadi tidak pernah masuk stok jual. */
+/** Reject: batch tidak lulus, produk jadi tidak pernah masuk stok jual. */
 export async function qaRejectBatch(batchId: string, note: string) {
   return setQaStatus(batchId, "Rejected", note);
 }

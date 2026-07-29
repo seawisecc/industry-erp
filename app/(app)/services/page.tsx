@@ -36,7 +36,7 @@ export default async function ServicesPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Services</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} layanan jasa — bisa dijual lewat Invoice &amp; POS
+            {list.length} layanan jasa, bisa dijual lewat Invoice &amp; POS
           </p>
         </div>
         <Link
@@ -80,7 +80,7 @@ export default async function ServicesPage() {
                   className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
                 >
                   <td className="px-4 py-3 font-mono text-[12.5px] whitespace-nowrap">
-                    {s.kode || "—"}
+                    {s.kode || "-"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium max-w-[240px] truncate" title={s.nama_jasa}>
@@ -92,7 +92,7 @@ export default async function ServicesPage() {
                       className="max-w-[260px] text-[12.5px] text-muted line-clamp-2"
                       title={s.keterangan || undefined}
                     >
-                      {s.keterangan || "—"}
+                      {s.keterangan || "-"}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap font-medium">

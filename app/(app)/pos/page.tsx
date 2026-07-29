@@ -40,7 +40,7 @@ export default async function PosPage() {
       <div>
         <h2 className="font-display text-lg font-semibold text-ink">POS</h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          Penjualan cepat walk-in &amp; event — langsung lunas, stok terpotong,
+          Penjualan cepat walk-in &amp; event, langsung lunas, stok terpotong,
           bisa cetak struk/invoice
         </p>
       </div>

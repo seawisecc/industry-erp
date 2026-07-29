@@ -49,7 +49,7 @@ export default async function StockAdjustmentPage() {
             Adjustment Stok
           </h1>
           <p className="text-muted text-sm mt-1">
-            {list.length} riwayat — untuk stock opname &amp; input stok awal
+            {list.length} riwayat, untuk stock opname &amp; input stok awal
           </p>
         </div>
         <Link
@@ -88,13 +88,13 @@ export default async function StockAdjustmentPage() {
                     {formatTanggal(a.tanggal)}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="max-w-[300px] truncate">{a.catatan || "—"}</div>
+                    <div className="max-w-[300px] truncate">{a.catatan || "-"}</div>
                   </td>
                   <td className="px-4 py-3">
                     {a.stock_adjustment_items.length} item
                   </td>
                   <td className="px-4 py-3">
-                    {(a.dibuat_oleh && namaOleh.get(a.dibuat_oleh)) || "—"}
+                    {(a.dibuat_oleh && namaOleh.get(a.dibuat_oleh)) || "-"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link

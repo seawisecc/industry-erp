@@ -36,7 +36,7 @@ export default async function ProductsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Products</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} produk jadi — formula, varian, dan estimasi HPP
+            {list.length} produk jadi, formula, varian, dan estimasi HPP
           </p>
         </div>
         <Link
@@ -80,10 +80,10 @@ export default async function ProductsPage() {
                   key={p.id}
                   className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
                 >
-                  <td className="px-4 py-3 font-mono text-[12.5px]">{p.kode || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-[12.5px]">{p.kode || "-"}</td>
                   <td className="px-4 py-3 font-medium">{p.nama_produk}</td>
-                  <td className="px-4 py-3">{p.brand || "—"}</td>
-                  <td className="px-4 py-3">{p.kategori || "—"}</td>
+                  <td className="px-4 py-3">{p.brand || "-"}</td>
+                  <td className="px-4 py-3">{p.kategori || "-"}</td>
                   <td className="px-4 py-3">
                     {p.product_formulas.length > 0 ? (
                       <span className="text-[12.5px]">

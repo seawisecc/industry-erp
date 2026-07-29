@@ -32,9 +32,9 @@ export default async function FinishedGoodsPage() {
       const p = productMap.get(s.product_id);
       return {
         kode: p?.kode || null,
-        nama: p?.nama_produk || "—",
+        nama: p?.nama_produk || "-",
         brand: p?.brand || null,
-        varian: s.varian === "-" ? "—" : s.varian,
+        varian: s.varian === "-" ? "-" : s.varian,
         produced: s.produced,
         consigned: s.consigned,
         sold: s.sold,
@@ -48,7 +48,7 @@ export default async function FinishedGoodsPage() {
       <div>
         <h2 className="font-display text-lg font-semibold text-ink">Finished Goods</h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          Stok produk jadi per varian — produksi, konsinyasi, terjual, tersedia
+          Stok produk jadi per varian, produksi, konsinyasi, terjual, tersedia
         </p>
       </div>
 
@@ -74,7 +74,7 @@ export default async function FinishedGoodsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  Belum ada produk jadi — hasil muncul setelah produksi selesai.
+                  Belum ada produk jadi, hasil muncul setelah produksi selesai.
                 </td>
               </tr>
             ) : (
@@ -84,7 +84,7 @@ export default async function FinishedGoodsPage() {
                   className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
                 >
                   <td className="px-4 py-3 font-mono text-[12.5px] whitespace-nowrap">
-                    {r.kode || "—"}
+                    {r.kode || "-"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium max-w-[220px] truncate">{r.nama}</div>

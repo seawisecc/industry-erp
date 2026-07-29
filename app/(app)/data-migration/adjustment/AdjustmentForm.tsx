@@ -74,7 +74,7 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
     if (loading) return;
 
     if (changed.length === 0) {
-      setError("Belum ada stok yang diubah — sesuaikan minimal satu item.");
+      setError("Belum ada stok yang diubah, sesuaikan minimal satu item.");
       return;
     }
     const naikTanpaHarga = changed.find((it) => {
@@ -83,7 +83,7 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
     });
     if (naikTanpaHarga) {
       setError(
-        `"${naikTanpaHarga.nama}" stoknya bertambah — isi harga/unit supaya nilai stok tercatat benar.`
+        `"${naikTanpaHarga.nama}" stoknya bertambah, isi harga/unit supaya nilai stok tercatat benar.`
       );
       return;
     }
@@ -109,7 +109,7 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
       }
     } catch {
       setError(
-        "Gagal menyimpan — koneksi bermasalah atau aplikasi baru diperbarui. Muat ulang halaman lalu coba lagi."
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
       );
       setLoading(false);
     }
@@ -240,7 +240,7 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
                               : "text-muted"
                         }`}
                       >
-                        {diff === 0 ? "—" : `${diff > 0 ? "+" : ""}${formatId(diff)}`}
+                        {diff === 0 ? "-" : `${diff > 0 ? "+" : ""}${formatId(diff)}`}
                       </td>
                     </tr>
                   );

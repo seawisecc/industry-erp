@@ -1,4 +1,4 @@
-// Daftar bar horizontal (top-N) — server component, zero JS.
+// Daftar bar horizontal (top-N), server component, zero JS.
 
 export default function HBarList({
   data,

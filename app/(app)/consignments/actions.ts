@@ -130,7 +130,7 @@ export async function reportConsignmentSale(
       ? jatuhTempoDate.toLocaleDateString("sv-SE")
       : null;
 
-    // Sumber Konsinyasi tidak memotong stok jual — RPC hanya mengamankan
+    // Sumber Konsinyasi tidak memotong stok jual, RPC hanya mengamankan
     // penomoran invoice dari duplikat.
     const { data: invoiceId, error } = await supabase.rpc(
       "create_sales_invoice_tx",
@@ -230,7 +230,7 @@ export async function closeConsignment(
 }
 
 /* ============================================================
-   Laku / Retur di level OUTLET (client) — distribusi lintas
+   Laku / Retur di level OUTLET (client), distribusi lintas
    pengiriman, pengiriman tertua dulu (FIFO). Memudahkan pencatatan
    dari rekap stok per outlet tanpa buka satu-satu pengiriman.
    ============================================================ */

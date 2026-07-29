@@ -37,7 +37,7 @@ const CARDS: SettingsCard[] = [
 ];
 
 /**
- * Kerangka halaman Products: kartu navigasi kiri, konten kanan —
+ * Kerangka halaman Products: kartu navigasi kiri, konten kanan -
  * dipakai bersama oleh /products, /production, dan /finished-goods.
  */
 export default async function ProdukShell({

@@ -1,5 +1,5 @@
 /* ============================================================
-   Feature flags per perusahaan — dasar untuk paket bertingkat
+   Feature flags per perusahaan, dasar untuk paket bertingkat
    (mis. MES mode untuk pabrik yang siap eksekusi digital).
    Disimpan di organization_settings.features (jsonb).
    ============================================================ */
@@ -14,13 +14,13 @@ export const FEATURES = [
   {
     key: "qc",
     label: "QC Module",
-    desc: "Barang masuk dikarantina dulu — hanya bisa dipakai produksi setelah di-release QC. Reject otomatis ter-audit.",
+    desc: "Barang masuk dikarantina dulu, hanya bisa dipakai produksi setelah di-release QC. Reject otomatis ter-audit.",
     ready: true,
   },
   {
     key: "qa",
     label: "QA Release",
-    desc: "Batch produksi berstatus Hold sampai di-release QA — sebelum itu produk jadi tidak muncul di stok jual (konsinyasi, invoice, POS).",
+    desc: "Batch produksi berstatus Hold sampai di-release QA, sebelum itu produk jadi tidak muncul di stok jual (konsinyasi, invoice, POS).",
     ready: true,
   },
 ] as const;

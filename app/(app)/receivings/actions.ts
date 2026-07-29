@@ -59,7 +59,7 @@ export async function createReceiving(data: ReceivingInput) {
 
   if (poError || !po) throw new Error("PO tidak ditemukan");
   if (po.status === "Selesai")
-    throw new Error("PO ini sudah Selesai — semua barang sudah diterima.");
+    throw new Error("PO ini sudah Selesai, semua barang sudah diterima.");
 
   const poItems = (po.po_items || []) as {
     id: string;
@@ -217,7 +217,7 @@ export async function cancelReceiving(
     );
     if (terpakai)
       throw new Error(
-        "Sebagian barang sudah terpakai/keluar — penerimaan tidak bisa dibatalkan."
+        "Sebagian barang sudah terpakai/keluar, penerimaan tidak bisa dibatalkan."
       );
 
     // Hapus batch stok

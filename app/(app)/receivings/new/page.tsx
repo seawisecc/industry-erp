@@ -40,7 +40,7 @@ export default async function NewReceivingPage() {
     status: po.status,
     ppn_percent: Number(po.ppn_percent),
     top_days: po.top_days == null ? null : Number(po.top_days),
-    supplier_nama: po.suppliers?.nama || "—",
+    supplier_nama: po.suppliers?.nama || "-",
     items: po.po_items.map((it) => ({
       po_item_id: it.id,
       item_id: it.item_id,

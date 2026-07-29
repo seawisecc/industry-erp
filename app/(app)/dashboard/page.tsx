@@ -40,7 +40,7 @@ export default async function DashboardPage() {
     year: "numeric",
   });
 
-  // Awal periode 6 bulan terakhir (termasuk bulan berjalan) — tanggal LOKAL
+  // Awal periode 6 bulan terakhir (termasuk bulan berjalan), tanggal LOKAL
   const sixMonthsAgo = `${localMonthKey(
     new Date(today.getFullYear(), today.getMonth() - 5, 1)
   )}-01`;
@@ -247,7 +247,7 @@ export default async function DashboardPage() {
     qty: number;
     products: { nama_produk: string } | null;
   }[]) {
-    const nama = t.products?.nama_produk || "—";
+    const nama = t.products?.nama_produk || "-";
     topMap.set(nama, (topMap.get(nama) || 0) + Number(t.qty));
   }
   const topProducts = Array.from(topMap, ([label, value]) => ({ label, value }))
@@ -277,7 +277,7 @@ export default async function DashboardPage() {
     clients: { company_brand: string } | null;
   }[])
     .map((inv) => ({
-      pihak: inv.clients?.company_brand || inv.nama_pembeli || "—",
+      pihak: inv.clients?.company_brand || inv.nama_pembeli || "-",
       jatuh_tempo: inv.jatuh_tempo,
       sisa: Number(inv.total) - (dibayarByInv.get(inv.id) || 0),
     }))
@@ -314,7 +314,7 @@ export default async function DashboardPage() {
     <div>
       <h1 className="font-display text-2xl font-semibold text-ink">Dashboard</h1>
       <p className="text-muted text-sm mt-1">
-        Halo, <b>{profile?.nama}</b> 👋 — ringkasan gudang, pembelian &amp;
+        Halo, <b>{profile?.nama}</b> 👋, ringkasan gudang, pembelian &amp;
         penjualan
       </p>
 
@@ -385,7 +385,7 @@ export default async function DashboardPage() {
               <Wallet size={17} />
             </div>
             <h3 className="font-display text-[14.5px] font-semibold text-ink">
-              Arus Kas — {monthLabel}
+              Arus Kas · {monthLabel}
             </h3>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -500,7 +500,7 @@ export default async function DashboardPage() {
         <div className="glass rounded-2xl p-5 lg:col-span-2">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
             <h2 className="font-display text-[15px] font-semibold text-ink">
-              Pembelian vs Penjualan — 6 Bulan Terakhir
+              Pembelian vs Penjualan, 6 Bulan Terakhir
             </h2>
             <div className="flex items-center gap-4 text-[11.5px] text-muted">
               <span className="flex items-center gap-1.5">

@@ -44,7 +44,7 @@ function formatTanggal(iso: string) {
 }
 
 function formatExp(iso: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
     month: "short",
     year: "numeric",
@@ -205,7 +205,7 @@ export default async function PrintProductionPage({
               Produk
             </div>
             <div className="font-semibold text-[13.5px]">
-              {produk?.nama_produk || "—"}
+              {produk?.nama_produk || "-"}
             </div>
             <div className="text-[11.5px] text-neutral-600">
               {[produk?.kode, produk?.brand].filter(Boolean).join(" · ")}
@@ -237,7 +237,7 @@ export default async function PrintProductionPage({
 
         {/* ===== TABEL BAHAN (TRACEABILITY) ===== */}
         <div className="text-[11px] uppercase tracking-wide text-neutral-500 mt-6 mb-1">
-          Bahan Terpakai — Traceability Lot
+          Bahan Terpakai, Traceability Lot
         </div>
         <table className="w-full border-collapse">
           <thead>
@@ -269,7 +269,7 @@ export default async function PrintProductionPage({
                   )}
                 </td>
                 <td className="py-2 pr-2 font-mono text-[11px] whitespace-nowrap">
-                  {c.purchase_batches?.no_lot_supplier || "—"}
+                  {c.purchase_batches?.no_lot_supplier || "-"}
                 </td>
                 <td className="py-2 pr-2 whitespace-nowrap text-[11.5px]">
                   {formatExp(c.purchase_batches?.exp_date || null)}
@@ -302,7 +302,7 @@ export default async function PrintProductionPage({
         {steps.length > 0 && (
           <>
             <div className="text-[11px] uppercase tracking-wide text-neutral-500 mt-6 mb-1">
-              Cara Pembuatan — diisi operator saat produksi
+              Cara Pembuatan, diisi operator saat produksi
             </div>
             <table className="w-full border-collapse">
               <thead>
@@ -330,7 +330,7 @@ export default async function PrintProductionPage({
                     <td className="py-2.5 pr-2 text-[11px] text-neutral-600">
                       {[s.suhu, s.rpm ? `${s.rpm} rpm` : null, s.durasi]
                         .filter(Boolean)
-                        .join(" · ") || "—"}
+                        .join(" · ") || "-"}
                     </td>
                     <td className="py-2.5 pr-2 border-l border-neutral-200 text-center text-[11px]">
                       {jamOf(langkahLogs.get(s.urutan)?.mulai)}
@@ -379,7 +379,7 @@ export default async function PrintProductionPage({
 
         {/* ===== FOOTER ===== */}
         <div className="mt-10 pt-3 border-t border-neutral-300 text-[10px] text-neutral-400 flex justify-between">
-          <span>Dokumen internal — Batch Record {batch.no_batch_produksi}</span>
+          <span>Dokumen internal, Batch Record {batch.no_batch_produksi}</span>
           <span>{org?.nama}</span>
         </div>
       </div>
