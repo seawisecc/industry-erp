@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { localDateStr } from "@/lib/dates";
 
 export type QcHasilRow = {
   nama: string;
@@ -136,7 +137,7 @@ export async function decideQc(
         qc_hasil: sheet.hasil,
         qc_note: sheet.note?.trim() || null,
         qc_oleh: profile?.nama || null,
-        qc_tanggal: new Date().toLocaleDateString("sv-SE"),
+        qc_tanggal: localDateStr(),
       })
       .eq("id", batchId)
       .eq("organization_id", organizationId);

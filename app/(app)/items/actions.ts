@@ -3,7 +3,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { toResult, type ActionResult } from "@/lib/actionResult";
 
+export type ItemPayload = {
+  nama: string;
+  kategori: "Bahan Baku" | "Kemasan";
+  satuan: string;
+  stok_minimum: number;
+  moq: number | null;
+  material_id: string | null;
+};
 
 // Kode fallback ITM-XXXX (untuk item tanpa material)
 async function nextItemKode(organizationId: string): Promise<string> {
@@ -20,14 +29,11 @@ async function nextItemKode(organizationId: string): Promise<string> {
   return "ITM-" + String(lastNum + 1).padStart(4, "0");
 }
 
-export async function createItem(data: {
-  nama: string;
-  kategori: "Bahan Baku" | "Kemasan";
-  satuan: string;
-  stok_minimum: number;
-  moq: number | null;
-  material_id: string | null;
-}) {
+export async function createItem(data: ItemPayload): Promise<ActionResult> {
+  return toResult(() => createItemImpl(data), "Gagal menyimpan item");
+}
+
+async function createItemImpl(data: ItemPayload) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -93,7 +99,6 @@ export async function createItem(data: {
   }
 
   revalidatePath("/items");
-  return { success: true };
 }
 
 export async function createItemsFromMaterials(
@@ -165,15 +170,12 @@ export async function createItemsFromMaterials(
 
 export async function updateItem(
   id: string,
-  data: {
-    nama: string;
-    kategori: "Bahan Baku" | "Kemasan";
-    satuan: string;
-    stok_minimum: number;
-    moq: number | null;
-    material_id: string | null;
-  }
-) {
+  data: ItemPayload
+): Promise<ActionResult> {
+  return toResult(() => updateItemImpl(id, data), "Gagal menyimpan item");
+}
+
+async function updateItemImpl(id: string, data: ItemPayload) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -235,5 +237,4 @@ export async function updateItem(
   }
 
   revalidatePath("/items");
-  return { success: true };
 }

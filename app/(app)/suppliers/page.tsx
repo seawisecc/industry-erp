@@ -3,26 +3,47 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import type { Supplier } from "@/lib/types";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOr,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
-export default async function SuppliersPage() {
+export default async function SuppliersPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: suppliers } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  let query = supabase
     .from("suppliers")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .order("nama");
+    .select("*", { count: "exact" })
+    .eq("organization_id", organizationId);
+
+  if (sp.q) query = query.or(ilikeOr(["nama", "nama_kontak", "email"], sp.q));
+
+  const { data: suppliers, count } = await query
+    .order("nama")
+    .range(sp.from, sp.to);
 
   const list = (suppliers || []) as Supplier[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">Suppliers</h1>
-          <p className="text-muted text-sm mt-1">{list.length} supplier terdaftar</p>
+          <p className="text-muted text-sm mt-1">
+            {info.total.toLocaleString("id-ID")} supplier terdaftar
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -36,7 +57,7 @@ export default async function SuppliersPage() {
 
       <div className="mt-4">
 
-        <TableSearch placeholder="Cari nama / kontak supplier..." />
+        <TableToolbar placeholder="Cari nama / kontak supplier..." info={info} />
 
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -55,7 +76,9 @@ export default async function SuppliersPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  Belum ada supplier.
+                  {sp.q
+                    ? "Tidak ada supplier yang cocok dengan pencarian."
+                    : "Belum ada supplier."}
                 </td>
               </tr>
             ) : (
@@ -89,6 +112,7 @@ export default async function SuppliersPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </div>
   );
 }

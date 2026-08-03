@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import ProdukShell from "@/components/ProdukShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOrWithIds,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type PlanRow = {
   id: string;
@@ -46,21 +53,47 @@ function formatTanggal(iso: string) {
   });
 }
 
-export default async function ProductionPage() {
+export default async function ProductionPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
 
   const canPlan =
     isSuperAdmin || profile?.role === "Admin" || !!profile?.can_plan_production;
 
-  const [{ data: plans }, { data: batches }] = await Promise.all([
-    supabase
-      .from("production_plans")
-      .select(
-        "id, no_batch, jumlah_batch, tanggal_rencana, status, production_batch_id, products(kode, nama_produk)"
-      )
+  const sp = parseListQuery(await searchParams);
+
+  // Nama produk ada di tabel products, cari id-nya dulu.
+  let productIds: string[] = [];
+  if (sp.q) {
+    const { data: prods } = await supabase
+      .from("products")
+      .select("id")
       .eq("organization_id", organizationId)
-      .order("created_at", { ascending: false }),
+      .or(`kode.ilike."%${sp.q}%",nama_produk.ilike."%${sp.q}%"`)
+      .limit(500);
+    productIds = (prods || []).map((p) => p.id as string);
+  }
+
+  let planQuery = supabase
+    .from("production_plans")
+    .select(
+      "id, no_batch, jumlah_batch, tanggal_rencana, status, production_batch_id, products(kode, nama_produk)",
+      { count: "exact" }
+    )
+    .eq("organization_id", organizationId);
+
+  if (sp.q)
+    planQuery = planQuery.or(
+      ilikeOrWithIds(["no_batch"], sp.q, "product_id", productIds)
+    );
+  if (sp.filter("status")) planQuery = planQuery.eq("status", sp.filter("status"));
+
+  const [{ data: plans, count }, { data: batches }] = await Promise.all([
+    planQuery.order("created_at", { ascending: false }).range(sp.from, sp.to),
     supabase
       .from("production_batches")
       .select(
@@ -72,6 +105,7 @@ export default async function ProductionPage() {
   ]);
 
   const planList = (plans || []) as unknown as PlanRow[];
+  const info = pageInfo(sp.page, count, planList.length);
   const batchList = (batches || []) as unknown as BatchRow[];
 
   return (
@@ -96,9 +130,20 @@ export default async function ProductionPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari no. batch / produk..."
-          filters={[{ label: "Semua Status", options: ["Direncanakan", "Sedang Produksi", "Selesai"] }]}
+          info={info}
+          filters={[
+            {
+              param: "status",
+              label: "Semua Status",
+              options: [
+                "Direncanakan",
+                "Sedang Produksi",
+                "Selesai",
+              ].map((s) => ({ value: s, label: s })),
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -117,8 +162,11 @@ export default async function ProductionPage() {
             {planList.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  Belum ada plan produksi.
-                  {canPlan ? " Mulai dari tombol Buat Plan Produksi." : ""}
+                  {sp.q || sp.filter("status")
+                    ? "Tidak ada plan yang cocok dengan pencarian/filter."
+                    : `Belum ada plan produksi.${
+                        canPlan ? " Mulai dari tombol Buat Plan Produksi." : ""
+                      }`}
                 </td>
               </tr>
             ) : (
@@ -192,10 +240,15 @@ export default async function ProductionPage() {
         </table>
       </div>
 
+      <Pagination info={info} />
+
       {/* ===== HISTORY ===== */}
       <div className="mt-6">
         <h3 className="font-display text-[15px] font-semibold text-ink mb-2">
-          Production History (HPP Real)
+          Production History (HPP Real){" "}
+          <span className="font-sans text-[12px] font-normal text-muted">
+            · 30 terakhir
+          </span>
         </h3>
         <div className="glass rounded-2xl overflow-x-auto">
           <table className="w-full min-w-[760px] text-[13.5px]">

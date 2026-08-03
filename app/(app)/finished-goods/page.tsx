@@ -2,11 +2,23 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { getFinishedStock } from "@/lib/salesStock";
 import ProdukShell from "@/components/ProdukShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  PAGE_SIZE,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
-export default async function FinishedGoodsPage() {
+export default async function FinishedGoodsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
+  const sp = parseListQuery(await searchParams);
 
   const [{ data: products }, stock] = await Promise.all([
     supabase
@@ -27,7 +39,10 @@ export default async function FinishedGoodsPage() {
     ).map((p) => [p.id, p])
   );
 
-  const list = Array.from(stock.values())
+  // Sumbernya agregat (RPC get_finished_stock), bukan tabel mentah, jadi
+  // pencarian & halaman dikerjakan di sini — jumlah barisnya sudah dibatasi
+  // oleh jumlah produk × varian, bukan jumlah transaksi.
+  const semua = Array.from(stock.values())
     .map((s) => {
       const p = productMap.get(s.product_id);
       return {
@@ -43,6 +58,18 @@ export default async function FinishedGoodsPage() {
     })
     .sort((a, b) => a.nama.localeCompare(b.nama) || a.varian.localeCompare(b.varian));
 
+  const needle = sp.q.toLowerCase();
+  const cocok = needle
+    ? semua.filter((r) =>
+        [r.kode, r.nama, r.brand, r.varian]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(needle))
+      )
+    : semua;
+
+  const list = cocok.slice(sp.from, sp.from + PAGE_SIZE);
+  const info = pageInfo(sp.page, cocok.length, list.length);
+
   return (
     <ProdukShell>
       <div>
@@ -54,7 +81,7 @@ export default async function FinishedGoodsPage() {
 
       <div className="mt-4">
 
-        <TableSearch placeholder="Cari produk / varian..." />
+        <TableToolbar placeholder="Cari produk / varian..." info={info} />
 
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -74,7 +101,9 @@ export default async function FinishedGoodsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  Belum ada produk jadi, hasil muncul setelah produksi selesai.
+                  {sp.q
+                    ? "Tidak ada produk yang cocok dengan pencarian."
+                    : "Belum ada produk jadi, hasil muncul setelah produksi selesai."}
                 </td>
               </tr>
             ) : (
@@ -111,6 +140,7 @@ export default async function FinishedGoodsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </ProdukShell>
   );
 }

@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus, Store } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOrWithIds,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 import OutletActions, { type OutletProdItem } from "./OutletActions";
 
 type ConsItem = {
@@ -33,19 +40,56 @@ function formatTanggal(iso: string) {
   });
 }
 
-export default async function ConsignmentsPage() {
+export default async function ConsignmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: cons } = await supabase
+  const sp = parseListQuery(await searchParams);
+  const kolom =
+    "id, no_konsinyasi, tanggal_kirim, status, clients(id, company_brand), consignment_items(product_id, qty_kirim, qty_terjual, qty_retur, harga_jual, varian_ukuran, products(nama_produk))";
+
+  // Nama client ada di tabel lain, cari id-nya dulu.
+  let clientIds: string[] = [];
+  if (sp.q) {
+    const { data: cs } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("company_brand", `%${sp.q}%`)
+      .limit(500);
+    clientIds = (cs || []).map((c) => c.id as string);
+  }
+
+  let query = supabase
     .from("consignments")
-    .select(
-      "id, no_konsinyasi, tanggal_kirim, status, clients(id, company_brand), consignment_items(product_id, qty_kirim, qty_terjual, qty_retur, harga_jual, varian_ukuran, products(nama_produk))"
-    )
-    .eq("organization_id", organizationId)
-    .order("created_at", { ascending: false });
+    .select(kolom, { count: "exact" })
+    .eq("organization_id", organizationId);
+
+  if (sp.q)
+    query = query.or(
+      ilikeOrWithIds(["no_konsinyasi"], sp.q, "client_id", clientIds)
+    );
+  if (sp.filter("status")) query = query.eq("status", sp.filter("status"));
+
+  const { data: cons, count } = await query
+    .order("created_at", { ascending: false })
+    .range(sp.from, sp.to);
 
   const list = (cons || []) as unknown as ConsRow[];
+  const info = pageInfo(sp.page, count, list.length);
+
+  // Rekap outlet harus melihat SELURUH pengiriman yang masih aktif, bukan
+  // cuma halaman yang sedang tampil — jadi diambil terpisah dari tabel.
+  const { data: aktif } = await supabase
+    .from("consignments")
+    .select(kolom)
+    .eq("organization_id", organizationId)
+    .eq("status", "Aktif");
+  const aktifList = (aktif || []) as unknown as ConsRow[];
 
   // ===== Rekap per outlet (client) untuk konsinyasi yang masih Aktif =====
   type Outlet = {
@@ -56,7 +100,7 @@ export default async function ConsignmentsPage() {
     produk: Map<string, OutletProdItem>;
   };
   const outlets = new Map<string, Outlet>();
-  for (const c of list) {
+  for (const c of aktifList) {
     if (c.status !== "Aktif" || !c.clients) continue;
     const cid = c.clients.id;
     const o =
@@ -102,8 +146,8 @@ export default async function ConsignmentsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Consignment</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} pengiriman. Catat laku/retur per outlet dari rekap di
-            bawah
+            {info.total.toLocaleString("id-ID")} pengiriman. Catat laku/retur
+            per outlet dari rekap di bawah
           </p>
         </div>
         <Link
@@ -196,9 +240,19 @@ export default async function ConsignmentsPage() {
         Detail Pengiriman
       </h3>
       <div className="mb-3">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari no. konsinyasi / client..."
-          filters={[{ label: "Semua Status", options: ["Aktif", "Selesai"] }]}
+          info={info}
+          filters={[
+            {
+              param: "status",
+              label: "Semua Status",
+              options: [
+                { value: "Aktif", label: "Aktif" },
+                { value: "Selesai", label: "Selesai" },
+              ],
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -219,7 +273,9 @@ export default async function ConsignmentsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  Belum ada konsinyasi.
+                  {sp.q || sp.filter("status")
+                    ? "Tidak ada konsinyasi yang cocok dengan pencarian/filter."
+                    : "Belum ada konsinyasi."}
                 </td>
               </tr>
             ) : (
@@ -284,6 +340,7 @@ export default async function ConsignmentsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </SalesShell>
   );
 }

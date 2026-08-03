@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { toResult, type ActionResult } from "@/lib/actionResult";
 
 export type UserInput = {
   nama: string;
@@ -39,6 +40,12 @@ function normalizeModules(data: UserInput): string[] | null {
 }
 
 export async function createUser(
+  data: UserInput & { email: string; password: string }
+): Promise<ActionResult> {
+  return toResult(() => createUserImpl(data), "Gagal menyimpan pengguna");
+}
+
+async function createUserImpl(
   data: UserInput & { email: string; password: string }
 ) {
   const { organizationId } = await requireAdmin();
@@ -86,10 +93,16 @@ export async function createUser(
   if (pError) throw new Error(pError.message);
 
   revalidatePath("/users");
-  return { success: true };
 }
 
 export async function updateUser(
+  id: string,
+  data: UserInput & { new_password?: string }
+): Promise<ActionResult> {
+  return toResult(() => updateUserImpl(id, data), "Gagal menyimpan pengguna");
+}
+
+async function updateUserImpl(
   id: string,
   data: UserInput & { new_password?: string }
 ) {
@@ -143,5 +156,4 @@ export async function updateUser(
   }
 
   revalidatePath("/users");
-  return { success: true };
 }

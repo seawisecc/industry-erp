@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { toResult, type ActionResult } from "@/lib/actionResult";
 
 export type FormulaInput = {
   item_id: string;
@@ -165,7 +166,13 @@ async function insertFormulasAndVariants(
   }
 }
 
-export async function createProduct(data: ProductInput) {
+export async function createProduct(
+  data: ProductInput
+): Promise<ActionResult> {
+  return toResult(() => createProductImpl(data), "Gagal menyimpan produk");
+}
+
+async function createProductImpl(data: ProductInput) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -202,10 +209,16 @@ export async function createProduct(data: ProductInput) {
   }
 
   revalidatePath("/products");
-  return { success: true };
 }
 
-export async function updateProduct(id: string, data: ProductInput) {
+export async function updateProduct(
+  id: string,
+  data: ProductInput
+): Promise<ActionResult> {
+  return toResult(() => updateProductImpl(id, data), "Gagal menyimpan produk");
+}
+
+async function updateProductImpl(id: string, data: ProductInput) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -255,5 +268,4 @@ export async function updateProduct(id: string, data: ProductInput) {
   await insertFormulasAndVariants(supabase, id, organizationId, data);
 
   revalidatePath("/products");
-  return { success: true };
 }

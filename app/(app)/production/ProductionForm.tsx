@@ -172,7 +172,7 @@ export default function ProductionForm({
     setLoading(true);
     setError("");
     try {
-      await createProduction({
+      const result = await createProduction({
         no_batch: noBatch,
         tanggal,
         catatan: catatan || null,
@@ -188,10 +188,17 @@ export default function ProductionForm({
           .filter((r) => r.item)
           .map((r) => ({ item_id: r.item!.id, qty: parseNum(r.qty) })),
       });
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+        return;
+      }
       router.push("/production");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan produksi");
+    } catch {
+      setError(
+        "Gagal menyimpan. Koneksi bermasalah, muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

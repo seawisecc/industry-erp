@@ -3,9 +3,16 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
 import CancelTxButton from "@/components/CancelTxButton";
 import { cancelInvoice } from "./actions";
+import {
+  ilikeOrWithIds,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type InvRow = {
   id: string;
@@ -32,21 +39,59 @@ function formatTanggal(iso: string) {
   });
 }
 
-export default async function SalesInvoicesPage() {
+export default async function SalesInvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
   const canCancel =
     isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
 
-  const { data: invoices } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  // Nama client ada di tabel lain, jadi dicari dulu id-nya. Cara ini
+  // (bukan !inner join) menjaga invoice walk-in yang client_id-nya
+  // null tetap ikut tercari lewat nama_pembeli.
+  let clientIds: string[] = [];
+  if (sp.q) {
+    const { data: cs } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("company_brand", `%${sp.q}%`)
+      .limit(500);
+    clientIds = (cs || []).map((c) => c.id as string);
+  }
+
+  let query = supabase
     .from("sales_invoices")
     .select(
-      "id, no_invoice, tipe, sumber, tanggal, total, pakai_tax, diskon_percent, status_bayar, nama_pembeli, clients(company_brand)"
+      "id, no_invoice, tipe, sumber, tanggal, total, pakai_tax, diskon_percent, status_bayar, nama_pembeli, clients(company_brand)",
+      { count: "exact" }
     )
-    .eq("organization_id", organizationId)
-    .order("created_at", { ascending: false });
+    .eq("organization_id", organizationId);
+
+  if (sp.q)
+    query = query.or(
+      ilikeOrWithIds(
+        ["no_invoice", "nama_pembeli"],
+        sp.q,
+        "client_id",
+        clientIds
+      )
+    );
+  if (sp.filter("tipe")) query = query.eq("tipe", sp.filter("tipe"));
+  if (sp.filter("status"))
+    query = query.eq("status_bayar", sp.filter("status"));
+
+  const { data: invoices, count } = await query
+    .order("created_at", { ascending: false })
+    .range(sp.from, sp.to);
 
   const list = (invoices || []) as unknown as InvRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <SalesShell>
@@ -54,7 +99,8 @@ export default async function SalesInvoicesPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Invoices</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} dokumen, proforma &amp; invoice, dengan/tanpa tax
+            {info.total.toLocaleString("id-ID")} dokumen, proforma &amp;
+            invoice, dengan/tanpa tax
           </p>
         </div>
         <Link
@@ -66,9 +112,27 @@ export default async function SalesInvoicesPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari no. invoice / pembeli..."
-          filters={[{ label: "Semua Tipe", options: ["Proforma", "Invoice"] }, { label: "Semua Status", options: ["Lunas", "Belum Lunas"] }]}
+          info={info}
+          filters={[
+            {
+              param: "tipe",
+              label: "Semua Tipe",
+              options: [
+                { value: "Proforma", label: "Proforma" },
+                { value: "Invoice", label: "Invoice" },
+              ],
+            },
+            {
+              param: "status",
+              label: "Semua Status",
+              options: [
+                { value: "Lunas", label: "Lunas" },
+                { value: "Belum Lunas", label: "Belum Lunas" },
+              ],
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -90,7 +154,9 @@ export default async function SalesInvoicesPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={9} className="text-center text-muted py-10 text-sm">
-                  Belum ada dokumen penjualan.
+                  {sp.q || sp.filter("tipe") || sp.filter("status")
+                    ? "Tidak ada dokumen yang cocok dengan pencarian/filter."
+                    : "Belum ada dokumen penjualan."}
                 </td>
               </tr>
             ) : (
@@ -173,6 +239,7 @@ export default async function SalesInvoicesPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </SalesShell>
   );
 }

@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import ProdukShell from "@/components/ProdukShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOr,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type ServiceRow = {
   id: string;
@@ -18,17 +25,33 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
 
-export default async function ServicesPage() {
+export default async function ServicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: services } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  let query = supabase
     .from("services")
-    .select("id, kode, nama_jasa, keterangan, biaya, aktif")
-    .eq("organization_id", organizationId)
-    .order("kode");
+    .select("id, kode, nama_jasa, keterangan, biaya, aktif", {
+      count: "exact",
+    })
+    .eq("organization_id", organizationId);
+
+  if (sp.q) query = query.or(ilikeOr(["kode", "nama_jasa", "keterangan"], sp.q));
+  if (sp.filter("status"))
+    query = query.eq("aktif", sp.filter("status") === "Aktif");
+
+  const { data: services, count } = await query
+    .order("kode")
+    .range(sp.from, sp.to);
 
   const list = (services || []) as ServiceRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <ProdukShell>
@@ -36,7 +59,8 @@ export default async function ServicesPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Services</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} layanan jasa, bisa dijual lewat Invoice &amp; POS
+            {info.total.toLocaleString("id-ID")} layanan jasa, bisa dijual lewat
+            Invoice &amp; POS
           </p>
         </div>
         <Link
@@ -48,9 +72,19 @@ export default async function ServicesPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari kode / nama jasa..."
-          filters={[{ label: "Semua Status", options: ["Aktif", "Nonaktif"] }]}
+          info={info}
+          filters={[
+            {
+              param: "status",
+              label: "Semua Status",
+              options: [
+                { value: "Aktif", label: "Aktif" },
+                { value: "Nonaktif", label: "Nonaktif" },
+              ],
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -69,8 +103,9 @@ export default async function ServicesPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  Belum ada layanan jasa. Tambahkan misalnya: Jasa Formulasi, Uji
-                  Stabilitas, Notifikasi BPOM.
+                  {sp.q || sp.filter("status")
+                    ? "Tidak ada layanan jasa yang cocok dengan pencarian/filter."
+                    : "Belum ada layanan jasa. Tambahkan misalnya: Jasa Formulasi, Uji Stabilitas, Notifikasi BPOM."}
                 </td>
               </tr>
             ) : (
@@ -123,6 +158,7 @@ export default async function ServicesPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </ProdukShell>
   );
 }

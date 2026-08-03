@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { toResult, type ActionResult } from "@/lib/actionResult";
 
 export type InciRow = {
   inci_master_id: string;
@@ -21,7 +22,13 @@ type MaterialPayload = {
   inci_rows: InciRow[];
 };
 
-export async function createMaterial(data: MaterialPayload) {
+export async function createMaterial(
+  data: MaterialPayload
+): Promise<ActionResult> {
+  return toResult(() => createMaterialImpl(data), "Gagal menyimpan material");
+}
+
+async function createMaterialImpl(data: MaterialPayload) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -80,10 +87,19 @@ export async function createMaterial(data: MaterialPayload) {
   }
 
   revalidatePath("/materials");
-  return { success: true };
 }
 
-export async function updateMaterial(id: string, data: MaterialPayload) {
+export async function updateMaterial(
+  id: string,
+  data: MaterialPayload
+): Promise<ActionResult> {
+  return toResult(
+    () => updateMaterialImpl(id, data),
+    "Gagal menyimpan material"
+  );
+}
+
+async function updateMaterialImpl(id: string, data: MaterialPayload) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -152,5 +168,4 @@ export async function updateMaterial(id: string, data: MaterialPayload) {
   }
 
   revalidatePath("/materials");
-  return { success: true };
 }

@@ -263,6 +263,179 @@ export async function runImport(
   }
 }
 
+// ================= EXPORT CSV PER JENIS DATA =================
+
+/**
+ * Ambil SELURUH baris sebuah tabel dengan cara halaman-per-halaman.
+ *
+ * PostgREST memotong hasil di batas baris maksimum. Untuk daftar di
+ * layar itu cuma bikin data lama tidak kelihatan, tapi untuk export
+ * jauh lebih berbahaya: file-nya kelihatan normal padahal isinya
+ * kurang, dan tidak ada satu pun tanda bahwa ada yang hilang.
+ */
+const EXPORT_PAGE = 1000;
+
+async function fetchAllRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  table: string,
+  select: string,
+  organizationId: string,
+  orderBy = "id"
+): Promise<Record<string, unknown>[]> {
+  const out: Record<string, unknown>[] = [];
+  for (let from = 0; ; from += EXPORT_PAGE) {
+    let q = supabase
+      .from(table)
+      .select(select)
+      .eq("organization_id", organizationId)
+      .order(orderBy);
+    // Tiebreaker, supaya urutan stabil dan paging tidak melompati baris
+    if (orderBy !== "id") q = q.order("id");
+
+    const { data, error } = await q.range(from, from + EXPORT_PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data || []) as unknown as Record<string, unknown>[];
+    out.push(...batch);
+    if (batch.length < EXPORT_PAGE) break;
+  }
+  return out;
+}
+
+/** null/undefined jadi string kosong, sisanya apa adanya. */
+function cell(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  return String(v);
+}
+
+type ExportSpec = {
+  table: string;
+  select: string;
+  orderBy: string;
+  /** Kunci hasilnya HARUS sama dengan kolom template import. */
+  map: (r: Record<string, unknown>) => Record<string, string>;
+};
+
+const EXPORT_SPEC: Record<ImportKind, ExportSpec> = {
+  suppliers: {
+    table: "suppliers",
+    select: "id, nama, alamat, nama_kontak, no_telp, email, npwp",
+    orderBy: "nama",
+    map: (r) => ({
+      nama: cell(r.nama),
+      alamat: cell(r.alamat),
+      nama_kontak: cell(r.nama_kontak),
+      no_telp: cell(r.no_telp),
+      email: cell(r.email),
+      npwp: cell(r.npwp),
+    }),
+  },
+  inci: {
+    table: "inci_master",
+    select: "id, inci_name, cas_number, noael, function, reference",
+    orderBy: "inci_name",
+    map: (r) => ({
+      inci_name: cell(r.inci_name),
+      cas_number: cell(r.cas_number),
+      noael: cell(r.noael),
+      function: cell(r.function),
+      reference: cell(r.reference),
+    }),
+  },
+  materials: {
+    table: "materials",
+    select:
+      "id, material_code, tradename, origin, noc, kategori, keterangan, suppliers(nama)",
+    orderBy: "material_code",
+    // nama_supplier sengaja diekspor sebagai NAMA (bukan id) supaya
+    // file hasil export bisa langsung di-import balik.
+    map: (r) => ({
+      material_code: cell(r.material_code),
+      tradename: cell(r.tradename),
+      nama_supplier: cell(
+        (r.suppliers as { nama?: string } | null)?.nama ?? ""
+      ),
+      origin: cell(r.origin),
+      noc: cell(r.noc),
+      kategori: cell(r.kategori),
+      keterangan: cell(r.keterangan),
+    }),
+  },
+  items: {
+    table: "items",
+    select: "id, nama, satuan, kategori, stok_minimum",
+    orderBy: "kode",
+    map: (r) => ({
+      nama: cell(r.nama),
+      satuan: cell(r.satuan),
+      kategori: cell(r.kategori),
+      stok_minimum: cell(r.stok_minimum),
+    }),
+  },
+  clients: {
+    table: "clients",
+    select: "id, company_brand, cp, phone, npwp, kategori, alamat",
+    orderBy: "kode",
+    map: (r) => ({
+      company_brand: cell(r.company_brand),
+      cp: cell(r.cp),
+      phone: cell(r.phone),
+      npwp: cell(r.npwp),
+      kategori: cell(r.kategori),
+      alamat: cell(r.alamat),
+    }),
+  },
+  products: {
+    table: "products",
+    select: "id, nama_produk, brand, kategori, batch_size_kg",
+    orderBy: "kode",
+    map: (r) => ({
+      nama_produk: cell(r.nama_produk),
+      brand: cell(r.brand),
+      kategori: cell(r.kategori),
+      batch_size_kg: cell(r.batch_size_kg),
+    }),
+  },
+};
+
+/**
+ * Ekspor satu jenis data ke bentuk baris siap-CSV.
+ *
+ * Kolomnya sengaja identik dengan template import jenis yang sama,
+ * jadi hasil export bisa dibuka di Excel, disunting, lalu di-upload
+ * balik lewat kartu yang sama tanpa perlu menata ulang kolom.
+ */
+export async function exportCsvData(
+  kind: ImportKind
+): Promise<
+  { ok: true; rows: Record<string, string>[] } | { ok: false; error: string }
+> {
+  try {
+    const supabase = await createClient();
+    const { organizationId } = await getEffectiveOrg();
+    if (!organizationId) {
+      throw new Error("Organisasi tidak terdeteksi. Refresh halaman dan login ulang.");
+    }
+
+    const spec = EXPORT_SPEC[kind];
+    if (!spec) throw new Error("Jenis data tidak dikenal");
+
+    const raw = await fetchAllRows(
+      supabase,
+      spec.table,
+      spec.select,
+      organizationId,
+      spec.orderBy
+    );
+
+    return { ok: true, rows: raw.map(spec.map) };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Gagal menyiapkan export",
+    };
+  }
+}
+
 // ================= EXPORT / BACKUP =================
 
 const BACKUP_TABLES = [
@@ -308,12 +481,17 @@ export async function exportBackup(): Promise<
     };
 
     for (const table of BACKUP_TABLES) {
-      const { data, error } = await supabase
-        .from(table)
-        .select("*")
-        .eq("organization_id", organizationId);
-      // Tabel yang belum ada / kolom beda dilewati, jangan gagalkan backup
-      backup[table] = error ? { _error: error.message } : data || [];
+      try {
+        // Dibaca halaman-per-halaman: `select("*")` polos akan terpotong
+        // di batas baris PostgREST, dan backup yang diam-diam kurang isi
+        // jauh lebih berbahaya daripada backup yang gagal terang-terangan.
+        backup[table] = await fetchAllRows(supabase, table, "*", organizationId);
+      } catch (err) {
+        // Tabel yang belum ada / kolom beda dilewati, jangan gagalkan backup
+        backup[table] = {
+          _error: err instanceof Error ? err.message : "Gagal dibaca",
+        };
+      }
     }
 
     return { ok: true, json: JSON.stringify(backup, null, 2) };

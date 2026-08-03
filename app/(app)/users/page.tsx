@@ -4,7 +4,14 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { MODULES } from "@/lib/modules";
 import SettingsShell from "@/components/SettingsShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOr,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type UserRow = {
   id: string;
@@ -17,17 +24,35 @@ type UserRow = {
   allowed_modules: string[] | null;
 };
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: users } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  let query = supabase
     .from("profiles")
-    .select("id, email, nama, role, role_title, aktif, is_super_admin, allowed_modules")
-    .eq("organization_id", organizationId)
-    .order("nama");
+    .select(
+      "id, email, nama, role, role_title, aktif, is_super_admin, allowed_modules",
+      { count: "exact" }
+    )
+    .eq("organization_id", organizationId);
+
+  if (sp.q)
+    query = query.or(ilikeOr(["nama", "email", "role", "role_title"], sp.q));
+  if (sp.filter("status"))
+    query = query.eq("aktif", sp.filter("status") === "Aktif");
+
+  const { data: users, count } = await query
+    .order("nama")
+    .range(sp.from, sp.to);
 
   const list = (users || []) as UserRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <SettingsShell>
@@ -35,7 +60,8 @@ export default async function UsersPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Users</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} pengguna, atur akses modul per user
+            {info.total.toLocaleString("id-ID")} pengguna, atur akses modul per
+            user
           </p>
         </div>
         <Link
@@ -47,9 +73,19 @@ export default async function UsersPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari nama / email / role..."
-          filters={[{ label: "Semua Status", options: ["Aktif", "Nonaktif"] }]}
+          info={info}
+          filters={[
+            {
+              param: "status",
+              label: "Semua Status",
+              options: [
+                { value: "Aktif", label: "Aktif" },
+                { value: "Nonaktif", label: "Nonaktif" },
+              ],
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -127,6 +163,7 @@ export default async function UsersPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </SettingsShell>
   );
 }

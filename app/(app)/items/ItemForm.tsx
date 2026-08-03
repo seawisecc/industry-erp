@@ -104,15 +104,21 @@ export default function ItemForm({ materials, item }: Props) {
         moq: moq.trim() ? parseFloat(moq.replace(",", ".")) || null : null,
         material_id: selectedMaterial?.id || null,
       };
-      if (isEdit && item) {
-        await updateItem(item.id, payload);
-      } else {
-        await createItem(payload);
+      const result =
+        isEdit && item
+          ? await updateItem(item.id, payload)
+          : await createItem(payload);
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+        return;
       }
       router.push("/items");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan item");
+    } catch {
+      setError(
+        "Gagal menyimpan. Koneksi bermasalah, muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

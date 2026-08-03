@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOr,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type ClientRow = {
   id: string;
@@ -26,17 +33,31 @@ const KATEGORI_STYLE: Record<string, string> = {
   Other: "bg-white/70 text-muted border border-line",
 };
 
-export default async function ClientsPage() {
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: clients } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  let query = supabase
     .from("clients")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .order("kode");
+    .select("*", { count: "exact" })
+    .eq("organization_id", organizationId);
+
+  if (sp.q) query = query.or(ilikeOr(["kode", "company_brand", "cp"], sp.q));
+  if (sp.filter("kategori"))
+    query = query.eq("kategori", sp.filter("kategori"));
+
+  const { data: clients, count } = await query
+    .order("kode")
+    .range(sp.from, sp.to);
 
   const list = (clients || []) as ClientRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <SalesShell>
@@ -44,7 +65,8 @@ export default async function ClientsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Clients</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} client terdaftar, dipakai di konsinyasi, invoice, dan POS
+            {info.total.toLocaleString("id-ID")} client terdaftar, dipakai di
+            konsinyasi, invoice, dan POS
           </p>
         </div>
         <Link
@@ -56,9 +78,23 @@ export default async function ClientsPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari kode / nama client..."
-          filters={[{ label: "Semua Kategori", options: ["Brand Owner", "University/Corporation", "Research", "Reseller", "Walk In Customer", "Other"] }]}
+          info={info}
+          filters={[
+            {
+              param: "kategori",
+              label: "Semua Kategori",
+              options: [
+                "Brand Owner",
+                "University/Corporation",
+                "Research",
+                "Reseller",
+                "Walk In Customer",
+                "Other",
+              ].map((k) => ({ value: k, label: k })),
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -78,7 +114,9 @@ export default async function ClientsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  Belum ada client.
+                  {sp.q || sp.filter("kategori")
+                    ? "Tidak ada client yang cocok dengan pencarian/filter."
+                    : "Belum ada client."}
                 </td>
               </tr>
             ) : (
@@ -144,6 +182,7 @@ export default async function ClientsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </SalesShell>
   );
 }

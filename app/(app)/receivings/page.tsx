@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import PembelianShell from "@/components/PembelianShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOrWithIds,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type ReceivingRow = {
   id: string;
@@ -26,19 +33,47 @@ function formatTanggal(iso: string) {
   });
 }
 
-export default async function ReceivingsPage() {
+export default async function ReceivingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: receivings } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  // No. PO ada di tabel purchase_orders, jadi dicari id-nya dulu.
+  let poIds: string[] = [];
+  if (sp.q) {
+    const { data: pos } = await supabase
+      .from("purchase_orders")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("no_po", `%${sp.q}%`)
+      .limit(500);
+    poIds = (pos || []).map((p) => p.id as string);
+  }
+
+  let query = supabase
     .from("receivings")
     .select(
-      "id, tanggal_terima, no_invoice, supplier_nama, total_invoice, purchase_orders(no_po)"
+      "id, tanggal_terima, no_invoice, supplier_nama, total_invoice, purchase_orders(no_po)",
+      { count: "exact" }
     )
-    .eq("organization_id", organizationId)
-    .order("created_at", { ascending: false });
+    .eq("organization_id", organizationId);
+
+  if (sp.q)
+    query = query.or(
+      ilikeOrWithIds(["no_invoice", "supplier_nama"], sp.q, "po_id", poIds)
+    );
+
+  const { data: receivings, count } = await query
+    .order("created_at", { ascending: false })
+    .range(sp.from, sp.to);
 
   const list = (receivings || []) as unknown as ReceivingRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <PembelianShell>
@@ -46,7 +81,8 @@ export default async function ReceivingsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Receiving</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} penerimaan, stok bertambah lewat halaman ini
+            {info.total.toLocaleString("id-ID")} penerimaan, stok bertambah
+            lewat halaman ini
           </p>
         </div>
         <Link
@@ -59,7 +95,7 @@ export default async function ReceivingsPage() {
 
       <div className="mt-4">
 
-        <TableSearch placeholder="Cari no. PO / supplier..." />
+        <TableToolbar placeholder="Cari no. PO / supplier..." info={info} />
 
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -78,7 +114,9 @@ export default async function ReceivingsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  Belum ada penerimaan barang.
+                  {sp.q
+                    ? "Tidak ada penerimaan yang cocok dengan pencarian."
+                    : "Belum ada penerimaan barang."}
                 </td>
               </tr>
             ) : (
@@ -124,6 +162,7 @@ export default async function ReceivingsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </PembelianShell>
   );
 }

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { toResult, type ActionResult } from "@/lib/actionResult";
 
 export async function updateAccount(data: {
   company_nama: string;
@@ -60,7 +61,13 @@ export type SettingsInput = {
   sign_mengetahui_jabatan: string | null;
 };
 
-export async function saveSettings(data: SettingsInput) {
+export async function saveSettings(
+  data: SettingsInput
+): Promise<ActionResult> {
+  return toResult(() => saveSettingsImpl(data), "Gagal menyimpan pengaturan");
+}
+
+async function saveSettingsImpl(data: SettingsInput) {
   const supabase = await createClient();
   const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
 
@@ -87,5 +94,4 @@ export async function saveSettings(data: SettingsInput) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/settings");
-  return { success: true };
 }

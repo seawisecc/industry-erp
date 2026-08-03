@@ -84,15 +84,21 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
                 percentage: parseFloat(r.percentage.replace(",", ".")) || 0,
               })),
       };
-      if (isEdit && material) {
-        await updateMaterial(material.id, payload);
-      } else {
-        await createMaterial(payload);
+      const result =
+        isEdit && material
+          ? await updateMaterial(material.id, payload)
+          : await createMaterial(payload);
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+        return;
       }
       router.push("/materials");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan material");
+    } catch {
+      setError(
+        "Gagal menyimpan. Koneksi bermasalah, muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

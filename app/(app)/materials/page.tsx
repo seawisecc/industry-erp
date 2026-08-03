@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import BahanShell from "@/components/BahanShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOr,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type MaterialRow = {
   id: string;
@@ -17,17 +24,37 @@ type MaterialRow = {
   material_inci: { inci_name: string; percentage: number }[];
 };
 
-export default async function MaterialsPage() {
+export default async function MaterialsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: materials } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  let query = supabase
     .from("materials")
-    .select("id, material_code, tradename, origin, noc, kategori, keterangan, suppliers(nama), material_inci(inci_name, percentage)")
-    .eq("organization_id", organizationId)
-    .order("material_code");
+    .select(
+      "id, material_code, tradename, origin, noc, kategori, keterangan, suppliers(nama), material_inci(inci_name, percentage)",
+      { count: "exact" }
+    )
+    .eq("organization_id", organizationId);
+
+  if (sp.q)
+    query = query.or(
+      ilikeOr(["material_code", "tradename", "origin", "noc"], sp.q)
+    );
+  if (sp.filter("kategori"))
+    query = query.eq("kategori", sp.filter("kategori"));
+
+  const { data: materials, count } = await query
+    .order("material_code")
+    .range(sp.from, sp.to);
 
   const list = (materials || []) as unknown as MaterialRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <BahanShell>
@@ -35,7 +62,8 @@ export default async function MaterialsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Materials</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} material terdaftar, data regulasi/komposisi bahan baku
+            {info.total.toLocaleString("id-ID")} material terdaftar, data
+            regulasi/komposisi bahan baku
           </p>
         </div>
         <Link
@@ -47,9 +75,19 @@ export default async function MaterialsPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari kode / tradename..."
-          filters={[{ label: "Semua Kategori", options: ["Bahan Baku", "Kemasan"] }]}
+          info={info}
+          filters={[
+            {
+              param: "kategori",
+              label: "Semua Kategori",
+              options: [
+                { value: "Bahan Baku", label: "Bahan Baku" },
+                { value: "Kemasan", label: "Kemasan" },
+              ],
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -70,7 +108,9 @@ export default async function MaterialsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  Belum ada material.
+                  {sp.q || sp.filter("kategori")
+                    ? "Tidak ada material yang cocok dengan pencarian/filter."
+                    : "Belum ada material."}
                 </td>
               </tr>
             ) : (
@@ -130,6 +170,7 @@ export default async function MaterialsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </BahanShell>
   );
 }

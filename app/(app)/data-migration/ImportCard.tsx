@@ -6,6 +6,7 @@ import Papa from "papaparse";
 import {
   Download,
   Upload,
+  FileDown,
   Briefcase,
   BookText,
   FlaskConical,
@@ -14,7 +15,7 @@ import {
   Package,
   LucideIcon,
 } from "lucide-react";
-import { runImport, ImportKind } from "./actions";
+import { runImport, exportCsvData, ImportKind } from "./actions";
 
 // Ikon dipilih di sini (client), komponen/function tidak boleh dioper
 // sebagai prop dari Server Component.
@@ -56,23 +57,53 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [success, setSuccess] = useState("");
 
-  function downloadTemplate() {
-    const csv =
-      allCols.join(",") +
-      "\n" +
-      config.templateSample.map((v) => (v.includes(",") ? `"${v}"` : v)).join(",") +
-      "\n";
+  /** BOM di depan supaya Excel membaca UTF-8 dengan benar. */
+  function unduh(csv: string, namaFile: string) {
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `template-${config.kind}.csv`;
+    a.download = namaFile;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function downloadTemplate() {
+    unduh(
+      Papa.unparse({ fields: allCols, data: [config.templateSample] }),
+      `template-${config.kind}.csv`
+    );
+  }
+
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    setError("");
+    setWarning("");
+    setSuccess("");
+
+    const result = await exportCsvData(config.kind);
+    if (result.ok) {
+      if (result.rows.length === 0) {
+        setWarning("Belum ada data untuk diexport.");
+      } else {
+        // Kolomnya dikunci ke allCols — urutannya sama persis dengan
+        // template import, jadi file ini bisa langsung diupload balik.
+        unduh(
+          Papa.unparse(result.rows, { columns: allCols }),
+          `${config.kind}-${new Date().toLocaleDateString("sv-SE")}.csv`
+        );
+        setSuccess(`✓ ${result.rows.length} baris diexport`);
+      }
+    } else {
+      setError(result.error);
+    }
+    setExporting(false);
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -162,13 +193,29 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
       {config.note && <p className="text-[11.5px] text-muted">{config.note}</p>}
 
       <div className="mt-auto flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={downloadTemplate}
-          className="flex items-center justify-center gap-2 border border-line rounded-lg py-2 text-[13px] font-medium hover:bg-white/60 transition-colors"
-        >
-          <Download size={15} /> Download Template
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={downloadTemplate}
+            className="flex items-center justify-center gap-1.5 border border-line rounded-lg py-2 text-[13px] font-medium hover:bg-white/60 transition-colors"
+          >
+            <Download size={15} /> Template
+          </button>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+            title="Unduh data yang sudah ada, kolomnya sama dengan template"
+            className="flex items-center justify-center gap-1.5 border border-line rounded-lg py-2 text-[13px] font-medium hover:bg-white/60 transition-colors disabled:opacity-60"
+          >
+            {exporting ? (
+              <span className="inline-block w-3.5 h-3.5 border-2 border-botanical-700/30 border-t-botanical-700 rounded-full animate-spin" />
+            ) : (
+              <FileDown size={15} />
+            )}
+            {exporting ? "Menyiapkan..." : "Export CSV"}
+          </button>
+        </div>
 
         <input
           ref={fileInputRef}

@@ -4,26 +4,48 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import type { InciMaster } from "@/lib/types";
 import BahanShell from "@/components/BahanShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOr,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
-export default async function InciPage() {
+export default async function InciPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: inciList } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  let query = supabase
     .from("inci_master")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .order("inci_name");
+    .select("*", { count: "exact" })
+    .eq("organization_id", organizationId);
+
+  if (sp.q)
+    query = query.or(ilikeOr(["inci_name", "cas_number", "function"], sp.q));
+
+  const { data: inciList, count } = await query
+    .order("inci_name")
+    .range(sp.from, sp.to);
 
   const list = (inciList || []) as InciMaster[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <BahanShell>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">INCI Names</h2>
-          <p className="text-muted text-[12.5px] mt-0.5">{list.length} INCI Name terdaftar</p>
+          <p className="text-muted text-[12.5px] mt-0.5">
+            {info.total.toLocaleString("id-ID")} INCI Name terdaftar
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -36,7 +58,7 @@ export default async function InciPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch placeholder="Cari INCI name / CAS..." />
+        <TableToolbar placeholder="Cari INCI name / CAS..." info={info} />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[760px] text-[13.5px]">
@@ -54,7 +76,9 @@ export default async function InciPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  Belum ada INCI Name.
+                  {sp.q
+                    ? "Tidak ada INCI Name yang cocok dengan pencarian."
+                    : "Belum ada INCI Name."}
                 </td>
               </tr>
             ) : (
@@ -76,6 +100,7 @@ export default async function InciPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </BahanShell>
   );
 }

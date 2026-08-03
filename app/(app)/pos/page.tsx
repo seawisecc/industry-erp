@@ -4,6 +4,7 @@ import { getSalesOptions } from "@/lib/salesOptions";
 import Link from "next/link";
 import SalesShell from "@/components/SalesShell";
 import InvoiceForm from "../sales-invoices/InvoiceForm";
+import { localDateStr } from "@/lib/dates";
 
 type PosRow = {
   id: string;
@@ -23,7 +24,7 @@ export default async function PosPage() {
   const { organizationId } = await getEffectiveOrg();
   const { clients, options } = await getSalesOptions(organizationId!, { includeServices: true });
 
-  const todayStr = new Date().toLocaleDateString("sv-SE");
+  const todayStr = localDateStr();
   const { data: todaySales } = await supabase
     .from("sales_invoices")
     .select("id, no_invoice, tanggal, total, nama_pembeli, clients(company_brand)")

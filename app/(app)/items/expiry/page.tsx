@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import ExpiryActions from "./ExpiryActions";
+import { addDaysStr, localDateStr } from "@/lib/dates";
 
 type BatchRow = {
   id: string;
@@ -36,8 +37,8 @@ export default async function ExpiryPage() {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const todayStr = new Date().toLocaleDateString("sv-SE");
-  const in60 = new Date(Date.now() + 60 * 86400000).toLocaleDateString("sv-SE");
+  const todayStr = localDateStr();
+  const in60 = addDaysStr(todayStr, 60);
 
   const [{ data: batches }, { data: logs }] = await Promise.all([
     supabase

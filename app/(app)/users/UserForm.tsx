@@ -84,18 +84,24 @@ export default function UserForm({ user }: Props) {
         can_qa: isAdmin ? true : canQa,
         can_cancel: isAdmin ? true : canCancel,
       };
-      if (isEdit && user) {
-        await updateUser(user.id, {
-          ...payload,
-          new_password: password || undefined,
-        });
-      } else {
-        await createUser({ ...payload, email, password });
+      const result =
+        isEdit && user
+          ? await updateUser(user.id, {
+              ...payload,
+              new_password: password || undefined,
+            })
+          : await createUser({ ...payload, email, password });
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+        return;
       }
       router.push("/users");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan pengguna");
+    } catch {
+      setError(
+        "Gagal menyimpan. Koneksi bermasalah, muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { localDateStr } from "@/lib/dates";
 
 export type QaChecklistItem = { key: string; label: string; ok: boolean };
 
@@ -42,7 +43,7 @@ export async function decideQaReview(
         qa_checklist: checklist,
         qa_note: note?.trim() || null,
         qa_oleh: profile?.nama || null,
-        qa_tanggal: new Date().toLocaleDateString("sv-SE"),
+        qa_tanggal: localDateStr(),
       })
       .eq("id", batchId)
       .eq("organization_id", organizationId);
@@ -89,7 +90,7 @@ async function setQaStatus(
         qa_status: status,
         qa_note: note?.trim() || null,
         qa_oleh: profile?.nama || null,
-        qa_tanggal: new Date().toLocaleDateString("sv-SE"),
+        qa_tanggal: localDateStr(),
       })
       .eq("id", batchId)
       .eq("organization_id", organizationId);

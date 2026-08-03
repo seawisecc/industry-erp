@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus, ListChecks, CalendarClock, ArrowUp, ArrowDown } from "lucide-react";
 import BahanShell from "@/components/BahanShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOr,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type ItemRow = {
   id: string;
@@ -16,27 +23,47 @@ type ItemRow = {
   materials: { material_code: string; tradename: string }[];
 };
 
-export default async function ItemsPage() {
+export default async function ItemsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const [{ data: items }, { data: priceHistory }] = await Promise.all([
-    supabase
-      .from("items")
-      .select(
-        "id, kode, nama, kategori, satuan, stok_minimum, purchase_batches(qty_sisa), materials(material_code, tradename)"
-      )
-      .eq("organization_id", organizationId)
-      .order("kode"),
-    // Riwayat harga beli (terbaru dulu) untuk harga terakhir + tren
-    supabase
-      .from("purchase_batches")
-      .select("item_id, harga_per_unit, tanggal_terima, created_at")
-      .eq("organization_id", organizationId)
-      .order("created_at", { ascending: false }),
-  ]);
+  const sp = parseListQuery(await searchParams);
+
+  let query = supabase
+    .from("items")
+    .select(
+      "id, kode, nama, kategori, satuan, stok_minimum, purchase_batches(qty_sisa), materials(material_code, tradename)",
+      { count: "exact" }
+    )
+    .eq("organization_id", organizationId);
+
+  if (sp.q) query = query.or(ilikeOr(["kode", "nama"], sp.q));
+  if (sp.filter("kategori"))
+    query = query.eq("kategori", sp.filter("kategori"));
+
+  const { data: items, count } = await query
+    .order("kode")
+    .range(sp.from, sp.to);
 
   const list = (items || []) as unknown as ItemRow[];
+  const info = pageInfo(sp.page, count, list.length);
+
+  // Riwayat harga beli (terbaru dulu) untuk harga terakhir + tren.
+  // Cukup untuk item yang tampil di halaman ini, tidak perlu seluruh
+  // riwayat pembelian organisasi.
+  const { data: priceHistory } = await supabase
+    .from("purchase_batches")
+    .select("item_id, harga_per_unit, tanggal_terima, created_at")
+    .eq("organization_id", organizationId)
+    .in(
+      "item_id",
+      list.map((i) => i.id)
+    )
+    .order("created_at", { ascending: false });
 
   // Harga terakhir & harga sebelumnya per item → arah tren
   const hargaInfo = new Map<
@@ -70,7 +97,8 @@ export default async function ItemsPage() {
             Stock Items
           </h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} item terdaftar, stok masuk lewat menu Receiving
+            {info.total.toLocaleString("id-ID")} item terdaftar, stok masuk
+            lewat menu Receiving
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -96,9 +124,19 @@ export default async function ItemsPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari kode / nama item..."
-          filters={[{ label: "Semua Kategori", options: ["Bahan Baku", "Kemasan"] }]}
+          info={info}
+          filters={[
+            {
+              param: "kategori",
+              label: "Semua Kategori",
+              options: [
+                { value: "Bahan Baku", label: "Bahan Baku" },
+                { value: "Kemasan", label: "Kemasan" },
+              ],
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -121,7 +159,9 @@ export default async function ItemsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  Belum ada item.
+                  {sp.q || sp.filter("kategori")
+                    ? "Tidak ada item yang cocok dengan pencarian/filter."
+                    : "Belum ada item."}
                 </td>
               </tr>
             ) : (
@@ -228,6 +268,7 @@ export default async function ItemsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </BahanShell>
   );
 }

@@ -221,15 +221,21 @@ export default function ProductForm({ items, product }: Props) {
             .map((p) => ({ item_id: p.item!.id, qty_per_pcs: parseNum(p.qty) })),
         })),
       };
-      if (isEdit && product) {
-        await updateProduct(product.id, payload);
-      } else {
-        await createProduct(payload);
+      const result =
+        isEdit && product
+          ? await updateProduct(product.id, payload)
+          : await createProduct(payload);
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+        return;
       }
       router.push("/products");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan produk");
+    } catch {
+      setError(
+        "Gagal menyimpan. Koneksi bermasalah, muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

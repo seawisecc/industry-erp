@@ -1,9 +1,21 @@
 "use server";
 
+/* ============================================================
+   Semua mutasi stok konsinyasi lewat RPC transaksional
+   (supabase/migrations/20260803_transactional_rpcs.sql).
+
+   Sebelumnya alurnya dijahit di sini: potong stok lewat beberapa
+   UPDATE, lalu buat invoice — atau sebaliknya. Kalau langkah kedua
+   gagal, langkah pertama sudah terlanjur dan tidak ada yang
+   membatalkannya. Sekarang cek stok, potong, dan penerbitan invoice
+   terjadi dalam SATU transaksi di database: gagal di mana pun,
+   semuanya batal.
+   ============================================================ */
+
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
-import { computeTotals } from "@/lib/invoiceMath";
 import { revalidatePath } from "next/cache";
+import { addDaysStr, localDateStr } from "@/lib/dates";
 
 export type ConsignItemInput = {
   product_id: string;
@@ -11,6 +23,35 @@ export type ConsignItemInput = {
   qty_kirim: number;
   harga_jual: number;
 };
+
+export type OutletLine = {
+  product_id: string;
+  varian_ukuran: string | null;
+  qty: number;
+  harga?: number;
+};
+
+type SaleOpts = {
+  diskon_percent: number;
+  pakai_tax: boolean;
+  tax_percent: number;
+  top_days: number | null;
+};
+
+/** Header pembayaran yang sama untuk semua penerbitan invoice konsinyasi. */
+function invoiceOpts(opts: SaleOpts, dibuatOleh: string | null) {
+  const tanggal = localDateStr();
+  return {
+    diskon_percent: opts.diskon_percent,
+    pakai_tax: opts.pakai_tax,
+    tax_percent: opts.tax_percent,
+    top_days: opts.top_days,
+    tanggal,
+    jatuh_tempo:
+      opts.top_days == null ? null : addDaysStr(tanggal, opts.top_days),
+    dibuat_oleh: dibuatOleh,
+  };
+}
 
 export async function createConsignment(data: {
   client_id: string;
@@ -54,6 +95,7 @@ export async function createConsignment(data: {
   }
 }
 
+/** Laku dari SATU pengiriman konsinyasi → potong stok + Proforma. */
 export async function reportConsignmentSale(
   consignmentId: string,
   data: {
@@ -69,117 +111,31 @@ export async function reportConsignmentSale(
     const { profile, organizationId } = await getEffectiveOrg();
     if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
 
-    const { data: cons } = await supabase
-      .from("consignments")
-      .select("id, client_id, status, consignment_items(id, product_id, varian_ukuran, qty_kirim, qty_terjual, qty_retur, harga_jual)")
-      .eq("id", consignmentId)
-      .eq("organization_id", organizationId)
-      .single();
-    if (!cons) throw new Error("Konsinyasi tidak ditemukan");
-    if (cons.status !== "Aktif") throw new Error("Konsinyasi sudah selesai");
-
-    const consItems = cons.consignment_items as {
-      id: string;
-      product_id: string;
-      varian_ukuran: string | null;
-      qty_kirim: number;
-      qty_terjual: number;
-      qty_retur: number;
-      harga_jual: number;
-    }[];
-
     const laku = data.items.filter((it) => it.qty_laku > 0);
     if (laku.length === 0) throw new Error("Minimal satu item laku");
 
-    const invItems: {
-      product_id: string;
-      varian_ukuran: string | null;
-      qty: number;
-      harga: number;
-    }[] = [];
-
-    for (const it of laku) {
-      const ci = consItems.find((c) => c.id === it.consignment_item_id);
-      if (!ci) throw new Error("Item konsinyasi tidak ditemukan");
-      const sisa = Number(ci.qty_kirim) - Number(ci.qty_terjual) - Number(ci.qty_retur);
-      if (it.qty_laku > sisa) {
-        throw new Error(
-          `Qty laku melebihi sisa di lokasi konsinyasi (sisa ${sisa.toLocaleString("id-ID")} pcs)`
-        );
-      }
-      invItems.push({
-        product_id: ci.product_id,
-        varian_ukuran: ci.varian_ukuran,
-        qty: it.qty_laku,
-        harga: Number(ci.harga_jual),
-      });
-    }
-
-    const { subtotal, total } = computeTotals(
-      invItems,
-      data.diskon_percent,
-      data.pakai_tax,
-      data.tax_percent
-    );
-
-    const today = new Date().toLocaleDateString("sv-SE");
-    const jatuhTempoDate =
-      data.top_days == null ? null : new Date(today + "T00:00:00");
-    if (jatuhTempoDate) jatuhTempoDate.setDate(jatuhTempoDate.getDate() + data.top_days!);
-    const jatuhTempo = jatuhTempoDate
-      ? jatuhTempoDate.toLocaleDateString("sv-SE")
-      : null;
-
-    // Sumber Konsinyasi tidak memotong stok jual, RPC hanya mengamankan
-    // penomoran invoice dari duplikat.
     const { data: invoiceId, error } = await supabase.rpc(
-      "create_sales_invoice_tx",
+      "report_consignment_sale_tx",
       {
         p_organization_id: organizationId,
-        p_header: {
-          tipe: "Proforma",
-          sumber: "Konsinyasi",
-          client_id: cons.client_id,
-          consignment_id: consignmentId,
-          tanggal: today,
-          diskon_percent: data.diskon_percent,
-          pakai_tax: data.pakai_tax,
-          tax_percent: data.tax_percent,
-          subtotal,
-          total,
-          top_days: data.top_days,
-          jatuh_tempo: jatuhTempo,
-          dibuat_oleh: profile?.id || null,
-        },
-        p_items: invItems.map((it) => ({
-          product_id: it.product_id,
-          varian_ukuran: it.varian_ukuran,
-          qty: it.qty,
-          harga: it.harga,
-        })),
+        p_consignment_id: consignmentId,
+        p_items: laku,
+        p_opts: invoiceOpts(data, profile?.id || null),
       }
     );
     if (error) throw new Error(error.message);
 
-    // Update qty_terjual
-    for (const it of laku) {
-      const ci = consItems.find((c) => c.id === it.consignment_item_id)!;
-      const { error: uErr } = await supabase
-        .from("consignment_items")
-        .update({ qty_terjual: Number(ci.qty_terjual) + it.qty_laku })
-        .eq("id", it.consignment_item_id);
-      if (uErr) throw new Error(uErr.message);
-    }
-
     revalidatePath("/consignments");
     revalidatePath("/sales-invoices");
     revalidatePath("/sales-payments");
+    revalidatePath("/finished-goods");
     return { ok: true, invoiceId: invoiceId as string };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
   }
 }
 
+/** Tutup konsinyasi: sisa yang tidak laku dianggap retur (kembali ke stok). */
 export async function closeConsignment(
   id: string
 ): Promise<{ ok: boolean; error?: string }> {
@@ -188,37 +144,10 @@ export async function closeConsignment(
     const { organizationId } = await getEffectiveOrg();
     if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
 
-    const { data: cons } = await supabase
-      .from("consignments")
-      .select("id, status, consignment_items(id, qty_kirim, qty_terjual, qty_retur)")
-      .eq("id", id)
-      .eq("organization_id", organizationId)
-      .single();
-    if (!cons) throw new Error("Konsinyasi tidak ditemukan");
-    if (cons.status !== "Aktif") throw new Error("Sudah selesai");
-
-    // Sisa yang tidak laku dianggap retur (kembali ke stok)
-    for (const ci of cons.consignment_items as {
-      id: string;
-      qty_kirim: number;
-      qty_terjual: number;
-      qty_retur: number;
-    }[]) {
-      const sisa =
-        Number(ci.qty_kirim) - Number(ci.qty_terjual) - Number(ci.qty_retur);
-      if (sisa > 0) {
-        const { error } = await supabase
-          .from("consignment_items")
-          .update({ qty_retur: Number(ci.qty_retur) + sisa })
-          .eq("id", ci.id);
-        if (error) throw new Error(error.message);
-      }
-    }
-
-    const { error } = await supabase
-      .from("consignments")
-      .update({ status: "Selesai" })
-      .eq("id", id);
+    const { error } = await supabase.rpc("close_consignment_tx", {
+      p_organization_id: organizationId,
+      p_consignment_id: id,
+    });
     if (error) throw new Error(error.message);
 
     revalidatePath("/consignments");
@@ -231,95 +160,16 @@ export async function closeConsignment(
 
 /* ============================================================
    Laku / Retur di level OUTLET (client), distribusi lintas
-   pengiriman, pengiriman tertua dulu (FIFO). Memudahkan pencatatan
-   dari rekap stok per outlet tanpa buka satu-satu pengiriman.
+   pengiriman, pengiriman tertua dulu (FIFO). Pembagiannya sekarang
+   dikerjakan di database supaya tidak ada lost update saat dua
+   pencatatan terjadi bersamaan.
    ============================================================ */
 
-export type OutletLine = {
-  product_id: string;
-  varian_ukuran: string | null;
-  qty: number;
-  harga?: number;
-};
-
-type CiRow = {
-  id: string;
-  product_id: string;
-  varian_ukuran: string | null;
-  qty_kirim: number;
-  qty_terjual: number;
-  qty_retur: number;
-  harga_jual: number;
-  consignments: { client_id: string; tanggal_kirim: string; status: string } | null;
-};
-
-const vkey = (v: string | null) => v || "-";
-
-async function ambilItemAktif(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId: string,
-  clientId: string
-): Promise<CiRow[]> {
-  const { data } = await supabase
-    .from("consignment_items")
-    .select(
-      "id, product_id, varian_ukuran, qty_kirim, qty_terjual, qty_retur, harga_jual, consignments!inner(client_id, tanggal_kirim, status)"
-    )
-    .eq("organization_id", organizationId)
-    .eq("consignments.client_id", clientId)
-    .eq("consignments.status", "Aktif");
-  const rows = (data || []) as unknown as CiRow[];
-  // tertua dulu
-  rows.sort((a, b) =>
-    (a.consignments?.tanggal_kirim || "").localeCompare(
-      b.consignments?.tanggal_kirim || ""
-    )
-  );
-  return rows;
-}
-
-// Bagikan qty ke beberapa baris pengiriman; menambah kolom `field`.
-async function distribusi(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  rows: CiRow[],
-  line: OutletLine,
-  field: "qty_terjual" | "qty_retur"
-) {
-  const cocok = rows.filter(
-    (r) =>
-      r.product_id === line.product_id &&
-      vkey(r.varian_ukuran) === vkey(line.varian_ukuran)
-  );
-  const totalSisa = cocok.reduce(
-    (s, r) => s + (Number(r.qty_kirim) - Number(r.qty_terjual) - Number(r.qty_retur)),
-    0
-  );
-  if (line.qty > totalSisa + 0.001)
-    throw new Error(
-      `Qty melebihi sisa di outlet (sisa ${totalSisa}) untuk salah satu produk`
-    );
-
-  let perlu = line.qty;
-  for (const r of cocok) {
-    if (perlu <= 0) break;
-    const sisa = Number(r.qty_kirim) - Number(r.qty_terjual) - Number(r.qty_retur);
-    if (sisa <= 0) continue;
-    const ambil = Math.min(sisa, perlu);
-    const nilaiBaru = Number(r[field]) + ambil;
-    const { error } = await supabase
-      .from("consignment_items")
-      .update({ [field]: nilaiBaru })
-      .eq("id", r.id);
-    if (error) throw new Error(error.message);
-    perlu -= ambil;
-  }
-}
-
-/** Catat penjualan laku di sebuah outlet → potong stok + buat Proforma Invoice. */
+/** Catat penjualan laku di sebuah outlet → potong stok + buat Proforma. */
 export async function reportOutletSale(
   clientId: string,
   lines: OutletLine[],
-  opts: { diskon_percent: number; pakai_tax: boolean; tax_percent: number; top_days: number | null }
+  opts: SaleOpts
 ): Promise<{ ok: boolean; error?: string; invoiceId?: string }> {
   try {
     const supabase = await createClient();
@@ -329,64 +179,18 @@ export async function reportOutletSale(
     const items = lines.filter((l) => l.product_id && l.qty > 0);
     if (items.length === 0) throw new Error("Isi minimal satu produk yang laku");
 
-    const rows = await ambilItemAktif(supabase, organizationId, clientId);
-
-    // harga default dari harga_jual pengiriman bila tidak dikirim
-    const hargaOf = (l: OutletLine) => {
-      if (l.harga && l.harga > 0) return l.harga;
-      const r = rows.find(
-        (x) =>
-          x.product_id === l.product_id &&
-          vkey(x.varian_ukuran) === vkey(l.varian_ukuran)
-      );
-      return Number(r?.harga_jual || 0);
-    };
-
-    // 1) potong stok (qty_terjual) lintas pengiriman
-    for (const l of items) await distribusi(supabase, rows, l, "qty_terjual");
-
-    // 2) buat proforma invoice
-    const invItems = items.map((l) => ({
-      product_id: l.product_id,
-      varian_ukuran: l.varian_ukuran,
-      qty: l.qty,
-      harga: hargaOf(l),
-    }));
-    const { subtotal, total } = computeTotals(
-      invItems,
-      opts.diskon_percent,
-      opts.pakai_tax,
-      opts.tax_percent
-    );
-    const today = new Date().toLocaleDateString("sv-SE");
-    const jatuhTempo =
-      opts.top_days == null
-        ? null
-        : (() => {
-            const d = new Date(today + "T00:00:00");
-            d.setDate(d.getDate() + opts.top_days!);
-            return d.toLocaleDateString("sv-SE");
-          })();
-
     const { data: invoiceId, error } = await supabase.rpc(
-      "create_sales_invoice_tx",
+      "report_outlet_sale_tx",
       {
         p_organization_id: organizationId,
-        p_header: {
-          tipe: "Proforma",
-          sumber: "Konsinyasi",
-          client_id: clientId,
-          tanggal: today,
-          diskon_percent: opts.diskon_percent,
-          pakai_tax: opts.pakai_tax,
-          tax_percent: opts.tax_percent,
-          subtotal,
-          total,
-          top_days: opts.top_days,
-          jatuh_tempo: jatuhTempo,
-          dibuat_oleh: profile?.id || null,
-        },
-        p_items: invItems,
+        p_client_id: clientId,
+        p_lines: items.map((l) => ({
+          product_id: l.product_id,
+          varian_ukuran: l.varian_ukuran,
+          qty: l.qty,
+          harga: l.harga && l.harga > 0 ? l.harga : null,
+        })),
+        p_opts: invoiceOpts(opts, profile?.id || null),
       }
     );
     if (error) throw new Error(error.message);
@@ -412,10 +216,19 @@ export async function returOutlet(
     if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
 
     const items = lines.filter((l) => l.product_id && l.qty > 0);
-    if (items.length === 0) throw new Error("Isi minimal satu produk yang diretur");
+    if (items.length === 0)
+      throw new Error("Isi minimal satu produk yang diretur");
 
-    const rows = await ambilItemAktif(supabase, organizationId, clientId);
-    for (const l of items) await distribusi(supabase, rows, l, "qty_retur");
+    const { error } = await supabase.rpc("retur_outlet_tx", {
+      p_organization_id: organizationId,
+      p_client_id: clientId,
+      p_lines: items.map((l) => ({
+        product_id: l.product_id,
+        varian_ukuran: l.varian_ukuran,
+        qty: l.qty,
+      })),
+    });
+    if (error) throw new Error(error.message);
 
     revalidatePath("/consignments");
     revalidatePath("/finished-goods");

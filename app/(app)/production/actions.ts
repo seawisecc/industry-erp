@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import { getFeatures } from "@/lib/featuresServer";
+import { toResult, type ActionResult } from "@/lib/actionResult";
+import { localDateStr } from "@/lib/dates";
 
 export type ProductionInput = {
   no_batch: string;
@@ -201,7 +203,7 @@ export async function finishProduction(
     const { data: batchId, error } = await supabase.rpc("create_production", {
       p_organization_id: organizationId,
       p_no_batch: plan.no_batch,
-      p_tanggal: new Date().toLocaleDateString("sv-SE"),
+      p_tanggal: localDateStr(),
       p_catatan: plan.catatan,
       p_product_id: plan.product_id,
       p_outputs: realOutputs.map((o) => ({ ...o, satuan: "pcs" })),
@@ -236,7 +238,13 @@ export async function finishProduction(
   }
 }
 
-export async function createProduction(data: ProductionInput) {
+export async function createProduction(
+  data: ProductionInput
+): Promise<ActionResult> {
+  return toResult(() => createProductionImpl(data), "Gagal menyimpan produksi");
+}
+
+async function createProductionImpl(data: ProductionInput) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -301,7 +309,7 @@ export async function cancelProduction(
     const { data: batch } = await supabase
       .from("production_batches")
       .select(
-        "id, production_outputs(product_id, varian_ukuran, qty_hasil)"
+        "id, qa_status, production_outputs(product_id, varian_ukuran, qty_hasil)"
       )
       .eq("id", batchId)
       .eq("organization_id", organizationId)
@@ -310,17 +318,28 @@ export async function cancelProduction(
 
     // Guard: produk jadi dari batch ini belum boleh ada yang terjual.
     // Jika stok tersedia < hasil batch → sebagian sudah keluar → tolak.
-    const stock = await getFinishedStock(organizationId);
-    for (const o of (batch.production_outputs as {
-      product_id: string;
-      varian_ukuran: string | null;
-      qty_hasil: number;
-    }[])) {
-      const avail = stock.get(fgKey(o.product_id, o.varian_ukuran))?.available ?? 0;
-      if (avail < Number(o.qty_hasil) - 0.001)
-        throw new Error(
-          "Sebagian produk jadi sudah terjual/terkirim, batch tidak bisa dibatalkan."
-        );
+    //
+    // Batch Hold/Rejected dilewati: hasilnya memang sengaja TIDAK pernah
+    // masuk stok jual (lihat getFinishedStock), jadi mustahil ada yang
+    // terjual — kalau tetap dibandingkan, pembatalan batch yang masih
+    // menunggu QA selalu ditolak dengan alasan yang keliru.
+    const belumMasukStokJual =
+      batch.qa_status === "Hold" || batch.qa_status === "Rejected";
+
+    if (!belumMasukStokJual) {
+      const stock = await getFinishedStock(organizationId);
+      for (const o of (batch.production_outputs as {
+        product_id: string;
+        varian_ukuran: string | null;
+        qty_hasil: number;
+      }[])) {
+        const avail =
+          stock.get(fgKey(o.product_id, o.varian_ukuran))?.available ?? 0;
+        if (avail < Number(o.qty_hasil) - 0.001)
+          throw new Error(
+            "Sebagian produk jadi sudah terjual/terkirim, batch tidak bisa dibatalkan."
+          );
+      }
     }
 
     const { error } = await supabase.rpc("cancel_production", {

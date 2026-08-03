@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import ProdukShell from "@/components/ProdukShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOr,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type ProductRow = {
   id: string;
@@ -16,19 +23,35 @@ type ProductRow = {
   product_variants: { nama_varian: string }[];
 };
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: products } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  let query = supabase
     .from("products")
     .select(
-      "id, kode, nama_produk, brand, kategori, aktif, product_formulas(id), product_variants(nama_varian)"
+      "id, kode, nama_produk, brand, kategori, aktif, product_formulas(id), product_variants(nama_varian)",
+      { count: "exact" }
     )
-    .eq("organization_id", organizationId)
-    .order("kode");
+    .eq("organization_id", organizationId);
+
+  if (sp.q)
+    query = query.or(ilikeOr(["kode", "nama_produk", "brand"], sp.q));
+  if (sp.filter("status"))
+    query = query.eq("aktif", sp.filter("status") === "Aktif");
+
+  const { data: products, count } = await query
+    .order("kode")
+    .range(sp.from, sp.to);
 
   const list = (products || []) as unknown as ProductRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <ProdukShell>
@@ -36,7 +59,8 @@ export default async function ProductsPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Products</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} produk jadi, formula, varian, dan estimasi HPP
+            {info.total.toLocaleString("id-ID")} produk jadi, formula, varian,
+            dan estimasi HPP
           </p>
         </div>
         <Link
@@ -48,9 +72,19 @@ export default async function ProductsPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari kode / nama produk / brand..."
-          filters={[{ label: "Semua Status", options: ["Aktif", "Nonaktif"] }]}
+          info={info}
+          filters={[
+            {
+              param: "status",
+              label: "Semua Status",
+              options: [
+                { value: "Aktif", label: "Aktif" },
+                { value: "Nonaktif", label: "Nonaktif" },
+              ],
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -71,7 +105,9 @@ export default async function ProductsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  Belum ada produk.
+                  {sp.q || sp.filter("status")
+                    ? "Tidak ada produk yang cocok dengan pencarian/filter."
+                    : "Belum ada produk."}
                 </td>
               </tr>
             ) : (
@@ -133,6 +169,7 @@ export default async function ProductsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </ProdukShell>
   );
 }

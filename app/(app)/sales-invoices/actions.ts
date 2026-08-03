@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { computeTotals } from "@/lib/invoiceMath";
 import { revalidatePath } from "next/cache";
+import { addDaysStr, localDateStr } from "@/lib/dates";
 
 export type InvoiceItemInput = {
   product_id: string | null; // null untuk baris jasa
@@ -27,12 +28,6 @@ export type InvoiceInput = {
   langsung_lunas?: boolean;
   items: InvoiceItemInput[];
 };
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toLocaleDateString("sv-SE");
-}
 
 export async function createInvoice(
   data: InvoiceInput
@@ -58,7 +53,7 @@ export async function createInvoice(
     );
 
     const jatuhTempo =
-      data.top_days == null ? null : addDays(data.tanggal, data.top_days);
+      data.top_days == null ? null : addDaysStr(data.tanggal, data.top_days);
     const lunas = !!data.langsung_lunas;
 
     // Cek stok + penomoran + insert dilakukan atomik di database
@@ -137,13 +132,13 @@ export async function convertToInvoice(
     if (!inv) throw new Error("Invoice tidak ditemukan");
     if (inv.tipe !== "Proforma") throw new Error("Sudah berupa Invoice");
 
-    const today = new Date().toLocaleDateString("sv-SE");
+    const today = localDateStr();
     const { error } = await supabase
       .from("sales_invoices")
       .update({
         tipe: "Invoice",
         top_days: topDays,
-        jatuh_tempo: topDays == null ? null : addDays(today, topDays),
+        jatuh_tempo: topDays == null ? null : addDaysStr(today, topDays),
       })
       .eq("id", id);
     if (error) throw new Error(error.message);
@@ -172,49 +167,14 @@ export async function cancelInvoice(
     if (!(isSuperAdmin || profile?.role === "Admin" || profile?.can_cancel))
       throw new Error("Tidak punya izin membatalkan transaksi");
 
-    const { data: inv } = await supabase
-      .from("sales_invoices")
-      .select("id, sumber")
-      .eq("id", id)
-      .eq("organization_id", organizationId)
-      .single();
-    if (!inv) throw new Error("Dokumen tidak ditemukan");
-    if (inv.sumber === "Konsinyasi")
-      throw new Error(
-        "Dokumen dari konsinyasi, batalkan/koreksi lewat menu Consignment."
-      );
-
-    // Boleh batal hanya bila belum ada pembayaran dari client
-    // (kas otomatis POS tidak dihitung sebagai pembayaran client).
-    const { data: pays } = await supabase
-      .from("sales_payments")
-      .select("id, catatan")
-      .eq("invoice_id", id)
-      .eq("organization_id", organizationId);
-    const adaBayarClient = (pays || []).some(
-      (p) => (p.catatan || "") !== "Pembayaran tunai (POS)"
-    );
-    if (adaBayarClient)
-      throw new Error(
-        "Sudah ada pembayaran dari client, hapus dulu pembayarannya di Sales Payments."
-      );
-
-    // Hapus pembayaran (kas POS), item, lalu header
-    await supabase
-      .from("sales_payments")
-      .delete()
-      .eq("invoice_id", id)
-      .eq("organization_id", organizationId);
-    await supabase
-      .from("sales_invoice_items")
-      .delete()
-      .eq("invoice_id", id)
-      .eq("organization_id", organizationId);
-    const { error } = await supabase
-      .from("sales_invoices")
-      .delete()
-      .eq("id", id)
-      .eq("organization_id", organizationId);
+    // Pemeriksaan + penghapusan pembayaran/item/header dilakukan atomik.
+    // Versi lama menghapusnya berurutan dari sini: kalau penghapusan
+    // header gagal, itemnya sudah hilang dan tinggal invoice kosong
+    // dengan total yang tidak cocok.
+    const { error } = await supabase.rpc("cancel_invoice_tx", {
+      p_organization_id: organizationId,
+      p_invoice_id: id,
+    });
     if (error) throw new Error(error.message);
 
     revalidatePath("/sales-invoices");

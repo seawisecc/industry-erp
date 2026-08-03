@@ -39,11 +39,17 @@ export default function SettingsForm({ initial }: Props) {
     setLoading(true);
     setError("");
     try {
-      await saveSettings(form as unknown as SettingsInput);
-      setSaved(true);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan pengaturan");
+      const result = await saveSettings(form as unknown as SettingsInput);
+      if (result.ok) {
+        setSaved(true);
+        router.refresh();
+      } else {
+        setError(result.error);
+      }
+    } catch {
+      setError(
+        "Gagal menyimpan. Koneksi bermasalah, muat ulang halaman lalu coba lagi."
+      );
     }
     setLoading(false);
   }

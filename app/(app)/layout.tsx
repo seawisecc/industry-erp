@@ -5,6 +5,7 @@ import IdleLogout from "@/components/IdleLogout";
 import Logo from "@/components/Logo";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { createClient } from "@/lib/supabase/server";
+import { localDateStr } from "@/lib/dates";
 
 export default async function AppLayout({
   children,
@@ -22,7 +23,7 @@ export default async function AppLayout({
       .eq("id", organizationId)
       .single();
 
-    const todayStr = new Date().toLocaleDateString("sv-SE");
+    const todayStr = localDateStr();
     const expired =
       org?.aktif && org.aktif_sampai !== null && org.aktif_sampai < todayStr;
 

@@ -137,36 +137,44 @@ export default function POForm({ suppliers, items, po }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading || deleting) return;
-    setLoading(true);
     setError("");
-    try {
-      const filled = rows.filter((r) => r.item);
-      for (const r of filled) {
-        const issue = moqIssue(r);
-        if (issue) {
-          throw new Error(`${r.item!.nama}: ${issue.toLowerCase()}`);
-        }
+
+    // Validasi MOQ di sisi client dulu, biar user dapat koreksi instan
+    const filled = rows.filter((r) => r.item);
+    for (const r of filled) {
+      const issue = moqIssue(r);
+      if (issue) {
+        setError(`${r.item!.nama}: ${issue.toLowerCase()}`);
+        return;
       }
-      const payload = {
-        supplier_id: supplierId,
-        tanggal_po: tanggal,
-        ppn_percent: parseNum(ppn),
-        catatan: catatan || null,
-        items: filled.map((r) => ({
-          item_id: r.item!.id,
-          qty_pesan: parseNum(r.qty),
-          harga_per_unit: parseNum(r.harga),
-        })),
-      };
-      if (isEdit && po) {
-        await updatePO(po.id, payload);
-      } else {
-        await createPO(payload);
+    }
+
+    setLoading(true);
+    const payload = {
+      supplier_id: supplierId,
+      tanggal_po: tanggal,
+      ppn_percent: parseNum(ppn),
+      catatan: catatan || null,
+      items: filled.map((r) => ({
+        item_id: r.item!.id,
+        qty_pesan: parseNum(r.qty),
+        harga_per_unit: parseNum(r.harga),
+      })),
+    };
+    try {
+      const result =
+        isEdit && po ? await updatePO(po.id, payload) : await createPO(payload);
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+        return;
       }
       router.push("/purchase-orders");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan PO");
+    } catch {
+      setError(
+        "Gagal menyimpan. Koneksi bermasalah atau aplikasi baru diperbarui, muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }
@@ -177,11 +185,18 @@ export default function POForm({ suppliers, items, po }: Props) {
     setDeleting(true);
     setError("");
     try {
-      await deletePO(po.id);
+      const result = await deletePO(po.id);
+      if (!result.ok) {
+        setError(result.error);
+        setDeleting(false);
+        return;
+      }
       router.push("/purchase-orders");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menghapus PO");
+    } catch {
+      setError(
+        "Gagal menghapus. Koneksi bermasalah, muat ulang halaman lalu coba lagi."
+      );
       setDeleting(false);
     }
   }

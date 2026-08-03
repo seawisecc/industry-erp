@@ -4,7 +4,15 @@ import Link from "next/link";
 import { Wallet, ReceiptText, CalendarClock, Printer } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
 import PaymentPanel, { type PaymentRow } from "./PaymentPanel";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOrWithIds,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
+import { localDateStr } from "@/lib/dates";
 
 type InvRow = {
   id: string;
@@ -31,21 +39,56 @@ function formatTanggal(iso: string) {
   });
 }
 
-export default async function SalesPaymentsPage() {
+export default async function SalesPaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
   // Yang butuh pelunasan: dokumen belum lunas (Proforma / cicilan berjalan).
   // POS cash sudah lunas seketika → tidak muncul di sini.
-  const { data: invoices } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  // Nama client ada di tabel lain, cari id-nya dulu supaya dokumen tetap
+  // bisa dicari lewat nama client, bukan cuma nomor dokumen.
+  let clientIds: string[] = [];
+  if (sp.q) {
+    const { data: cs } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .or(`kode.ilike."%${sp.q}%",company_brand.ilike."%${sp.q}%"`)
+      .limit(500);
+    clientIds = (cs || []).map((c) => c.id as string);
+  }
+
+  let query = supabase
     .from("sales_invoices")
     .select(
-      "id, no_invoice, tipe, sumber, tanggal, total, jatuh_tempo, status_bayar, tanggal_bayar, nama_pembeli, clients(kode, company_brand)"
+      "id, no_invoice, tipe, sumber, tanggal, total, jatuh_tempo, status_bayar, tanggal_bayar, nama_pembeli, clients(kode, company_brand)",
+      { count: "exact" }
     )
     .eq("organization_id", organizationId)
     .eq("status_bayar", "Belum Lunas");
 
+  if (sp.q)
+    query = query.or(
+      ilikeOrWithIds(
+        ["no_invoice", "nama_pembeli"],
+        sp.q,
+        "client_id",
+        clientIds
+      )
+    );
+
+  const { data: invoices, count } = await query
+    .order("jatuh_tempo", { ascending: true, nullsFirst: false })
+    .range(sp.from, sp.to);
+
   const list = (invoices || []) as unknown as InvRow[];
+  const info = pageInfo(sp.page, count, list.length);
   const ids = list.map((i) => i.id);
 
   // Ambil semua cicilan untuk dokumen di atas dalam satu query
@@ -64,19 +107,50 @@ export default async function SalesPaymentsPage() {
     }
   }
 
-  const todayStr = new Date().toLocaleDateString("sv-SE");
+  const todayStr = localDateStr();
   const dibayarOf = (id: string) =>
     (paysByInv.get(id) || []).reduce((s, p) => s + Number(p.jumlah), 0);
 
-  const sorted = list.sort(
-    (a, b) => (a.jatuh_tempo || "9999").localeCompare(b.jatuh_tempo || "9999")
-  );
+  // Ringkasan piutang harus mencakup SELURUH dokumen belum lunas, bukan
+  // cuma halaman yang sedang tampil. Urutan jatuh tempo sudah dikerjakan
+  // database, jadi `list` dipakai apa adanya untuk tabel.
+  const { data: unpaidAll } = await supabase
+    .from("sales_invoices")
+    .select("id, total, jatuh_tempo")
+    .eq("organization_id", organizationId)
+    .eq("status_bayar", "Belum Lunas");
+  const unpaid = (unpaidAll || []) as {
+    id: string;
+    total: number;
+    jatuh_tempo: string | null;
+  }[];
 
-  const totalPiutang = sorted.reduce(
-    (s, i) => s + (Number(i.total) - dibayarOf(i.id)),
+  const dibayarAll = new Map<string, number>();
+  if (unpaid.length > 0) {
+    const { data: allPays } = await supabase
+      .from("sales_payments")
+      .select("invoice_id, jumlah")
+      .eq("organization_id", organizationId)
+      .in(
+        "invoice_id",
+        unpaid.map((u) => u.id)
+      );
+    for (const p of (allPays || []) as {
+      invoice_id: string;
+      jumlah: number;
+    }[]) {
+      dibayarAll.set(
+        p.invoice_id,
+        (dibayarAll.get(p.invoice_id) || 0) + Number(p.jumlah)
+      );
+    }
+  }
+
+  const totalPiutang = unpaid.reduce(
+    (s, i) => s + (Number(i.total) - (dibayarAll.get(i.id) || 0)),
     0
   );
-  const terlambat = sorted.filter(
+  const terlambat = unpaid.filter(
     (i) => i.jatuh_tempo !== null && i.jatuh_tempo < todayStr
   ).length;
 
@@ -103,7 +177,7 @@ export default async function SalesPaymentsPage() {
           {
             icon: ReceiptText,
             label: "Dokumen Menunggu Bayar",
-            value: String(sorted.length),
+            value: unpaid.length.toLocaleString("id-ID"),
             tone: "bg-amber-100 text-amber-500",
           },
           {
@@ -133,7 +207,7 @@ export default async function SalesPaymentsPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch placeholder="Cari no. dokumen / client..." />
+        <TableToolbar placeholder="Cari no. dokumen / client..." info={info} />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[960px] text-[13px]">
@@ -150,14 +224,16 @@ export default async function SalesPaymentsPage() {
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {list.length === 0 ? (
               <tr>
                 <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  Tidak ada tagihan menunggu pelunasan 🎉
+                  {sp.q
+                    ? "Tidak ada dokumen yang cocok dengan pencarian."
+                    : "Tidak ada tagihan menunggu pelunasan 🎉"}
                 </td>
               </tr>
             ) : (
-              sorted.map((inv) => {
+              list.map((inv) => {
                 const dibayar = dibayarOf(inv.id);
                 const sisa = Number(inv.total) - dibayar;
                 const overdue =
@@ -237,6 +313,7 @@ export default async function SalesPaymentsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </SalesShell>
   );
 }

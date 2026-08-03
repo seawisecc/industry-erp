@@ -2,7 +2,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import CompanyToggle from "./CompanyToggle";
 import MesToggle from "./MesToggle";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOrWithIds,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
+import { localDateStr } from "@/lib/dates";
 
 type OrgRow = {
   id: string;
@@ -21,7 +29,11 @@ function formatTanggal(iso: string) {
   });
 }
 
-export default async function CompaniesPage() {
+export default async function CompaniesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const { isSuperAdmin } = await getEffectiveOrg();
 
   if (!isSuperAdmin) {
@@ -29,13 +41,55 @@ export default async function CompaniesPage() {
   }
 
   const admin = createAdminClient();
-  const { data: orgs } = await admin
+  const sp = parseListQuery(await searchParams);
+  const todayStr = localDateStr();
+
+  // Nama/email admin ada di tabel profiles — cari org-nya lewat situ.
+  let orgIdsByAdmin: string[] = [];
+  if (sp.q) {
+    const { data: ps } = await admin
+      .from("profiles")
+      .select("organization_id")
+      .or(`nama.ilike."%${sp.q}%",email.ilike."%${sp.q}%"`)
+      .limit(500);
+    orgIdsByAdmin = [
+      ...new Set(
+        (ps || [])
+          .map((p) => p.organization_id as string | null)
+          .filter((v): v is string => !!v)
+      ),
+    ];
+  }
+
+  let query = admin
     .from("organizations")
-    .select("id, nama, slug, aktif, aktif_sampai, profiles(id, nama, email, role)")
+    .select(
+      "id, nama, slug, aktif, aktif_sampai, profiles(id, nama, email, role)",
+      { count: "exact" }
+    );
+
+  if (sp.q)
+    query = query.or(
+      ilikeOrWithIds(["nama", "slug"], sp.q, "id", orgIdsByAdmin)
+    );
+
+  // Status di tabel adalah gabungan `aktif` + masa berlaku, bukan satu kolom
+  const status = sp.filter("status");
+  if (status === "Menunggu Aktivasi") query = query.eq("aktif", false);
+  if (status === "Aktif")
+    query = query
+      .eq("aktif", true)
+      .or(`aktif_sampai.is.null,aktif_sampai.gte.${todayStr}`);
+  if (status === "Kedaluwarsa")
+    query = query.eq("aktif", true).lt("aktif_sampai", todayStr);
+
+  const { data: orgs, count } = await query
     .order("aktif", { ascending: true })
-    .order("nama");
+    .order("nama")
+    .range(sp.from, sp.to);
 
   const list = (orgs || []) as unknown as OrgRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   // Fitur berbayar per company (MES dsb.)
   const { data: settingsRows } = await admin
@@ -54,21 +108,31 @@ export default async function CompaniesPage() {
   const qaOf = new Map<string, boolean>(
     rows.map((r) => [r.organization_id, r.features?.qa === true])
   );
-  const todayStr = new Date().toLocaleDateString("sv-SE");
   const pending = list.filter((o) => !o.aktif).length;
 
   return (
     <div>
       <h1 className="font-display text-2xl font-semibold text-ink">Companies</h1>
       <p className="text-muted text-sm mt-1">
-        {list.length} company terdaftar
+        {info.total.toLocaleString("id-ID")} company terdaftar
         {pending > 0 ? `, ${pending} menunggu aktivasi` : ""}
       </p>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari nama company / admin..."
-          filters={[{ label: "Semua Status", options: ["Aktif", "Menunggu Aktivasi", "Kedaluwarsa"] }]}
+          info={info}
+          filters={[
+            {
+              param: "status",
+              label: "Semua Status",
+              options: [
+                "Aktif",
+                "Menunggu Aktivasi",
+                "Kedaluwarsa",
+              ].map((s) => ({ value: s, label: s })),
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto overflow-y-visible">
@@ -173,6 +237,7 @@ export default async function CompaniesPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </div>
   );
 }

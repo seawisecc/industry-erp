@@ -1,14 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, RotateCcw } from "lucide-react";
 import {
   saveExecution,
   ExecutionData,
   StepLog,
   IpcHasil,
 } from "../../../actions";
+
+/* ------------------------------------------------------------
+   Draft otomatis di browser.
+
+   Form ini dipakai berjam-jam di lantai produksi: timestamp MES,
+   hasil timbang, IPC, rekonsiliasi kemasan. Sebelum ada draft,
+   semuanya cuma ada di memori — tab ke-refresh, HP terkunci lalu
+   browser dimatikan, atau kena auto-logout = hilang semua.
+   Draft disimpan tiap ada perubahan, dan ditawarkan untuk
+   dipulihkan (bukan langsung ditimpa) saat form dibuka lagi.
+   ------------------------------------------------------------ */
+
+type Draft = {
+  savedAt: string;
+  bahanReal: Record<string, string>;
+  variantPcs: Record<string, string>;
+  kemasanQty: Record<string, string>;
+  kemasanTerpakai: Record<string, string>;
+  kemasanRusak: Record<string, string>;
+  bulkReal: string;
+  adjust: { item_id: string; qty: string }[];
+  ipcRows: IpcHasil[];
+  stepLogs: StepLog[];
+};
+
+function draftKey(planId: string) {
+  return `exec-draft-${planId}`;
+}
+
+function readDraft(planId: string): Draft | null {
+  try {
+    const raw = localStorage.getItem(draftKey(planId));
+    return raw ? (JSON.parse(raw) as Draft) : null;
+  } catch {
+    return null;
+  }
+}
 
 export type ItemInfo = {
   id: string;
@@ -161,6 +198,99 @@ export default function ExecuteForm({
     );
   }
 
+  // ===== Draft otomatis =====
+  const [draftFound, setDraftFound] = useState<Draft | null>(null);
+  const firstRun = useRef(true);
+  const dirty = useRef(false);
+  const submitted = useRef(false);
+
+  // Tawarkan draft yang tertinggal dari sesi sebelumnya
+  useEffect(() => {
+    const d = readDraft(plan.id);
+    if (d) setDraftFound(d);
+  }, [plan.id]);
+
+  // Simpan tiap ada perubahan
+  useEffect(() => {
+    if (submitted.current) return;
+    // Render pertama = nilai awal form, bukan perubahan user
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    dirty.current = true;
+
+    const draft: Draft = {
+      savedAt: new Date().toISOString(),
+      bahanReal,
+      variantPcs,
+      kemasanQty,
+      kemasanTerpakai,
+      kemasanRusak,
+      bulkReal,
+      adjust: adjustRows
+        .filter((r) => r.item)
+        .map((r) => ({ item_id: r.item!.id, qty: r.qty })),
+      ipcRows,
+      stepLogs,
+    };
+    try {
+      localStorage.setItem(draftKey(plan.id), JSON.stringify(draft));
+    } catch {
+      // storage penuh / mode privat — biarkan, form tetap jalan
+    }
+  }, [
+    plan.id,
+    bahanReal,
+    variantPcs,
+    kemasanQty,
+    kemasanTerpakai,
+    kemasanRusak,
+    bulkReal,
+    adjustRows,
+    ipcRows,
+    stepLogs,
+  ]);
+
+  // Cegah tab ditutup dengan data yang belum tersimpan ke server
+  useEffect(() => {
+    function warn(e: BeforeUnloadEvent) {
+      if (!dirty.current || submitted.current) return;
+      e.preventDefault();
+    }
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
+
+  function applyDraft(d: Draft) {
+    setBahanReal(d.bahanReal ?? {});
+    setVariantPcs(d.variantPcs ?? {});
+    setKemasanQty(d.kemasanQty ?? {});
+    setKemasanTerpakai(d.kemasanTerpakai ?? {});
+    setKemasanRusak(d.kemasanRusak ?? {});
+    setBulkReal(d.bulkReal ?? "");
+    setAdjustRows(
+      (d.adjust ?? []).map((a) => ({
+        item: itemOf(a.item_id) || null,
+        query: "",
+        open: false,
+        qty: a.qty,
+      }))
+    );
+    if (d.ipcRows?.length) setIpcRows(d.ipcRows);
+    if (d.stepLogs?.length) setStepLogs(d.stepLogs);
+    setDraftFound(null);
+  }
+
+  function discardDraft() {
+    try {
+      localStorage.removeItem(draftKey(plan.id));
+    } catch {
+      // abaikan
+    }
+    setDraftFound(null);
+  }
+
   // Kebutuhan kemasan teoritis dari rencana pcs varian
   const kemasanTeoritis = new Map<string, number>();
   for (const v of plan.variants) {
@@ -232,6 +362,13 @@ export default function ExecuteForm({
 
       const result = await saveExecution(plan.id, data);
       if (result.ok) {
+        // Sudah aman di server — draft lokal tidak diperlukan lagi
+        submitted.current = true;
+        try {
+          localStorage.removeItem(draftKey(plan.id));
+        } catch {
+          // abaikan
+        }
         router.push("/production");
         router.refresh();
       } else {
@@ -257,6 +394,44 @@ export default function ExecuteForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {/* ===== Tawaran pulihkan draft dari sesi sebelumnya ===== */}
+      {draftFound && (
+        <div className="glass rounded-2xl p-4 sm:p-5 border-amber-500/40 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="font-display text-[14.5px] font-semibold text-ink flex items-center gap-2">
+              <RotateCcw size={15} className="text-amber-500 flex-shrink-0" />
+              Ada isian yang belum tersimpan
+            </div>
+            <p className="text-muted text-[12.5px] mt-0.5 leading-snug">
+              Tersimpan otomatis di perangkat ini{" "}
+              {new Date(draftFound.savedAt).toLocaleString("id-ID", {
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              . Pulihkan supaya tidak perlu mengisi ulang.
+            </p>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => applyDraft(draftFound)}
+              className="h-9 px-3.5 rounded-lg bg-botanical-700 text-white text-[12.5px] font-medium hover:bg-botanical-800 transition-colors"
+            >
+              Pulihkan
+            </button>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="h-9 px-3.5 rounded-lg border border-line text-muted text-[12.5px] font-medium hover:text-ink transition-colors"
+            >
+              Buang
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ============ TAHAP 1, CATATAN PENGOLAHAN BATCH ============ */}
       <div className="flex items-center gap-3">
         <div className="bg-botanical-700 text-white rounded-lg px-3 py-1.5 text-[12px] font-semibold">

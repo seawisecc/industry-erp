@@ -112,7 +112,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
     setLoading(true);
     setError("");
     try {
-      await createReceiving({
+      const result = await createReceiving({
         po_id: poId,
         tanggal_terima: tanggal,
         no_invoice: noInvoice || null,
@@ -127,10 +127,17 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
           exp_date: r.expDate || null,
         })),
       });
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+        return;
+      }
       router.push("/receivings");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan penerimaan");
+    } catch {
+      setError(
+        "Gagal menyimpan. Koneksi bermasalah, muat ulang halaman lalu coba lagi."
+      );
       setLoading(false);
     }
   }

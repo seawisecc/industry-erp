@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { toResult, type ActionResult } from "@/lib/actionResult";
 
 export type POItemInput = {
   item_id: string;
@@ -65,7 +66,11 @@ async function assertMoq(
   }
 }
 
-export async function createPO(data: POInput) {
+export async function createPO(data: POInput): Promise<ActionResult> {
+  return toResult(() => createPOImpl(data), "Gagal menyimpan PO");
+}
+
+async function createPOImpl(data: POInput) {
   const supabase = await createClient();
   const { profile, organizationId } = await getEffectiveOrg();
 
@@ -110,7 +115,6 @@ export async function createPO(data: POInput) {
   }
 
   revalidatePath("/purchase-orders");
-  return { success: true };
 }
 
 async function getEditablePO(id: string) {
@@ -223,7 +227,14 @@ export async function setPOTop(
   }
 }
 
-export async function updatePO(id: string, data: POInput) {
+export async function updatePO(
+  id: string,
+  data: POInput
+): Promise<ActionResult> {
+  return toResult(() => updatePOImpl(id, data), "Gagal menyimpan PO");
+}
+
+async function updatePOImpl(id: string, data: POInput) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -233,43 +244,35 @@ export async function updatePO(id: string, data: POInput) {
 
   validatePO(data);
   await assertMoq(organizationId, data.items);
-  await getEditablePO(id);
 
-  const { error } = await supabase
-    .from("purchase_orders")
-    .update({
+  // Header + ganti seluruh baris item dalam satu transaksi. Versi lama
+  // menghapus po_items lalu insert dari sini — insert yang gagal
+  // meninggalkan PO tanpa satu pun item.
+  const { error } = await supabase.rpc("update_po_tx", {
+    p_organization_id: organizationId,
+    p_po_id: id,
+    p_header: {
       supplier_id: data.supplier_id,
       tanggal_po: data.tanggal_po,
       ppn_percent: data.ppn_percent,
       catatan: data.catatan?.trim() || null,
-    })
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
-
-  // Ganti seluruh baris item: hapus yang lama, masukkan yang baru
-  const { error: delError } = await supabase
-    .from("po_items")
-    .delete()
-    .eq("po_id", id);
-  if (delError) throw new Error(delError.message);
-
-  const { error: itemsError } = await supabase.from("po_items").insert(
-    data.items.map((it) => ({
-      po_id: id,
+    },
+    p_items: data.items.map((it) => ({
       item_id: it.item_id,
       qty_pesan: it.qty_pesan,
       harga_per_unit: it.harga_per_unit,
-      organization_id: organizationId,
-    }))
-  );
-  if (itemsError) throw new Error(itemsError.message);
+    })),
+  });
+  if (error) throw new Error(error.message);
 
   revalidatePath("/purchase-orders");
-  return { success: true };
 }
 
-export async function deletePO(id: string) {
+export async function deletePO(id: string): Promise<ActionResult> {
+  return toResult(() => deletePOImpl(id), "Gagal menghapus PO");
+}
+
+async function deletePOImpl(id: string) {
   const supabase = await createClient();
 
   await getEditablePO(id);
@@ -284,7 +287,6 @@ export async function deletePO(id: string) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/purchase-orders");
-  return { success: true };
 }
 
 /** Batalkan PO (koreksi operasional), hanya bila belum ada barang diterima. */

@@ -4,7 +4,14 @@ import { getFeatures } from "@/lib/featuresServer";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import ProdukShell from "@/components/ProdukShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOr,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 import { ClipboardList, Printer } from "lucide-react";
 
 type BatchRow = {
@@ -33,23 +40,33 @@ function formatTanggal(iso: string | null) {
   });
 }
 
-export default async function QaReleasePage() {
+export default async function QaReleasePage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
   const features = await getFeatures(organizationId!);
   if (!(features.qa)) redirect("/products");
 
-  const [{ data: hold }, { data: history }] = await Promise.all([
-    supabase
-      .from("production_batches")
-      .select(
-        `id, no_batch_produksi, tanggal_produksi, qa_status, qa_note, qa_oleh, qa_tanggal,
+  const sp = parseListQuery(await searchParams);
+
+  let holdQuery = supabase
+    .from("production_batches")
+    .select(
+      `id, no_batch_produksi, tanggal_produksi, qa_status, qa_note, qa_oleh, qa_tanggal,
          qc_produk_selesai,
-         production_outputs(qty_hasil, satuan, varian_ukuran, products(kode, nama_produk))`
-      )
-      .eq("organization_id", organizationId)
-      .eq("qa_status", "Hold")
-      .order("tanggal_produksi"),
+         production_outputs(qty_hasil, satuan, varian_ukuran, products(kode, nama_produk))`,
+      { count: "exact" }
+    )
+    .eq("organization_id", organizationId)
+    .eq("qa_status", "Hold");
+
+  if (sp.q) holdQuery = holdQuery.or(ilikeOr(["no_batch_produksi"], sp.q));
+
+  const [{ data: hold, count }, { data: history }] = await Promise.all([
+    holdQuery.order("tanggal_produksi").range(sp.from, sp.to),
     supabase
       .from("production_batches")
       .select(
@@ -65,6 +82,7 @@ export default async function QaReleasePage() {
 
   const list = (hold || []) as unknown as BatchRow[];
   const logs = (history || []) as unknown as BatchRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   const produkOf = (b: BatchRow) =>
     b.production_outputs?.[0]?.products?.nama_produk || "-";
@@ -91,7 +109,7 @@ export default async function QaReleasePage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch placeholder="Cari no. batch / produk..." />
+        <TableToolbar placeholder="Cari no. batch..." info={info} />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[820px] text-[13px]">
@@ -109,8 +127,9 @@ export default async function QaReleasePage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  Tidak ada batch menunggu review 🎉, batch baru dari Production
-                  akan muncul di sini.
+                  {sp.q
+                    ? "Tidak ada batch yang cocok dengan pencarian."
+                    : "Tidak ada batch menunggu review 🎉, batch baru dari Production akan muncul di sini."}
                 </td>
               </tr>
             ) : (
@@ -159,9 +178,14 @@ export default async function QaReleasePage() {
         </table>
       </div>
 
+      <Pagination info={info} />
+
       {/* ===== Riwayat keputusan QA ===== */}
       <h3 className="font-display text-[15px] font-semibold text-ink mt-6 mb-2">
-        Riwayat Keputusan QA
+        Riwayat Keputusan QA{" "}
+        <span className="font-sans text-[12px] font-normal text-muted">
+          · 15 terakhir
+        </span>
       </h3>
       <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[720px] text-[13px]">

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { localDateStr } from "@/lib/dates";
 
 export async function setInvoicePaid(
   id: string,
@@ -20,7 +21,7 @@ export async function setInvoicePaid(
       .from("receivings")
       .update({
         status_bayar: paid ? "Lunas" : "Belum Lunas",
-        tanggal_bayar: paid ? new Date().toLocaleDateString("sv-SE") : null,
+        tanggal_bayar: paid ? localDateStr() : null,
       })
       .eq("id", id)
       .eq("organization_id", organizationId);

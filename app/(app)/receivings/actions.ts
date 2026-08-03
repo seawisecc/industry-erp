@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import { getFeatures } from "@/lib/featuresServer";
+import { toResult, type ActionResult } from "@/lib/actionResult";
+import { addDaysStr } from "@/lib/dates";
 
 export type ReceivingItemInput = {
   po_item_id: string;
@@ -23,13 +25,16 @@ export type ReceivingInput = {
   items: ReceivingItemInput[];
 };
 
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toLocaleDateString("sv-SE");
+export async function createReceiving(
+  data: ReceivingInput
+): Promise<ActionResult> {
+  return toResult(
+    () => createReceivingImpl(data),
+    "Gagal menyimpan penerimaan"
+  );
 }
 
-export async function createReceiving(data: ReceivingInput) {
+async function createReceivingImpl(data: ReceivingInput) {
   const supabase = await createClient();
   const { profile, organizationId } = await getEffectiveOrg();
 
@@ -47,131 +52,44 @@ export async function createReceiving(data: ReceivingInput) {
     if (it.harga_per_unit < 0) throw new Error("Harga tidak boleh negatif");
   }
 
-  // ---- Ambil PO + baris item untuk validasi sisa ----
-  const { data: po, error: poError } = await supabase
-    .from("purchase_orders")
-    .select(
-      "id, no_po, status, supplier_id, suppliers(nama), po_items(id, qty_pesan, qty_diterima)"
-    )
-    .eq("id", data.po_id)
-    .eq("organization_id", organizationId)
-    .single();
+  // Header faktur, batch stok, qty_diterima PO, dan status PO ditulis
+  // dalam SATU transaksi. Versi lama menulisnya berurutan dari sini:
+  // kalau langkah ke-3 atau ke-4 gagal, stok sudah bertambah tapi PO
+  // tidak pernah ikut terupdate.
+  const { qc: qcOn } = await getFeatures(organizationId);
 
-  if (poError || !po) throw new Error("PO tidak ditemukan");
-  if (po.status === "Selesai")
-    throw new Error("PO ini sudah Selesai, semua barang sudah diterima.");
-
-  const poItems = (po.po_items || []) as {
-    id: string;
-    qty_pesan: number;
-    qty_diterima: number;
-  }[];
-  const supplierNama =
-    (po.suppliers as unknown as { nama: string } | null)?.nama || null;
-
-  for (const it of items) {
-    const poItem = poItems.find((p) => p.id === it.po_item_id);
-    if (!poItem) throw new Error("Ada baris yang tidak ditemukan di PO");
-    const sisa = Number(poItem.qty_pesan) - Number(poItem.qty_diterima);
-    if (it.qty_masuk > sisa) {
-      throw new Error(
-        `Qty masuk melebihi sisa PO (sisa ${sisa.toLocaleString("id-ID")}). Kurangi qty-nya.`
-      );
-    }
-  }
-
-  // ---- Hitung total invoice ----
-  const subtotal = items.reduce(
-    (s, it) => s + it.qty_masuk * it.harga_per_unit,
-    0
-  );
-  const totalPpn = (subtotal * data.ppn_percent) / 100;
-
-  // ---- 1. Insert header receiving (faktur) + jatuh tempo dari TOP ----
-  const jatuhTempo =
-    data.top_days == null ? null : addDays(data.tanggal_terima, data.top_days);
-
-  const { data: receiving, error: rcvError } = await supabase
-    .from("receivings")
-    .insert({
+  const { error } = await supabase.rpc("create_receiving_tx", {
+    p_organization_id: organizationId,
+    p_header: {
       po_id: data.po_id,
       tanggal_terima: data.tanggal_terima,
-      supplier_id: po.supplier_id,
-      supplier_nama: supplierNama,
       no_invoice: data.no_invoice?.trim() || null,
       ppn_percent: data.ppn_percent,
-      subtotal,
-      total_ppn: totalPpn,
-      total_invoice: subtotal + totalPpn,
       top_days: data.top_days,
-      jatuh_tempo: jatuhTempo,
+      jatuh_tempo:
+        data.top_days == null
+          ? null
+          : addDaysStr(data.tanggal_terima, data.top_days),
       dibuat_oleh: profile?.id || null,
-      organization_id: organizationId,
-    })
-    .select()
-    .single();
-
-  if (rcvError) throw new Error(rcvError.message);
-
-  // ---- 2. Insert batch stok ----
-  // QC Module aktif: barang masuk KARANTINA dulu (qty_sisa 0, stok belum bisa
-  // dipakai) sampai di-release QC. Tanpa QC: langsung Released seperti biasa.
-  const { qc: qcOn } = await getFeatures(organizationId);
-  const { error: batchError } = await supabase.from("purchase_batches").insert(
-    items.map((it) => ({
+    },
+    p_items: items.map((it) => ({
+      po_item_id: it.po_item_id,
       item_id: it.item_id,
-      tanggal_terima: data.tanggal_terima,
-      supplier_id: po.supplier_id,
-      supplier_nama: supplierNama,
-      no_lot_supplier: it.no_lot_supplier?.trim() || null,
-      exp_date: it.exp_date || null,
       qty_masuk: it.qty_masuk,
       harga_per_unit: it.harga_per_unit,
-      qc_status: qcOn ? "Karantina" : "Released",
-      qty_karantina: qcOn ? it.qty_masuk : 0,
-      qty_sisa: qcOn ? 0 : it.qty_masuk,
-      po_id: data.po_id,
-      receiving_id: receiving.id,
-      dibuat_oleh: profile?.id || null,
-      organization_id: organizationId,
-    }))
-  );
-
-  if (batchError) {
-    // Batalkan header yang telanjur dibuat supaya tidak ada receiving kosong
-    await supabase.from("receivings").delete().eq("id", receiving.id);
-    throw new Error(batchError.message);
-  }
-
-  // ---- 3. Update qty_diterima tiap baris PO ----
-  for (const it of items) {
-    const poItem = poItems.find((p) => p.id === it.po_item_id)!;
-    const { error: updError } = await supabase
-      .from("po_items")
-      .update({ qty_diterima: Number(poItem.qty_diterima) + it.qty_masuk })
-      .eq("id", it.po_item_id);
-    if (updError) throw new Error(updError.message);
-  }
-
-  // ---- 4. Update status PO ----
-  const allDone = poItems.every((p) => {
-    const received = items.find((it) => it.po_item_id === p.id);
-    const newQty = Number(p.qty_diterima) + (received ? received.qty_masuk : 0);
-    return newQty >= Number(p.qty_pesan);
+      no_lot_supplier: it.no_lot_supplier?.trim() || null,
+      exp_date: it.exp_date || null,
+    })),
+    p_qc_on: qcOn,
   });
-
-  const { error: statusError } = await supabase
-    .from("purchase_orders")
-    .update({ status: allDone ? "Selesai" : "Diterima Sebagian" })
-    .eq("id", data.po_id);
-  if (statusError) throw new Error(statusError.message);
+  if (error) throw new Error(error.message);
 
   revalidatePath("/receivings");
   revalidatePath("/purchase-orders");
   revalidatePath("/items");
   revalidatePath("/payments");
-  return { success: true };
 }
+
 
 /**
  * Batalkan penerimaan (koreksi operasional): hapus batch stok yang belum

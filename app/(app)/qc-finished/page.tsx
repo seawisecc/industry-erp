@@ -4,7 +4,13 @@ import { getFeatures } from "@/lib/featuresServer";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import ProdukShell from "@/components/ProdukShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 import { ClipboardList, Printer, Eye } from "lucide-react";
 
 type BatchRow = {
@@ -32,7 +38,11 @@ function formatTanggal(iso: string | null) {
   });
 }
 
-export default async function QcFinishedPage() {
+export default async function QcFinishedPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
   const features = await getFeatures(organizationId!);
@@ -42,15 +52,20 @@ export default async function QcFinishedPage() {
        qc_produk_tanggal_uji, qc_produk_oleh,
        production_outputs(qty_hasil, satuan, varian_ukuran, products(kode, nama_produk))`;
 
-  const [{ data }, { data: riwayat }] = await Promise.all([
-    // Antrean: batch masih Hold dan belum selesai diuji
-    supabase
-      .from("production_batches")
-      .select(kolom)
-      .eq("organization_id", organizationId)
-      .eq("qa_status", "Hold")
-      .or("qc_produk_selesai.is.null,qc_produk_selesai.eq.false")
-      .order("tanggal_produksi"),
+  const sp = parseListQuery(await searchParams);
+
+  let antreanQuery = supabase
+    .from("production_batches")
+    .select(kolom, { count: "exact" })
+    .eq("organization_id", organizationId)
+    .eq("qa_status", "Hold")
+    .or("qc_produk_selesai.is.null,qc_produk_selesai.eq.false");
+
+  if (sp.q)
+    antreanQuery = antreanQuery.ilike("no_batch_produksi", `%${sp.q}%`);
+
+  const [{ data, count }, { data: riwayat }] = await Promise.all([
+    antreanQuery.order("tanggal_produksi").range(sp.from, sp.to),
     // Riwayat: semua batch yang sudah pernah diuji QC
     supabase
       .from("production_batches")
@@ -63,7 +78,8 @@ export default async function QcFinishedPage() {
 
   const list = (data || []) as unknown as BatchRow[];
   const logs = (riwayat || []) as unknown as BatchRow[];
-  const belum = list.length;
+  const info = pageInfo(sp.page, count, list.length);
+  const belum = info.total;
 
   const produkOf = (b: BatchRow) =>
     b.production_outputs?.[0]?.products?.nama_produk || "-";
@@ -93,7 +109,7 @@ export default async function QcFinishedPage() {
         Antrean Pengujian
       </h3>
       <div className="mb-3">
-        <TableSearch placeholder="Cari no. batch / produk..." />
+        <TableToolbar placeholder="Cari no. batch..." info={info} />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[720px] text-[13px]">
@@ -112,7 +128,9 @@ export default async function QcFinishedPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center text-muted py-10 text-sm">
-                  Tidak ada batch menunggu pengujian 🎉
+                  {sp.q
+                    ? "Tidak ada batch yang cocok dengan pencarian."
+                    : "Tidak ada batch menunggu pengujian 🎉"}
                 </td>
               </tr>
             ) : (
@@ -151,6 +169,8 @@ export default async function QcFinishedPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination info={info} />
 
       {/* ===== Riwayat pengujian produk jadi ===== */}
       <h3 className="font-display text-[15px] font-semibold text-ink mt-6 mb-2">

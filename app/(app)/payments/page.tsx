@@ -3,7 +3,15 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { Wallet, ReceiptText, CalendarClock } from "lucide-react";
 import PembelianShell from "@/components/PembelianShell";
 import PayButton from "./PayButton";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOrWithIds,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
+import { localDateStr } from "@/lib/dates";
 
 type InvoiceRow = {
   id: string;
@@ -30,28 +38,67 @@ function formatTanggal(iso: string) {
   });
 }
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: invoices } = await supabase
+  const sp = parseListQuery(await searchParams);
+  const todayStr = localDateStr();
+
+  // No. PO ada di tabel purchase_orders, cari id-nya dulu supaya
+  // pencarian lewat no. PO tetap jalan.
+  let poIds: string[] = [];
+  if (sp.q) {
+    const { data: pos } = await supabase
+      .from("purchase_orders")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("no_po", `%${sp.q}%`)
+      .limit(500);
+    poIds = (pos || []).map((p) => p.id as string);
+  }
+
+  let query = supabase
     .from("receivings")
     .select(
-      "id, no_invoice, tanggal_terima, supplier_nama, total_invoice, top_days, jatuh_tempo, status_bayar, tanggal_bayar, purchase_orders(no_po)"
+      "id, no_invoice, tanggal_terima, supplier_nama, total_invoice, top_days, jatuh_tempo, status_bayar, tanggal_bayar, purchase_orders(no_po)",
+      { count: "exact" }
     )
     .eq("organization_id", organizationId);
 
-  const todayStr = new Date().toLocaleDateString("sv-SE");
-  const list = ((invoices || []) as unknown as InvoiceRow[]).sort((a, b) => {
-    // Belum lunas dulu, urut jatuh tempo terdekat (tanpa tempo di akhir)
-    if (a.status_bayar !== b.status_bayar)
-      return a.status_bayar === "Belum Lunas" ? -1 : 1;
-    const ja = a.jatuh_tempo || "9999-12-31";
-    const jb = b.jatuh_tempo || "9999-12-31";
-    return ja.localeCompare(jb);
-  });
+  if (sp.q)
+    query = query.or(
+      ilikeOrWithIds(["no_invoice", "supplier_nama"], sp.q, "po_id", poIds)
+    );
+  if (sp.filter("status"))
+    query = query.eq("status_bayar", sp.filter("status"));
 
-  const belumLunas = list.filter((i) => i.status_bayar === "Belum Lunas");
+  // Urutan lama (belum lunas dulu, lalu jatuh tempo terdekat) dipindah ke
+  // database — kalau tetap di JS, urutannya cuma benar dalam satu halaman.
+  // "Belum Lunas" < "Lunas" secara alfabet, jadi ascending sudah tepat.
+  const { data: invoices, count } = await query
+    .order("status_bayar", { ascending: true })
+    .order("jatuh_tempo", { ascending: true, nullsFirst: false })
+    .range(sp.from, sp.to);
+
+  const list = (invoices || []) as unknown as InvoiceRow[];
+  const info = pageInfo(sp.page, count, list.length);
+
+  // Ringkasan hutang dihitung dari SELURUH faktur belum lunas, bukan cuma
+  // halaman yang sedang tampil.
+  const { data: unpaid } = await supabase
+    .from("receivings")
+    .select("total_invoice, jatuh_tempo")
+    .eq("organization_id", organizationId)
+    .eq("status_bayar", "Belum Lunas");
+  const belumLunas = (unpaid || []) as {
+    total_invoice: number;
+    jatuh_tempo: string | null;
+  }[];
   const totalHutang = belumLunas.reduce((s, i) => s + Number(i.total_invoice), 0);
   const terlambat = belumLunas.filter(
     (i) => i.jatuh_tempo !== null && i.jatuh_tempo < todayStr
@@ -121,9 +168,19 @@ export default async function PaymentsPage() {
 
       {/* ===== Tabel faktur ===== */}
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari no. PO / supplier..."
-          filters={[{ label: "Semua Status", options: ["Lunas", "Belum Lunas"] }]}
+          info={info}
+          filters={[
+            {
+              param: "status",
+              label: "Semua Status",
+              options: [
+                { value: "Lunas", label: "Lunas" },
+                { value: "Belum Lunas", label: "Belum Lunas" },
+              ],
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -145,7 +202,9 @@ export default async function PaymentsPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={9} className="text-center text-muted py-10 text-sm">
-                  Belum ada faktur. Faktur muncul otomatis dari Receiving.
+                  {sp.q || sp.filter("status")
+                    ? "Tidak ada faktur yang cocok dengan pencarian/filter."
+                    : "Belum ada faktur. Faktur muncul otomatis dari Receiving."}
                 </td>
               </tr>
             ) : (
@@ -231,6 +290,7 @@ export default async function PaymentsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </PembelianShell>
   );
 }

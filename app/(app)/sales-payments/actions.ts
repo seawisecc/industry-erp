@@ -1,48 +1,20 @@
 "use server";
 
+/* ============================================================
+   Pencatatan cicilan penjualan.
+
+   Cek sisa tagihan, insert pembayaran, dan hitung ulang status
+   dilakukan dalam satu transaksi terkunci di database
+   (record_sales_payment_tx). Sebelumnya ketiganya berjalan
+   terpisah dari sini, sehingga dua pembayaran yang masuk
+   bersamaan bisa sama-sama lolos pengecekan "sisa tagihan" dan
+   menghasilkan lebih bayar.
+   ============================================================ */
+
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
-
-/**
- * Hitung ulang status bayar sebuah dokumen dari ledger cicilan.
- * - Lunas (dibayar >= total)  → status "Lunas", dan Proforma otomatis jadi Invoice.
- * - Belum lunas               → status "Belum Lunas", tetap/kembali Proforma.
- */
-async function recompute(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId: string,
-  invoiceId: string
-) {
-  const { data: inv } = await supabase
-    .from("sales_invoices")
-    .select("total")
-    .eq("id", invoiceId)
-    .eq("organization_id", organizationId)
-    .single();
-  if (!inv) return;
-
-  const { data: pays } = await supabase
-    .from("sales_payments")
-    .select("jumlah")
-    .eq("invoice_id", invoiceId)
-    .eq("organization_id", organizationId);
-
-  const dibayar = (pays || []).reduce((s, p) => s + Number(p.jumlah), 0);
-  const total = Number(inv.total);
-  const lunas = dibayar >= total - 0.5; // toleransi pembulatan rupiah
-  const today = new Date().toLocaleDateString("sv-SE");
-
-  await supabase
-    .from("sales_invoices")
-    .update({
-      status_bayar: lunas ? "Lunas" : "Belum Lunas",
-      tanggal_bayar: lunas ? today : null,
-      tipe: lunas ? "Invoice" : "Proforma",
-    })
-    .eq("id", invoiceId)
-    .eq("organization_id", organizationId);
-}
+import { localDateStr } from "@/lib/dates";
 
 /** Catat satu pembayaran (DP / cicilan / pelunasan) dari client. */
 export async function recordSalesPayment(
@@ -58,38 +30,16 @@ export async function recordSalesPayment(
     if (!(jumlah > 0)) throw new Error("Jumlah pembayaran harus lebih dari 0");
     if (!tanggal) throw new Error("Tanggal pembayaran wajib diisi");
 
-    const { data: inv } = await supabase
-      .from("sales_invoices")
-      .select("id, total")
-      .eq("id", invoiceId)
-      .eq("organization_id", organizationId)
-      .single();
-    if (!inv) throw new Error("Dokumen tidak ditemukan");
-
-    // Jangan sampai total bayar melebihi tagihan
-    const { data: pays } = await supabase
-      .from("sales_payments")
-      .select("jumlah")
-      .eq("invoice_id", invoiceId)
-      .eq("organization_id", organizationId);
-    const sudah = (pays || []).reduce((s, p) => s + Number(p.jumlah), 0);
-    const sisa = Number(inv.total) - sudah;
-    if (jumlah > sisa + 0.5)
-      throw new Error(
-        `Melebihi sisa tagihan. Sisa Rp ${sisa.toLocaleString("id-ID")}`
-      );
-
-    const { error } = await supabase.from("sales_payments").insert({
-      invoice_id: invoiceId,
-      tanggal,
-      jumlah,
-      catatan: catatan?.trim() || null,
-      dibuat_oleh: profile?.id || null,
-      organization_id: organizationId,
+    const { error } = await supabase.rpc("record_sales_payment_tx", {
+      p_organization_id: organizationId,
+      p_invoice_id: invoiceId,
+      p_jumlah: jumlah,
+      p_tanggal: tanggal,
+      p_catatan: catatan?.trim() || null,
+      p_dibuat_oleh: profile?.id || null,
+      p_today: localDateStr(),
     });
     if (error) throw new Error(error.message);
-
-    await recompute(supabase, organizationId, invoiceId);
 
     revalidatePath("/sales-payments");
     revalidatePath("/sales-invoices");
@@ -108,22 +58,12 @@ export async function deleteSalesPayment(
     const { organizationId } = await getEffectiveOrg();
     if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
 
-    const { data: pay } = await supabase
-      .from("sales_payments")
-      .select("id, invoice_id")
-      .eq("id", paymentId)
-      .eq("organization_id", organizationId)
-      .single();
-    if (!pay) throw new Error("Pembayaran tidak ditemukan");
-
-    const { error } = await supabase
-      .from("sales_payments")
-      .delete()
-      .eq("id", paymentId)
-      .eq("organization_id", organizationId);
+    const { error } = await supabase.rpc("delete_sales_payment_tx", {
+      p_organization_id: organizationId,
+      p_payment_id: paymentId,
+      p_today: localDateStr(),
+    });
     if (error) throw new Error(error.message);
-
-    await recompute(supabase, organizationId, pay.invoice_id as string);
 
     revalidatePath("/sales-payments");
     revalidatePath("/sales-invoices");

@@ -3,9 +3,16 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus, Wand2 } from "lucide-react";
 import PembelianShell from "@/components/PembelianShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
 import CancelTxButton from "@/components/CancelTxButton";
 import { cancelPO } from "./actions";
+import {
+  ilikeOrWithIds,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 
 type POStatus =
   | "Dibuat"
@@ -47,21 +54,51 @@ function formatTanggal(iso: string) {
   });
 }
 
-export default async function PurchaseOrdersPage() {
+export default async function PurchaseOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
   const canCancel =
     isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
 
-  const { data: pos } = await supabase
+  const sp = parseListQuery(await searchParams);
+
+  // Nama supplier ada di tabel lain — cari id-nya dulu supaya PO tetap
+  // bisa dicari lewat nama supplier, bukan cuma no. PO.
+  let supplierIds: string[] = [];
+  if (sp.q) {
+    const { data: ss } = await supabase
+      .from("suppliers")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .ilike("nama", `%${sp.q}%`)
+      .limit(500);
+    supplierIds = (ss || []).map((s) => s.id as string);
+  }
+
+  let query = supabase
     .from("purchase_orders")
     .select(
-      "id, no_po, tanggal_po, status, ppn_percent, top_days, suppliers(nama), po_items(qty_pesan, harga_per_unit)"
+      "id, no_po, tanggal_po, status, ppn_percent, top_days, suppliers(nama), po_items(qty_pesan, harga_per_unit)",
+      { count: "exact" }
     )
-    .eq("organization_id", organizationId)
-    .order("created_at", { ascending: false });
+    .eq("organization_id", organizationId);
+
+  if (sp.q)
+    query = query.or(
+      ilikeOrWithIds(["no_po"], sp.q, "supplier_id", supplierIds)
+    );
+  if (sp.filter("status")) query = query.eq("status", sp.filter("status"));
+
+  const { data: pos, count } = await query
+    .order("created_at", { ascending: false })
+    .range(sp.from, sp.to);
 
   const list = (pos || []) as unknown as PORow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <PembelianShell>
@@ -71,7 +108,8 @@ export default async function PurchaseOrdersPage() {
             Purchase Orders
           </h2>
           <p className="text-muted text-[12.5px] mt-0.5">
-            {list.length} PO, alur: Dibuat → Disetujui → Dikirim → Diterima
+            {info.total.toLocaleString("id-ID")} PO, alur: Dibuat → Disetujui →
+            Dikirim → Diterima
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -91,9 +129,23 @@ export default async function PurchaseOrdersPage() {
       </div>
 
       <div className="mt-4">
-        <TableSearch
+        <TableToolbar
           placeholder="Cari no. PO / supplier..."
-          filters={[{ label: "Semua Status", options: ["Dibuat", "Disetujui", "Dikirim", "Diterima Sebagian", "Selesai"] }]}
+          info={info}
+          filters={[
+            {
+              param: "status",
+              label: "Semua Status",
+              options: [
+                "Dibuat",
+                "Disetujui",
+                "Dikirim",
+                "Diterima Sebagian",
+                "Selesai",
+                "Dibatalkan",
+              ].map((s) => ({ value: s, label: s })),
+            },
+          ]}
         />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
@@ -114,7 +166,9 @@ export default async function PurchaseOrdersPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  Belum ada Purchase Order.
+                  {sp.q || sp.filter("status")
+                    ? "Tidak ada PO yang cocok dengan pencarian/filter."
+                    : "Belum ada Purchase Order."}
                 </td>
               </tr>
             ) : (
@@ -196,6 +250,7 @@ export default async function PurchaseOrdersPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
     </PembelianShell>
   );
 }

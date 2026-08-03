@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { getFeatures } from "@/lib/featuresServer";
 import { redirect } from "next/navigation";
 import BahanShell from "@/components/BahanShell";
-import TableSearch from "@/components/TableSearch";
+import TableToolbar from "@/components/TableToolbar";
+import Pagination from "@/components/Pagination";
+import {
+  ilikeOrWithIds,
+  pageInfo,
+  parseListQuery,
+  type SearchParams,
+} from "@/lib/pagination";
 import Link from "next/link";
 import { ClipboardList, Printer } from "lucide-react";
 
@@ -37,21 +44,52 @@ function formatTanggal(iso: string | null) {
   });
 }
 
-export default async function QcIncomingPage() {
+export default async function QcIncomingPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
   const features = await getFeatures(organizationId!);
   if (!(features.qc)) redirect("/items");
 
-  const [{ data: karantina }, { data: history }] = await Promise.all([
-    supabase
-      .from("purchase_batches")
-      .select(
-        "id, no_lot_supplier, tanggal_terima, exp_date, qty_karantina, supplier_nama, items(kode, nama, satuan)"
-      )
+  const sp = parseListQuery(await searchParams);
+
+  // Kode/nama item ada di tabel items, cari id-nya dulu supaya pencarian
+  // lewat nama item tetap jalan.
+  let itemIds: string[] = [];
+  if (sp.q) {
+    const { data: its } = await supabase
+      .from("items")
+      .select("id")
       .eq("organization_id", organizationId)
-      .eq("qc_status", "Karantina")
-      .order("tanggal_terima"),
+      .or(`kode.ilike."%${sp.q}%",nama.ilike."%${sp.q}%"`)
+      .limit(500);
+    itemIds = (its || []).map((i) => i.id as string);
+  }
+
+  let karantinaQuery = supabase
+    .from("purchase_batches")
+    .select(
+      "id, no_lot_supplier, tanggal_terima, exp_date, qty_karantina, supplier_nama, items(kode, nama, satuan)",
+      { count: "exact" }
+    )
+    .eq("organization_id", organizationId)
+    .eq("qc_status", "Karantina");
+
+  if (sp.q)
+    karantinaQuery = karantinaQuery.or(
+      ilikeOrWithIds(
+        ["no_lot_supplier", "supplier_nama"],
+        sp.q,
+        "item_id",
+        itemIds
+      )
+    );
+
+  const [{ data: karantina, count }, { data: history }] = await Promise.all([
+    karantinaQuery.order("tanggal_terima").range(sp.from, sp.to),
     supabase
       .from("purchase_batches")
       .select(
@@ -66,6 +104,7 @@ export default async function QcIncomingPage() {
 
   const list = (karantina || []) as unknown as BatchRow[];
   const logs = (history || []) as unknown as HistoryRow[];
+  const info = pageInfo(sp.page, count, list.length);
 
   return (
     <BahanShell>
@@ -74,13 +113,13 @@ export default async function QcIncomingPage() {
           QC Incoming
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          {list.length} batch menunggu pemeriksaan, barang karantina belum bisa
-          dipakai produksi sampai di-release.
+          {info.total.toLocaleString("id-ID")} batch menunggu pemeriksaan,
+          barang karantina belum bisa dipakai produksi sampai di-release.
         </p>
       </div>
 
       <div className="mt-4">
-        <TableSearch placeholder="Cari item / lot / supplier..." />
+        <TableToolbar placeholder="Cari item / lot / supplier..." info={info} />
       </div>
       <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[820px] text-[13px]">
@@ -99,8 +138,9 @@ export default async function QcIncomingPage() {
             {list.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  Tidak ada batch dalam karantina 🎉, barang baru dari Receiving
-                  akan muncul di sini.
+                  {sp.q
+                    ? "Tidak ada batch karantina yang cocok dengan pencarian."
+                    : "Tidak ada batch dalam karantina 🎉, barang baru dari Receiving akan muncul di sini."}
                 </td>
               </tr>
             ) : (
@@ -151,10 +191,14 @@ export default async function QcIncomingPage() {
           </tbody>
         </table>
       </div>
+      <Pagination info={info} />
 
       {/* ===== Riwayat keputusan QC ===== */}
       <h3 className="font-display text-[15px] font-semibold text-ink mt-6 mb-2">
-        Riwayat Keputusan QC
+        Riwayat Keputusan QC{" "}
+        <span className="font-sans text-[12px] font-normal text-muted">
+          · 15 terakhir
+        </span>
       </h3>
       <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full min-w-[720px] text-[13px]">
