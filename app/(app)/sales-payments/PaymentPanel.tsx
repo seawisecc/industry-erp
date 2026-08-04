@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Banknote, Trash2, X } from "lucide-react";
@@ -38,11 +38,9 @@ export default function PaymentPanel({
   payments: PaymentRow[];
 }) {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [jumlah, setJumlah] = useState("");
 
-  useEffect(() => setMounted(true), []);
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [catatan, setCatatan] = useState("");
   const [loading, setLoading] = useState(false);
@@ -102,7 +100,7 @@ export default function PaymentPanel({
         <Banknote size={14} /> Catat Pembayaran
       </button>
 
-      {open && mounted && createPortal(
+      {open && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           onClick={() => !loading && setOpen(false)}

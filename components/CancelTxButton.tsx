@@ -6,10 +6,11 @@
    konfirmasi + alasan, lalu memanggil server action terkait.
    ============================================================ */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { XCircle, X } from "lucide-react";
+import { ActionTip, iconActionClass } from "./RowActions";
 
 type CancelAction = (
   id: string,
@@ -33,16 +34,15 @@ export default function CancelTxButton({
   judul?: string;
   keterangan: string;
   redirectTo?: string;
-  variant?: "button" | "link";
+  /** "icon" dipakai di kolom aksi tabel — lihat components/RowActions.tsx */
+  variant?: "button" | "link" | "icon";
 }) {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [alasan, setAlasan] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => setMounted(true), []);
   if (!canCancel) return null;
 
   async function submit() {
@@ -71,18 +71,30 @@ export default function CancelTxButton({
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className={
-          variant === "link"
-            ? "inline-flex items-center gap-1 text-clay-600 text-[12.5px] font-medium hover:underline"
-            : "inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-clay-500/40 text-clay-600 text-[12.5px] font-medium hover:bg-clay-100/60 transition-colors"
-        }
-      >
-        <XCircle size={variant === "link" ? 13 : 15} /> {label}
-      </button>
+      {variant === "icon" ? (
+        <ActionTip label={label}>
+          <button
+            onClick={() => setOpen(true)}
+            aria-label={label}
+            className={iconActionClass("danger")}
+          >
+            <XCircle size={15} />
+          </button>
+        </ActionTip>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className={
+            variant === "link"
+              ? "inline-flex items-center gap-1 text-clay-600 text-[12.5px] font-medium hover:underline"
+              : "inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-clay-500/40 text-clay-600 text-[12.5px] font-medium hover:bg-clay-100/60 transition-colors"
+          }
+        >
+          <XCircle size={variant === "link" ? 13 : 15} /> {label}
+        </button>
+      )}
 
-      {open && mounted && createPortal(
+      {open && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           onClick={() => !loading && setOpen(false)}

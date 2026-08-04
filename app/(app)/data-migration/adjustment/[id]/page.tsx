@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import DataTable from "@/components/DataTable";
 
 type AdjDetail = {
   id: string;
@@ -64,53 +65,82 @@ export default async function AdjustmentDetailPage({
       </h1>
       <p className="text-muted text-sm mb-6">{adj.catatan || "Tanpa catatan"}</p>
 
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Item</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Sebelum</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Sesudah</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Selisih</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Harga/Unit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {adj.stock_adjustment_items.map((r, i) => {
+      <DataTable
+        rows={adj.stock_adjustment_items}
+        rowKey={(_r, i) => String(i)}
+        minWidth={720}
+        empty="Tidak ada item pada adjustment ini."
+        columns={[
+          {
+            key: "item",
+            header: "Item",
+            role: "title",
+            cell: (r) => (
+              <>
+                <span className="font-mono text-[11.5px] text-botanical-700 mr-2">
+                  {r.items?.kode}
+                </span>
+                {r.items?.nama}
+              </>
+            ),
+            cardCell: (r) => (
+              <>
+                <div>{r.items?.nama}</div>
+                <div className="text-[11.5px] text-muted font-mono font-normal">
+                  {r.items?.kode}
+                </div>
+              </>
+            ),
+          },
+          {
+            key: "sebelum",
+            header: "Sebelum",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) => `${formatId(Number(r.qty_sebelum))} ${r.items?.satuan}`,
+          },
+          {
+            key: "sesudah",
+            header: "Sesudah",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) => `${formatId(Number(r.qty_sesudah))} ${r.items?.satuan}`,
+          },
+          {
+            key: "selisih",
+            header: "Selisih",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) => {
               const diff = Number(r.qty_sesudah) - Number(r.qty_sebelum);
               return (
-                <tr key={i} className="border-b border-line last:border-0">
-                  <td className="px-4 py-3">
-                    <span className="font-mono text-[11.5px] text-botanical-700 mr-2">
-                      {r.items?.kode}
-                    </span>
-                    {r.items?.nama}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {formatId(Number(r.qty_sebelum))} {r.items?.satuan}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {formatId(Number(r.qty_sesudah))} {r.items?.satuan}
-                  </td>
-                  <td
-                    className={`px-4 py-3 text-right whitespace-nowrap font-medium ${
-                      diff > 0 ? "text-botanical-700" : "text-clay-600"
-                    }`}
-                  >
-                    {diff > 0 ? "+" : ""}
-                    {formatId(diff)}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {r.harga_per_unit != null
-                      ? "Rp " + Number(r.harga_per_unit).toLocaleString("id-ID")
-                      : "-"}
-                  </td>
-                </tr>
+                <span
+                  className={`font-medium ${
+                    diff > 0 ? "text-botanical-700" : "text-clay-600"
+                  }`}
+                >
+                  {diff > 0 ? "+" : ""}
+                  {formatId(diff)}
+                </span>
               );
-            })}
-          </tbody>
-        </table>
-      </div>
+            },
+          },
+          {
+            key: "harga",
+            header: "Harga/Unit",
+            role: "secondary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) =>
+              r.harga_per_unit != null
+                ? "Rp " + Number(r.harga_per_unit).toLocaleString("id-ID")
+                : "-",
+          },
+        ]}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import CancelTxButton from "@/components/CancelTxButton";
+import DataTable from "@/components/DataTable";
 import { cancelProduction } from "../actions";
 
 type BatchDetail = {
@@ -147,22 +148,39 @@ export default async function ProductionDetailPage({
       <h2 className="font-display text-[15.5px] font-semibold text-ink mb-2">
         Bahan Terpakai (Traceability Lot)
       </h2>
-      <div className="glass rounded-2xl overflow-x-auto mb-5">
-        <table className="w-full text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Bahan</th>
-              <th className="px-4 py-2.5 font-semibold">Lot Supplier</th>
-              <th className="px-4 py-2.5 font-semibold">Exp</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Qty</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Harga/Unit</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {batch.production_components.map((c, i) => (
-              <tr key={i} className="border-b border-line last:border-0">
-                <td className="px-4 py-3">
+      <div className="mb-5">
+        <DataTable
+          rows={batch.production_components}
+          rowKey={(_c, i) => String(i)}
+          minWidth={760}
+          empty="Tidak ada bahan tercatat."
+          footer={{
+            row: (
+              <tr className="border-t border-line">
+                <td colSpan={5} className="px-4 py-3 text-right font-semibold sticky-col">
+                  Total Cost Bahan
+                </td>
+                <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
+                  {formatRupiah(Number(batch.total_cost_bahan))}
+                </td>
+              </tr>
+            ),
+            card: (
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[12px] text-muted">Total Cost Bahan</span>
+                <span className="font-semibold">
+                  {formatRupiah(Number(batch.total_cost_bahan))}
+                </span>
+              </div>
+            ),
+          }}
+          columns={[
+            {
+              key: "bahan",
+              header: "Bahan",
+              role: "title",
+              cell: (c) => (
+                <>
                   <span className="font-mono text-[11.5px] text-botanical-700 mr-2">
                     {c.items?.kode}
                   </span>
@@ -172,43 +190,71 @@ export default async function ProductionDetailPage({
                       {c.purchase_batches.supplier_nama}
                     </div>
                   )}
-                </td>
-                <td className="px-4 py-3 font-mono text-[12px]">
-                  {c.purchase_batches?.no_lot_supplier || "-"}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                  {c.purchase_batches?.exp_date
-                    ? new Date(
-                        c.purchase_batches.exp_date + "T00:00:00"
-                      ).toLocaleDateString("id-ID", {
-                        month: "short",
-                        year: "numeric",
-                      })
-                    : "-"}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  {Number(c.qty_terpakai).toLocaleString("id-ID")} {c.items?.satuan}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  {formatRupiah(Number(c.harga_per_unit))}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  {formatRupiah(Number(c.subtotal))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-line">
-              <td colSpan={5} className="px-4 py-3 text-right font-semibold">
-                Total Cost Bahan
-              </td>
-              <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
-                {formatRupiah(Number(batch.total_cost_bahan))}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+                </>
+              ),
+              cardCell: (c) => (
+                <>
+                  <div>{c.items?.nama}</div>
+                  <div className="text-[11.5px] text-muted font-mono font-normal">
+                    {c.items?.kode}
+                    {c.purchase_batches?.supplier_nama
+                      ? ` · ${c.purchase_batches.supplier_nama}`
+                      : ""}
+                  </div>
+                </>
+              ),
+            },
+            {
+              key: "lot",
+              header: "Lot Supplier",
+              role: "primary",
+              className: "font-mono text-[12px]",
+              cell: (c) => c.purchase_batches?.no_lot_supplier || "-",
+            },
+            {
+              key: "exp",
+              header: "Exp",
+              cardLabel: "Kedaluwarsa",
+              role: "secondary",
+              className: "whitespace-nowrap text-[12.5px]",
+              cell: (c) =>
+                c.purchase_batches?.exp_date
+                  ? new Date(
+                      c.purchase_batches.exp_date + "T00:00:00"
+                    ).toLocaleDateString("id-ID", {
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "-",
+            },
+            {
+              key: "qty",
+              header: "Qty",
+              cardLabel: "Qty Terpakai",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (c) =>
+                `${Number(c.qty_terpakai).toLocaleString("id-ID")} ${c.items?.satuan}`,
+            },
+            {
+              key: "harga",
+              header: "Harga/Unit",
+              role: "secondary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (c) => formatRupiah(Number(c.harga_per_unit)),
+            },
+            {
+              key: "subtotal",
+              header: "Subtotal",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (c) => formatRupiah(Number(c.subtotal)),
+            },
+          ]}
+        />
       </div>
     </div>
   );

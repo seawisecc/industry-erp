@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import POForm, { ItemOption } from "../../POForm";
 import POStatusActions from "../../POStatusActions";
+import DataTable from "@/components/DataTable";
 
 type POStatus = "Dibuat" | "Disetujui" | "Dikirim" | "Diterima Sebagian" | "Selesai";
 
@@ -139,42 +140,71 @@ export default async function EditPOPage({
           </div>
         </div>
 
-        <div className="glass rounded-2xl overflow-x-auto mb-5">
-          <table className="w-full text-[13.5px]">
-            <thead>
-              <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-                <th className="px-4 py-2.5 font-semibold">Item</th>
-                <th className="px-4 py-2.5 font-semibold text-right">Qty Pesan</th>
-                <th className="px-4 py-2.5 font-semibold text-right">Qty Diterima</th>
-                <th className="px-4 py-2.5 font-semibold text-right">Harga/Unit</th>
-                <th className="px-4 py-2.5 font-semibold text-right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {po.po_items.map((r, i) => (
-                <tr key={i} className="border-b border-line last:border-0">
-                  <td className="px-4 py-3">
+        <div className="mb-5">
+          <DataTable
+            rows={po.po_items}
+            rowKey={(_r, i) => String(i)}
+            minWidth={720}
+            empty="Belum ada item pada PO ini."
+            columns={[
+              {
+                key: "item",
+                header: "Item",
+                role: "title",
+                cell: (r) => (
+                  <>
                     <span className="font-mono text-[11.5px] text-botanical-700 mr-2">
                       {r.items?.kode}
                     </span>
                     {r.items?.nama}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {Number(r.qty_pesan).toLocaleString("id-ID")} {r.items?.satuan}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {Number(r.qty_diterima).toLocaleString("id-ID")} {r.items?.satuan}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {formatRupiah(Number(r.harga_per_unit))}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {formatRupiah(Number(r.qty_pesan) * Number(r.harga_per_unit))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </>
+                ),
+                cardCell: (r) => (
+                  <>
+                    <div>{r.items?.nama}</div>
+                    <div className="text-[11.5px] text-muted font-mono font-normal">
+                      {r.items?.kode}
+                    </div>
+                  </>
+                ),
+              },
+              {
+                key: "pesan",
+                header: "Qty Pesan",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (r) =>
+                  `${Number(r.qty_pesan).toLocaleString("id-ID")} ${r.items?.satuan}`,
+              },
+              {
+                key: "terima",
+                header: "Qty Diterima",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (r) =>
+                  `${Number(r.qty_diterima).toLocaleString("id-ID")} ${r.items?.satuan}`,
+              },
+              {
+                key: "harga",
+                header: "Harga/Unit",
+                role: "secondary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (r) => formatRupiah(Number(r.harga_per_unit)),
+              },
+              {
+                key: "subtotal",
+                header: "Subtotal",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (r) =>
+                  formatRupiah(Number(r.qty_pesan) * Number(r.harga_per_unit)),
+              },
+            ]}
+          />
         </div>
 
         <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto text-[13.5px]">

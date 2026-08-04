@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import BahanShell from "@/components/BahanShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   ilikeOrWithIds,
   pageInfo,
@@ -12,7 +14,7 @@ import {
   type SearchParams,
 } from "@/lib/pagination";
 import Link from "next/link";
-import { ClipboardList, Printer } from "lucide-react";
+import { ClipboardList, Printer, Eye } from "lucide-react";
 
 type BatchRow = {
   id: string;
@@ -121,76 +123,112 @@ export default async function QcIncomingPage({
       <div className="mt-4">
         <TableToolbar placeholder="Cari item / lot / supplier..." info={info} />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[820px] text-[13px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Item</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Lot Supplier</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Diterima</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Exp</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Qty</th>
-              <th className="px-4 py-2.5 font-semibold">Supplier</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Lembar Uji</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  {sp.q
-                    ? "Tidak ada batch karantina yang cocok dengan pencarian."
-                    : "Tidak ada batch dalam karantina 🎉, barang baru dari Receiving akan muncul di sini."}
-                </td>
-              </tr>
-            ) : (
-              list.map((b) => (
-                <tr
-                  key={b.id}
-                  className="border-b border-line last:border-0 bg-amber-100/20"
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium max-w-[200px] truncate" title={b.items?.nama}>
-                      {b.items?.nama}
-                    </div>
-                    <div className="text-[11px] text-muted font-mono">{b.items?.kode}</div>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                    {b.no_lot_supplier || "-"}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {formatTanggal(b.tanggal_terima)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                    {b.exp_date
-                      ? new Date(b.exp_date + "T00:00:00").toLocaleDateString("id-ID", {
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap font-medium">
-                    {Number(b.qty_karantina).toLocaleString("id-ID")} {b.items?.satuan}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[150px] truncate text-[12.5px]" title={b.supplier_nama || undefined}>
-                      {b.supplier_nama || "-"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <Link
-                      href={`/qc-incoming/${b.id}`}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
-                    >
-                      <ClipboardList size={13} /> Uji &amp; Putuskan
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(b) => b.id}
+        minWidth={820}
+        rowClassName={() => "bg-amber-100/20"}
+        empty={
+          sp.q
+            ? "Tidak ada batch karantina yang cocok dengan pencarian."
+            : "Tidak ada batch dalam karantina 🎉, barang baru dari Receiving akan muncul di sini."
+        }
+        columns={[
+          {
+            key: "item",
+            header: "Item",
+            role: "title",
+            cell: (b) => (
+              <>
+                <div className="font-medium max-w-[200px] truncate" title={b.items?.nama}>
+                  {b.items?.nama}
+                </div>
+                <div className="text-[11px] text-muted font-mono">{b.items?.kode}</div>
+              </>
+            ),
+            cardCell: (b) => (
+              <>
+                <div>{b.items?.nama}</div>
+                <div className="text-[11px] text-muted font-mono font-normal">
+                  {b.items?.kode}
+                </div>
+              </>
+            ),
+          },
+          {
+            key: "lot",
+            header: "Lot Supplier",
+            role: "primary",
+            className: "whitespace-nowrap",
+            cell: (b) => (
+              <span className="font-mono text-[12px]">
+                {b.no_lot_supplier || "-"}
+              </span>
+            ),
+          },
+          {
+            key: "diterima",
+            header: "Diterima",
+            cardLabel: "Tanggal Terima",
+            role: "secondary",
+            className: "whitespace-nowrap",
+            cell: (b) => formatTanggal(b.tanggal_terima),
+          },
+          {
+            key: "exp",
+            header: "Exp",
+            cardLabel: "Kedaluwarsa",
+            role: "secondary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (b) =>
+              b.exp_date
+                ? new Date(b.exp_date + "T00:00:00").toLocaleDateString("id-ID", {
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "-",
+          },
+          {
+            key: "qty",
+            header: "Qty",
+            cardLabel: "Qty Karantina",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap font-medium",
+            cell: (b) =>
+              `${Number(b.qty_karantina).toLocaleString("id-ID")} ${b.items?.satuan}`,
+          },
+          {
+            key: "supplier",
+            header: "Supplier",
+            role: "secondary",
+            cell: (b) => (
+              <div
+                className="max-w-[150px] truncate text-[12.5px]"
+                title={b.supplier_nama || undefined}
+              >
+                {b.supplier_nama || "-"}
+              </div>
+            ),
+            cardCell: (b) => b.supplier_nama || "-",
+          },
+          {
+            key: "aksi",
+            header: "Lembar Uji",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (b) => (
+              <Link
+                href={`/qc-incoming/${b.id}`}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
+              >
+                <ClipboardList size={13} /> Uji &amp; Putuskan
+              </Link>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
 
       {/* ===== Riwayat keputusan QC ===== */}
@@ -200,83 +238,108 @@ export default async function QcIncomingPage({
           · 15 terakhir
         </span>
       </h3>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[720px] text-[13px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal</th>
-              <th className="px-4 py-2.5 font-semibold">Item</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Keputusan</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Oleh</th>
-              <th className="px-4 py-2.5 font-semibold">Catatan</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">
-                Dokumen
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-muted py-8 text-sm">
-                  Belum ada riwayat.
-                </td>
-              </tr>
-            ) : (
-              logs.map((l) => (
-                <tr key={l.id} className="border-b border-line last:border-0">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {formatTanggal(l.qc_tanggal)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[200px] truncate" title={l.items?.nama}>
-                      {l.items?.nama}
-                    </div>
-                    <div className="text-[11px] text-muted font-mono">
-                      {l.items?.kode}
-                      {l.no_lot_supplier ? ` · lot ${l.no_lot_supplier}` : ""}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
-                        l.qc_status === "Released"
-                          ? "bg-botanical-100 text-botanical-700"
-                          : "bg-clay-100 text-clay-600"
-                      }`}
-                    >
-                      {l.qc_status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                    {l.qc_oleh || "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[240px] line-clamp-2 text-[12.5px]" title={l.qc_note || undefined}>
-                      {l.qc_note || "-"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <div className="inline-flex items-center gap-2">
-                      <Link
-                        href={`/qc-incoming/${l.id}/detail`}
-                        className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        Detail
-                      </Link>
-                      <Link
-                        href={`/print/qc/${l.id}`}
-                        className="inline-flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        <Printer size={13} /> Cetak
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={logs}
+        rowKey={(l) => l.id}
+        minWidth={720}
+        empty="Belum ada riwayat."
+        columns={[
+          {
+            key: "tanggal",
+            header: "Tanggal",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (l) => formatTanggal(l.qc_tanggal),
+          },
+          {
+            key: "item",
+            header: "Item",
+            role: "title",
+            cell: (l) => (
+              <>
+                <div className="max-w-[200px] truncate" title={l.items?.nama}>
+                  {l.items?.nama}
+                </div>
+                <div className="text-[11px] text-muted font-mono">
+                  {l.items?.kode}
+                  {l.no_lot_supplier ? ` · lot ${l.no_lot_supplier}` : ""}
+                </div>
+              </>
+            ),
+            cardCell: (l) => (
+              <>
+                <div>{l.items?.nama}</div>
+                <div className="text-[11px] text-muted font-mono font-normal">
+                  {l.items?.kode}
+                  {l.no_lot_supplier ? ` · lot ${l.no_lot_supplier}` : ""}
+                </div>
+              </>
+            ),
+          },
+          {
+            key: "keputusan",
+            header: "Keputusan",
+            role: "badge",
+            cell: (l) => (
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                  l.qc_status === "Released"
+                    ? "bg-botanical-100 text-botanical-700"
+                    : "bg-clay-100 text-clay-600"
+                }`}
+              >
+                {l.qc_status}
+              </span>
+            ),
+          },
+          {
+            key: "oleh",
+            header: "Oleh",
+            cardLabel: "Diputuskan oleh",
+            role: "primary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (l) => l.qc_oleh || "-",
+          },
+          {
+            key: "catatan",
+            header: "Catatan",
+            role: "secondary",
+            cell: (l) => (
+              <div
+                className="max-w-[240px] line-clamp-2 text-[12.5px]"
+                title={l.qc_note || undefined}
+              >
+                {l.qc_note || "-"}
+              </div>
+            ),
+            cardCell: (l) => (
+              <span className="text-[12.5px]">{l.qc_note || "-"}</span>
+            ),
+          },
+          {
+            key: "aksi",
+            header: "Dokumen",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (l) => (
+              <RowActions>
+                <IconAction
+                  icon={Eye}
+                  label="Lihat detail lembar uji"
+                  href={`/qc-incoming/${l.id}/detail`}
+                  tone="primary"
+                />
+                <IconAction
+                  icon={Printer}
+                  label="Cetak lembar QC"
+                  href={`/print/qc/${l.id}`}
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
     </BahanShell>
   );
 }

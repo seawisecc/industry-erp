@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import CancelTxButton from "@/components/CancelTxButton";
+import DataTable from "@/components/DataTable";
 import { cancelReceiving } from "../actions";
 
 type RcvDetail = {
@@ -159,52 +160,83 @@ export default async function ReceivingDetailPage({
         </div>
       </div>
 
-      <div className="glass rounded-2xl overflow-x-auto mb-5">
-        <table className="w-full min-w-[640px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Item</th>
-              <th className="px-4 py-2.5 font-semibold">Lot Supplier</th>
-              <th className="px-4 py-2.5 font-semibold">Exp</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Qty</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Harga/Unit</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-b border-line last:border-0">
-                <td className="px-4 py-3">
-                  <span className="font-mono text-[11.5px] text-botanical-700 mr-2">
-                    {r.items?.kode}
-                  </span>
-                  {r.items?.nama}
-                </td>
-                <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                  {r.no_lot_supplier || "-"}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                  {r.exp_date
-                    ? new Date(r.exp_date + "T00:00:00").toLocaleDateString("id-ID", {
-                        month: "short",
-                        year: "numeric",
-                      })
-                    : "-"}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  {Number(r.qty_masuk).toLocaleString("id-ID")} {r.items?.satuan}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  {formatRupiah(Number(r.harga_per_unit))}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  {formatRupiah(Number(r.qty_masuk) * Number(r.harga_per_unit))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={rows}
+        rowKey={(_r, i) => String(i)}
+        minWidth={640}
+        empty="Tidak ada item pada faktur ini."
+        columns={[
+          {
+            key: "item",
+            header: "Item",
+            role: "title",
+            cell: (r) => (
+              <>
+                <span className="font-mono text-[11.5px] text-botanical-700 mr-2">
+                  {r.items?.kode}
+                </span>
+                {r.items?.nama}
+              </>
+            ),
+            cardCell: (r) => (
+              <>
+                <div>{r.items?.nama}</div>
+                <div className="text-[11.5px] text-muted font-mono font-normal">
+                  {r.items?.kode}
+                </div>
+              </>
+            ),
+          },
+          {
+            key: "lot",
+            header: "Lot Supplier",
+            role: "primary",
+            className: "font-mono text-[12px] whitespace-nowrap",
+            cell: (r) => r.no_lot_supplier || "-",
+          },
+          {
+            key: "exp",
+            header: "Exp",
+            cardLabel: "Kedaluwarsa",
+            role: "secondary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (r) =>
+              r.exp_date
+                ? new Date(r.exp_date + "T00:00:00").toLocaleDateString("id-ID", {
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "-",
+          },
+          {
+            key: "qty",
+            header: "Qty",
+            cardLabel: "Qty Masuk",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) =>
+              `${Number(r.qty_masuk).toLocaleString("id-ID")} ${r.items?.satuan}`,
+          },
+          {
+            key: "harga",
+            header: "Harga/Unit",
+            role: "secondary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) => formatRupiah(Number(r.harga_per_unit)),
+          },
+          {
+            key: "subtotal",
+            header: "Subtotal",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) =>
+              formatRupiah(Number(r.qty_masuk) * Number(r.harga_per_unit)),
+          },
+        ]}
+      />
 
       <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto text-[13.5px]">
         <div className="flex justify-between">

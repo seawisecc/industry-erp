@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import PrintPageButton from "@/components/PrintPageButton";
+import DataTable from "@/components/DataTable";
 import { localDateStr, localMonthKey } from "@/lib/dates";
 import type { ExecutionData } from "@/app/(app)/production/actions";
 
@@ -134,68 +135,16 @@ export default async function ReportsPage({
           ))}
         </div>
 
-        <div className="glass rounded-2xl overflow-x-auto mb-5">
-          <table className="w-full min-w-[860px] text-[12.5px]">
-            <thead>
-              <tr className={thead}>
-                <th className={th}>No.</th>
-                <th className={th}>Tanggal</th>
-                <th className={th}>Client</th>
-                <th className={th}>Sumber</th>
-                <th className={th}>Tipe</th>
-                <th className={`${th} text-right`}>Subtotal</th>
-                <th className={`${th} text-right`}>Disc</th>
-                <th className={`${th} text-right`}>Tax</th>
-                <th className={`${th} text-right`}>Total</th>
-                <th className={th}>Bayar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="text-center text-muted py-8">
-                    Tidak ada penjualan pada periode ini.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r, i) => (
-                  <tr key={i} className="border-b border-line last:border-0">
-                    <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
-                      {r.no_invoice}
-                    </td>
-                    <td className={`${td} whitespace-nowrap`}>
-                      {formatTanggal(r.tanggal)}
-                    </td>
-                    <td className={td}>
-                      <div className="max-w-[160px] truncate">
-                        {r.clients?.company_brand || r.nama_pembeli || "Walk-in"}
-                      </div>
-                    </td>
-                    <td className={td}>{r.sumber}</td>
-                    <td className={td}>{r.tipe}</td>
-                    <td className={`${td} text-right whitespace-nowrap`}>
-                      {formatRupiah(Number(r.subtotal))}
-                    </td>
-                    <td className={`${td} text-right`}>
-                      {Number(r.diskon_percent) > 0
-                        ? `${Number(r.diskon_percent)}%`
-                        : "-"}
-                    </td>
-                    <td className={`${td} text-right`}>
-                      {r.pakai_tax ? `${Number(r.tax_percent)}%` : "-"}
-                    </td>
-                    <td className={`${td} text-right whitespace-nowrap font-medium`}>
-                      {formatRupiah(Number(r.total))}
-                    </td>
-                    <td className={td}>{r.status_bayar}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            {rows.length > 0 && (
-              <tfoot>
+        <div className="mb-5">
+          <DataTable
+            rows={rows}
+            rowKey={(_r, i) => String(i)}
+            minWidth={860}
+            empty="Tidak ada penjualan pada periode ini."
+            footer={{
+              row: (
                 <tr className="border-t-2 border-line font-semibold">
-                  <td className={td} colSpan={8}>
+                  <td className={`${td} sticky-col`} colSpan={8}>
                     TOTAL ({rows.length} dokumen)
                   </td>
                   <td className={`${td} text-right whitespace-nowrap`}>
@@ -203,9 +152,107 @@ export default async function ReportsPage({
                   </td>
                   <td className={td}></td>
                 </tr>
-              </tfoot>
-            )}
-          </table>
+              ),
+              card: (
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[12px] text-muted">
+                    TOTAL ({rows.length} dokumen)
+                  </span>
+                  <span className="font-semibold">{formatRupiah(totalNilai)}</span>
+                </div>
+              ),
+            }}
+            columns={[
+              {
+                key: "no",
+                header: "No.",
+                role: "subtitle",
+                className: "font-mono text-[11.5px] whitespace-nowrap",
+                cell: (r) => r.no_invoice,
+              },
+              {
+                key: "tanggal",
+                header: "Tanggal",
+                role: "primary",
+                className: "whitespace-nowrap",
+                cell: (r) => formatTanggal(r.tanggal),
+              },
+              {
+                key: "client",
+                header: "Client",
+                role: "title",
+                cell: (r) => (
+                  <div className="max-w-[160px] truncate">
+                    {r.clients?.company_brand || r.nama_pembeli || "Walk-in"}
+                  </div>
+                ),
+                cardCell: (r) =>
+                  r.clients?.company_brand || r.nama_pembeli || "Walk-in",
+              },
+              {
+                key: "sumber",
+                header: "Sumber",
+                role: "secondary",
+                cell: (r) => r.sumber,
+              },
+              {
+                key: "tipe",
+                header: "Tipe",
+                role: "secondary",
+                cell: (r) => r.tipe,
+              },
+              {
+                key: "subtotal",
+                header: "Subtotal",
+                role: "secondary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (r) => formatRupiah(Number(r.subtotal)),
+              },
+              {
+                key: "disc",
+                header: "Disc",
+                role: "secondary",
+                align: "right",
+                cell: (r) =>
+                  Number(r.diskon_percent) > 0
+                    ? `${Number(r.diskon_percent)}%`
+                    : "-",
+              },
+              {
+                key: "tax",
+                header: "Tax",
+                role: "secondary",
+                align: "right",
+                cell: (r) => (r.pakai_tax ? `${Number(r.tax_percent)}%` : "-"),
+              },
+              {
+                key: "total",
+                header: "Total",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap font-medium",
+                cell: (r) => formatRupiah(Number(r.total)),
+              },
+              {
+                key: "bayar",
+                header: "Bayar",
+                role: "badge",
+                cell: (r) => r.status_bayar,
+                cardCell: (r) => (
+                  <span
+                    className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                      r.status_bayar === "Lunas"
+                        ? "bg-botanical-100 text-botanical-700"
+                        : "bg-amber-100 text-amber-500"
+                    }`}
+                  >
+                    {r.status_bayar}
+                  </span>
+                ),
+              },
+            ]}
+          />
         </div>
 
         {clientRekap.length > 0 && (
@@ -291,62 +338,16 @@ export default async function ReportsPage({
           ))}
         </div>
 
-        <div className="glass rounded-2xl overflow-x-auto mb-5">
-          <table className="w-full min-w-[760px] text-[12.5px]">
-            <thead>
-              <tr className={thead}>
-                <th className={th}>Tanggal</th>
-                <th className={th}>No. Faktur</th>
-                <th className={th}>Supplier</th>
-                <th className={th}>PO</th>
-                <th className={th}>TOP</th>
-                <th className={`${th} text-right`}>Total</th>
-                <th className={th}>Bayar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center text-muted py-8">
-                    Tidak ada pembelian pada periode ini.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r, i) => (
-                  <tr key={i} className="border-b border-line last:border-0">
-                    <td className={`${td} whitespace-nowrap`}>
-                      {formatTanggal(r.tanggal_terima)}
-                    </td>
-                    <td className={`${td} font-mono text-[11.5px]`}>
-                      {r.no_invoice || "-"}
-                    </td>
-                    <td className={td}>
-                      <div className="max-w-[180px] truncate">
-                        {r.supplier_nama || "-"}
-                      </div>
-                    </td>
-                    <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
-                      {r.purchase_orders?.no_po || "-"}
-                    </td>
-                    <td className={td}>
-                      {r.top_days == null
-                        ? "-"
-                        : r.top_days === 0
-                          ? "Tunai"
-                          : `${r.top_days} hr`}
-                    </td>
-                    <td className={`${td} text-right whitespace-nowrap font-medium`}>
-                      {formatRupiah(Number(r.total_invoice))}
-                    </td>
-                    <td className={td}>{r.status_bayar}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            {rows.length > 0 && (
-              <tfoot>
+        <div className="mb-5">
+          <DataTable
+            rows={rows}
+            rowKey={(_r, i) => String(i)}
+            minWidth={760}
+            empty="Tidak ada pembelian pada periode ini."
+            footer={{
+              row: (
                 <tr className="border-t-2 border-line font-semibold">
-                  <td className={td} colSpan={5}>
+                  <td className={`${td} sticky-col`} colSpan={5}>
                     TOTAL ({rows.length} faktur)
                   </td>
                   <td className={`${td} text-right whitespace-nowrap`}>
@@ -354,9 +355,89 @@ export default async function ReportsPage({
                   </td>
                   <td className={td}></td>
                 </tr>
-              </tfoot>
-            )}
-          </table>
+              ),
+              card: (
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[12px] text-muted">
+                    TOTAL ({rows.length} faktur)
+                  </span>
+                  <span className="font-semibold">{formatRupiah(total)}</span>
+                </div>
+              ),
+            }}
+            columns={[
+              {
+                key: "tanggal",
+                header: "Tanggal",
+                role: "subtitle",
+                className: "whitespace-nowrap",
+                cell: (r) => formatTanggal(r.tanggal_terima),
+              },
+              {
+                key: "faktur",
+                header: "No. Faktur",
+                role: "primary",
+                className: "font-mono text-[11.5px]",
+                cell: (r) => r.no_invoice || "-",
+              },
+              {
+                key: "supplier",
+                header: "Supplier",
+                role: "title",
+                cell: (r) => (
+                  <div className="max-w-[180px] truncate">
+                    {r.supplier_nama || "-"}
+                  </div>
+                ),
+                cardCell: (r) => r.supplier_nama || "-",
+              },
+              {
+                key: "po",
+                header: "PO",
+                cardLabel: "No. PO",
+                role: "secondary",
+                className: "font-mono text-[11.5px] whitespace-nowrap",
+                cell: (r) => r.purchase_orders?.no_po || "-",
+              },
+              {
+                key: "top",
+                header: "TOP",
+                cardLabel: "Termin (TOP)",
+                role: "secondary",
+                cell: (r) =>
+                  r.top_days == null
+                    ? "-"
+                    : r.top_days === 0
+                      ? "Tunai"
+                      : `${r.top_days} hr`,
+              },
+              {
+                key: "total",
+                header: "Total",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap font-medium",
+                cell: (r) => formatRupiah(Number(r.total_invoice)),
+              },
+              {
+                key: "bayar",
+                header: "Bayar",
+                role: "badge",
+                cell: (r) => r.status_bayar,
+                cardCell: (r) => (
+                  <span
+                    className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                      r.status_bayar === "Lunas"
+                        ? "bg-botanical-100 text-botanical-700"
+                        : "bg-amber-100 text-amber-500"
+                    }`}
+                  >
+                    {r.status_bayar}
+                  </span>
+                ),
+              },
+            ]}
+          />
         </div>
 
         {supplierRekap.length > 0 && (
@@ -465,86 +546,129 @@ export default async function ReportsPage({
           ))}
         </div>
 
-        <div className="glass rounded-2xl overflow-x-auto">
-          <table className="w-full min-w-[820px] text-[12.5px]">
-            <thead>
-              <tr className={thead}>
-                <th className={th}>No. Batch</th>
-                <th className={th}>Tanggal</th>
-                <th className={th}>Produk</th>
-                <th className={`${th} text-right`}>Output</th>
-                <th className={`${th} text-right`}>Cost Bahan</th>
-                <th className={`${th} text-right`}>HPP/pcs</th>
-                <th className={`${th} text-right`}>Yield</th>
+        <DataTable
+          rows={rows}
+          rowKey={(r) => r.id}
+          minWidth={820}
+          empty="Tidak ada produksi pada periode ini."
+          footer={{
+            row: (
+              <tr className="border-t-2 border-line font-semibold">
+                <td className={`${td} sticky-col`} colSpan={4}>
+                  TOTAL ({rows.length} batch · {formatQty(totalPcsAll)} pcs)
+                </td>
+                <td className={`${td} text-right whitespace-nowrap`}>
+                  {formatRupiah(totalCost)}
+                </td>
+                <td className={td} colSpan={2}></td>
               </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center text-muted py-8">
-                    Tidak ada produksi pada periode ini.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r) => (
-                  <tr key={r.id} className="border-b border-line last:border-0">
-                    <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
-                      {r.no_batch_produksi}
-                    </td>
-                    <td className={`${td} whitespace-nowrap`}>
-                      {formatTanggal(r.tanggal_produksi)}
-                    </td>
-                    <td className={td}>
-                      <div className="max-w-[180px] truncate">
-                        {r.production_outputs[0]?.products?.nama_produk || "-"}
-                      </div>
-                    </td>
-                    <td className={`${td} text-right whitespace-nowrap text-[11.5px]`}>
-                      {r.production_outputs
-                        .map(
-                          (o) =>
-                            `${o.varian_ukuran ? o.varian_ukuran + ": " : ""}${formatQty(Number(o.qty_hasil))}`
-                        )
-                        .join(" · ")}
-                    </td>
-                    <td className={`${td} text-right whitespace-nowrap`}>
-                      {formatRupiah(Number(r.total_cost_bahan))}
-                    </td>
-                    <td className={`${td} text-right whitespace-nowrap font-medium`}>
-                      {r.totalPcs > 0 ? formatRupiah(r.hpp) : "-"}
-                    </td>
-                    <td
-                      className={`${td} text-right whitespace-nowrap font-medium ${
-                        r.yieldPct == null
-                          ? "text-muted"
-                          : r.yieldPct >= 95
-                            ? "text-botanical-700"
-                            : "text-clay-600"
-                      }`}
-                    >
-                      {r.yieldPct == null
-                        ? "-"
-                        : `${r.yieldPct.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            {rows.length > 0 && (
-              <tfoot>
-                <tr className="border-t-2 border-line font-semibold">
-                  <td className={td} colSpan={4}>
-                    TOTAL ({rows.length} batch · {formatQty(totalPcsAll)} pcs)
-                  </td>
-                  <td className={`${td} text-right whitespace-nowrap`}>
-                    {formatRupiah(totalCost)}
-                  </td>
-                  <td className={td} colSpan={2}></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
+            ),
+            card: (
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[12px] text-muted">
+                  TOTAL ({rows.length} batch · {formatQty(totalPcsAll)} pcs)
+                </span>
+                <span className="font-semibold">{formatRupiah(totalCost)}</span>
+              </div>
+            ),
+          }}
+          columns={[
+            {
+              key: "batch",
+              header: "No. Batch",
+              role: "subtitle",
+              className: "font-mono text-[11.5px] whitespace-nowrap",
+              cell: (r) => r.no_batch_produksi,
+            },
+            {
+              key: "tanggal",
+              header: "Tanggal",
+              role: "secondary",
+              className: "whitespace-nowrap",
+              cell: (r) => formatTanggal(r.tanggal_produksi),
+            },
+            {
+              key: "produk",
+              header: "Produk",
+              role: "title",
+              cell: (r) => (
+                <div className="max-w-[180px] truncate">
+                  {r.production_outputs[0]?.products?.nama_produk || "-"}
+                </div>
+              ),
+              cardCell: (r) =>
+                r.production_outputs[0]?.products?.nama_produk || "-",
+            },
+            {
+              key: "output",
+              header: "Output",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap text-[11.5px]",
+              cell: (r) =>
+                r.production_outputs
+                  .map(
+                    (o) =>
+                      `${o.varian_ukuran ? o.varian_ukuran + ": " : ""}${formatQty(Number(o.qty_hasil))}`
+                  )
+                  .join(" · "),
+            },
+            {
+              key: "cost",
+              header: "Cost Bahan",
+              role: "secondary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) => formatRupiah(Number(r.total_cost_bahan)),
+            },
+            {
+              key: "hpp",
+              header: "HPP/pcs",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap font-medium",
+              cell: (r) => (r.totalPcs > 0 ? formatRupiah(r.hpp) : "-"),
+            },
+            {
+              key: "yield",
+              header: "Yield",
+              role: "badge",
+              align: "right",
+              className: "whitespace-nowrap font-medium",
+              cell: (r) => (
+                <span
+                  className={
+                    r.yieldPct == null
+                      ? "text-muted"
+                      : r.yieldPct >= 95
+                        ? "text-botanical-700"
+                        : "text-clay-600"
+                  }
+                >
+                  {r.yieldPct == null
+                    ? "-"
+                    : `${r.yieldPct.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`}
+                </span>
+              ),
+              cardCell: (r) => (
+                <span
+                  className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                    r.yieldPct == null
+                      ? "bg-white/70 text-muted"
+                      : r.yieldPct >= 95
+                        ? "bg-botanical-100 text-botanical-700"
+                        : "bg-clay-100 text-clay-600"
+                  }`}
+                >
+                  yield{" "}
+                  {r.yieldPct == null
+                    ? "-"
+                    : `${r.yieldPct.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`}
+                </span>
+              ),
+            },
+          ]}
+        />
       </>
     );
   }
@@ -624,73 +748,78 @@ export default async function ReportsPage({
     const adaMutasi = rows.filter((r) => r.masuk > 0 || r.keluar > 0);
 
     content = (
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[780px] text-[12.5px]">
-          <thead>
-            <tr className={thead}>
-              <th className={th}>Kode</th>
-              <th className={th}>Item</th>
-              <th className={`${th} text-right`}>Saldo Awal</th>
-              <th className={`${th} text-right`}>Masuk</th>
-              <th className={`${th} text-right`}>Keluar</th>
-              <th className={`${th} text-right`}>Saldo Akhir</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-muted py-8">
-                  Belum ada item.
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => {
-                const mutasi = r.masuk > 0 || r.keluar > 0;
-                return (
-                  <tr
-                    key={r.id}
-                    className={`border-b border-line last:border-0 ${
-                      mutasi ? "" : "text-muted"
-                    }`}
-                  >
-                    <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
-                      {r.kode}
-                    </td>
-                    <td className={td}>
-                      <div className="max-w-[220px] truncate">{r.nama}</div>
-                    </td>
-                    <td className={`${td} text-right whitespace-nowrap`}>
-                      {formatQty(r.awal)} {r.satuan}
-                    </td>
-                    <td
-                      className={`${td} text-right whitespace-nowrap ${
-                        r.masuk > 0 ? "text-botanical-700 font-medium" : ""
-                      }`}
-                    >
-                      {r.masuk > 0 ? `+${formatQty(r.masuk)}` : "-"}
-                    </td>
-                    <td
-                      className={`${td} text-right whitespace-nowrap ${
-                        r.keluar > 0 ? "text-clay-600 font-medium" : ""
-                      }`}
-                    >
-                      {r.keluar > 0 ? `−${formatQty(r.keluar)}` : "-"}
-                    </td>
-                    <td className={`${td} text-right whitespace-nowrap font-semibold`}>
-                      {formatQty(r.akhir)} {r.satuan}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-        <p className="text-[11.5px] text-muted px-3 py-2 border-t border-line">
+      <>
+        <DataTable
+          rows={rows}
+          rowKey={(r) => r.id}
+          minWidth={780}
+          empty="Belum ada item."
+          rowClassName={(r) => (r.masuk > 0 || r.keluar > 0 ? "" : "text-muted")}
+          columns={[
+            {
+              key: "kode",
+              header: "Kode",
+              role: "subtitle",
+              className: "font-mono text-[11.5px] whitespace-nowrap",
+              cell: (r) => r.kode,
+            },
+            {
+              key: "nama",
+              header: "Item",
+              role: "title",
+              cell: (r) => <div className="max-w-[220px] truncate">{r.nama}</div>,
+              cardCell: (r) => r.nama,
+            },
+            {
+              key: "awal",
+              header: "Saldo Awal",
+              role: "secondary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) => `${formatQty(r.awal)} ${r.satuan}`,
+            },
+            {
+              key: "masuk",
+              header: "Masuk",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) => (
+                <span
+                  className={r.masuk > 0 ? "text-botanical-700 font-medium" : ""}
+                >
+                  {r.masuk > 0 ? `+${formatQty(r.masuk)}` : "-"}
+                </span>
+              ),
+            },
+            {
+              key: "keluar",
+              header: "Keluar",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) => (
+                <span className={r.keluar > 0 ? "text-clay-600 font-medium" : ""}>
+                  {r.keluar > 0 ? `−${formatQty(r.keluar)}` : "-"}
+                </span>
+              ),
+            },
+            {
+              key: "akhir",
+              header: "Saldo Akhir",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap font-semibold",
+              cell: (r) => `${formatQty(r.akhir)} ${r.satuan}`,
+            },
+          ]}
+        />
+        <p className="text-[11.5px] text-muted px-1 pt-2">
           {adaMutasi.length} dari {rows.length} item bergerak pada periode ini.
           Masuk = receiving + adjustment naik; Keluar = produksi + pemusnahan +
           adjustment turun.
         </p>
-      </div>
+      </>
     );
   }
 
@@ -769,74 +898,125 @@ export default async function ReportsPage({
           ))}
         </div>
 
-        <div className="glass rounded-2xl overflow-x-auto mb-5">
-          <table className="w-full min-w-[820px] text-[12.5px]">
-            <thead>
-              <tr className={thead}>
-                <th className={th}>No.</th>
-                <th className={th}>Tanggal</th>
-                <th className={th}>Outlet</th>
-                <th className={`${th} text-right`}>Kirim</th>
-                <th className={`${th} text-right`}>Laku</th>
-                <th className={`${th} text-right`}>Retur</th>
-                <th className={`${th} text-right`}>Sisa</th>
-                <th className={`${th} text-right`}>Nilai Laku</th>
-                <th className={th}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="text-center text-muted py-8">
-                    Tidak ada konsinyasi pada periode ini.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r, i) => (
-                  <tr key={i} className="border-b border-line last:border-0">
-                    <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
-                      {r.no_konsinyasi}
-                    </td>
-                    <td className={`${td} whitespace-nowrap`}>
-                      {formatTanggal(r.tanggal_kirim)}
-                    </td>
-                    <td className={td}>
-                      <div className="max-w-[160px] truncate">
-                        {r.clients?.company_brand || "-"}
-                      </div>
-                    </td>
-                    <td className={`${td} text-right`}>{formatQty(r.kirim)}</td>
-                    <td className={`${td} text-right text-botanical-700 font-medium`}>
-                      {formatQty(r.terjual)}
-                    </td>
-                    <td className={`${td} text-right`}>{formatQty(r.retur)}</td>
-                    <td className={`${td} text-right`}>{formatQty(r.sisa)}</td>
-                    <td className={`${td} text-right whitespace-nowrap font-medium`}>
-                      {formatRupiah(r.nilai)}
-                    </td>
-                    <td className={td}>{r.status}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            {rows.length > 0 && (
-              <tfoot>
+        <div className="mb-5">
+          <DataTable
+            rows={rows}
+            rowKey={(_r, i) => String(i)}
+            minWidth={820}
+            empty="Tidak ada konsinyasi pada periode ini."
+            footer={{
+              row: (
                 <tr className="border-t-2 border-line font-semibold">
-                  <td className={td} colSpan={3}>
+                  <td className={`${td} sticky-col`} colSpan={3}>
                     TOTAL ({rows.length} pengiriman)
                   </td>
                   <td className={`${td} text-right`}>{formatQty(tKirim)}</td>
                   <td className={`${td} text-right`}>{formatQty(tJual)}</td>
                   <td className={`${td} text-right`}>{formatQty(tRetur)}</td>
-                  <td className={`${td} text-right`}>{formatQty(tKirim - tJual - tRetur)}</td>
+                  <td className={`${td} text-right`}>
+                    {formatQty(tKirim - tJual - tRetur)}
+                  </td>
                   <td className={`${td} text-right whitespace-nowrap`}>
                     {formatRupiah(tNilai)}
                   </td>
                   <td className={td}></td>
                 </tr>
-              </tfoot>
-            )}
-          </table>
+              ),
+              card: (
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[12px] text-muted">
+                    TOTAL ({rows.length} pengiriman · laku {formatQty(tJual)})
+                  </span>
+                  <span className="font-semibold">{formatRupiah(tNilai)}</span>
+                </div>
+              ),
+            }}
+            columns={[
+              {
+                key: "no",
+                header: "No.",
+                role: "subtitle",
+                className: "font-mono text-[11.5px] whitespace-nowrap",
+                cell: (r) => r.no_konsinyasi,
+              },
+              {
+                key: "tanggal",
+                header: "Tanggal",
+                role: "secondary",
+                className: "whitespace-nowrap",
+                cell: (r) => formatTanggal(r.tanggal_kirim),
+              },
+              {
+                key: "outlet",
+                header: "Outlet",
+                role: "title",
+                cell: (r) => (
+                  <div className="max-w-[160px] truncate">
+                    {r.clients?.company_brand || "-"}
+                  </div>
+                ),
+                cardCell: (r) => r.clients?.company_brand || "-",
+              },
+              {
+                key: "kirim",
+                header: "Kirim",
+                role: "secondary",
+                align: "right",
+                cell: (r) => formatQty(r.kirim),
+              },
+              {
+                key: "laku",
+                header: "Laku",
+                role: "primary",
+                align: "right",
+                className: "text-botanical-700 font-medium",
+                cell: (r) => (
+                  <span className="text-botanical-700 font-medium">
+                    {formatQty(r.terjual)}
+                  </span>
+                ),
+              },
+              {
+                key: "retur",
+                header: "Retur",
+                role: "secondary",
+                align: "right",
+                cell: (r) => formatQty(r.retur),
+              },
+              {
+                key: "sisa",
+                header: "Sisa",
+                role: "primary",
+                align: "right",
+                cell: (r) => formatQty(r.sisa),
+              },
+              {
+                key: "nilai",
+                header: "Nilai Laku",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap font-medium",
+                cell: (r) => formatRupiah(r.nilai),
+              },
+              {
+                key: "status",
+                header: "Status",
+                role: "badge",
+                cell: (r) => r.status,
+                cardCell: (r) => (
+                  <span
+                    className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                      r.status === "Aktif"
+                        ? "bg-amber-100 text-amber-500"
+                        : "bg-botanical-100 text-botanical-700"
+                    }`}
+                  >
+                    {r.status}
+                  </span>
+                ),
+              },
+            ]}
+          />
         </div>
 
         {outletRekap.length > 0 && (
@@ -938,74 +1118,84 @@ export default async function ReportsPage({
       pihakLabel: string,
       tone: string
     ) => (
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[560px] text-[12.5px]">
-          <thead>
-            <tr className={thead}>
-              <th className={th} colSpan={5}>
-                <span className={`text-[13px] ${tone}`}>{judul}</span>
-              </th>
-            </tr>
-            <tr className={thead}>
-              <th className={th}>No.</th>
-              <th className={th}>{pihakLabel}</th>
-              <th className={th}>Tanggal</th>
-              <th className={th}>Jatuh Tempo</th>
-              <th className={`${th} text-right`}>Sisa</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center text-muted py-6">
-                  Tidak ada tagihan terbuka.
-                </td>
-              </tr>
-            ) : (
-              data.map((r, i) => (
-                <tr
-                  key={i}
-                  className={`border-b border-line last:border-0 ${
-                    overdue(r.jatuh_tempo) ? "bg-clay-100/30" : ""
-                  }`}
-                >
-                  <td className={`${td} font-mono text-[11.5px] whitespace-nowrap`}>
-                    {r.no || "-"}
-                  </td>
-                  <td className={td}>
-                    <div className="max-w-[180px] truncate">{r.pihak}</div>
-                  </td>
-                  <td className={`${td} whitespace-nowrap`}>{formatTanggal(r.tanggal)}</td>
-                  <td
-                    className={`${td} whitespace-nowrap ${
-                      overdue(r.jatuh_tempo) ? "text-clay-600 font-semibold" : ""
-                    }`}
-                  >
-                    {jt(r.jatuh_tempo)}
-                    {overdue(r.jatuh_tempo) && (
-                      <span className="block text-[10px]">terlambat</span>
-                    )}
-                  </td>
-                  <td className={`${td} text-right whitespace-nowrap font-medium`}>
-                    {formatRupiah(r.sisa)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-          {data.length > 0 && (
-            <tfoot>
+      <div>
+        <h3 className={`font-display text-[13px] font-semibold mb-2 ${tone}`}>
+          {judul}
+        </h3>
+        <DataTable
+          rows={data}
+          rowKey={(_r, i) => String(i)}
+          minWidth={560}
+          empty="Tidak ada tagihan terbuka."
+          rowClassName={(r) => (overdue(r.jatuh_tempo) ? "bg-clay-100/30" : "")}
+          footer={{
+            row: (
               <tr className="border-t-2 border-line font-semibold">
-                <td className={td} colSpan={4}>
+                <td className={`${td} sticky-col`} colSpan={4}>
                   TOTAL ({data.length})
                 </td>
                 <td className={`${td} text-right whitespace-nowrap`}>
                   {formatRupiah(total)}
                 </td>
               </tr>
-            </tfoot>
-          )}
-        </table>
+            ),
+            card: (
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[12px] text-muted">TOTAL ({data.length})</span>
+                <span className="font-semibold">{formatRupiah(total)}</span>
+              </div>
+            ),
+          }}
+          columns={[
+            {
+              key: "no",
+              header: "No.",
+              role: "subtitle",
+              className: "font-mono text-[11.5px] whitespace-nowrap",
+              cell: (r) => r.no || "-",
+            },
+            {
+              key: "pihak",
+              header: pihakLabel,
+              role: "title",
+              cell: (r) => <div className="max-w-[180px] truncate">{r.pihak}</div>,
+              cardCell: (r) => r.pihak,
+            },
+            {
+              key: "tanggal",
+              header: "Tanggal",
+              role: "secondary",
+              className: "whitespace-nowrap",
+              cell: (r) => formatTanggal(r.tanggal),
+            },
+            {
+              key: "tempo",
+              header: "Jatuh Tempo",
+              role: "primary",
+              className: "whitespace-nowrap",
+              cell: (r) => (
+                <span
+                  className={
+                    overdue(r.jatuh_tempo) ? "text-clay-600 font-semibold" : ""
+                  }
+                >
+                  {jt(r.jatuh_tempo)}
+                  {overdue(r.jatuh_tempo) && (
+                    <span className="block text-[10px]">terlambat</span>
+                  )}
+                </span>
+              ),
+            },
+            {
+              key: "sisa",
+              header: "Sisa",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap font-medium",
+              cell: (r) => formatRupiah(r.sisa),
+            },
+          ]}
+        />
       </div>
     );
 

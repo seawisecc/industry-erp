@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   ilikeOr,
   pageInfo,
@@ -97,91 +99,120 @@ export default async function ClientsPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[880px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Kode</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Company / Brand</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">CP</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Phone</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Kategori</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  {sp.q || sp.filter("kategori")
-                    ? "Tidak ada client yang cocok dengan pencarian/filter."
-                    : "Belum ada client."}
-                </td>
-              </tr>
-            ) : (
-              list.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                >
-                  <td className="px-4 py-3 font-mono text-[12.5px] whitespace-nowrap">
-                    {c.kode || "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div
-                      className="font-medium max-w-[220px] truncate"
-                      title={c.company_brand}
-                    >
-                      {c.company_brand}
-                    </div>
-                    {c.alamat && (
-                      <div
-                        className="text-[11.5px] text-muted max-w-[220px] truncate"
-                        title={c.alamat}
-                      >
-                        {c.alamat}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">{c.cp || "-"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap font-mono text-[12.5px]">
-                    {c.phone || "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                        KATEGORI_STYLE[c.kategori] || KATEGORI_STYLE.Other
-                      }`}
-                    >
-                      {c.kategori}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
-                        c.aktif
-                          ? "bg-botanical-100 text-botanical-700"
-                          : "bg-clay-100 text-clay-600"
-                      }`}
-                    >
-                      {c.aktif ? "Aktif" : "Nonaktif"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/clients/${c.id}/edit`}
-                      className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                    >
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(c) => c.id}
+        minWidth={880}
+        empty={
+          sp.q || sp.filter("kategori")
+            ? "Tidak ada client yang cocok dengan pencarian/filter."
+            : "Belum ada client."
+        }
+        columns={[
+          {
+            key: "kode",
+            header: "Kode",
+            role: "subtitle",
+            cell: (c) => (
+              <span className="font-mono text-[12.5px] whitespace-nowrap">
+                {c.kode || "-"}
+              </span>
+            ),
+          },
+          {
+            key: "company",
+            header: "Company / Brand",
+            role: "title",
+            cell: (c) => (
+              <>
+                <div className="font-medium max-w-[220px] truncate" title={c.company_brand}>
+                  {c.company_brand}
+                </div>
+                {c.alamat && (
+                  <div
+                    className="text-[11.5px] text-muted max-w-[220px] truncate"
+                    title={c.alamat}
+                  >
+                    {c.alamat}
+                  </div>
+                )}
+              </>
+            ),
+            cardCell: (c) => (
+              <>
+                <div>{c.company_brand}</div>
+                {c.alamat && (
+                  <div className="text-[11.5px] text-muted font-normal leading-snug">
+                    {c.alamat}
+                  </div>
+                )}
+              </>
+            ),
+          },
+          {
+            key: "cp",
+            header: "CP",
+            cardLabel: "Contact Person",
+            role: "primary",
+            className: "whitespace-nowrap",
+            cell: (c) => c.cp || "-",
+          },
+          {
+            key: "phone",
+            header: "Phone",
+            role: "primary",
+            className: "whitespace-nowrap",
+            cell: (c) => (
+              <span className="font-mono text-[12.5px]">{c.phone || "-"}</span>
+            ),
+          },
+          {
+            key: "kategori",
+            header: "Kategori",
+            role: "badge",
+            cell: (c) => (
+              <span
+                className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                  KATEGORI_STYLE[c.kategori] || KATEGORI_STYLE.Other
+                }`}
+              >
+                {c.kategori}
+              </span>
+            ),
+          },
+          {
+            key: "status",
+            header: "Status",
+            role: "badge",
+            cell: (c) => (
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
+                  c.aktif
+                    ? "bg-botanical-100 text-botanical-700"
+                    : "bg-clay-100 text-clay-600"
+                }`}
+              >
+                {c.aktif ? "Aktif" : "Nonaktif"}
+              </span>
+            ),
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            cell: (c) => (
+              <RowActions>
+                <IconAction
+                  icon={Pencil}
+                  label="Edit client"
+                  href={`/clients/${c.id}/edit`}
+                  tone="primary"
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </SalesShell>
   );

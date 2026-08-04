@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { createItemsFromMaterials } from "../actions";
+import DataTable from "@/components/DataTable";
 
 export type MaterialRow = {
   id: string;
@@ -125,106 +126,136 @@ export default function FromMaterialForm({ materials }: { materials: MaterialRow
           </div>
         </div>
 
-        <div className="overflow-x-auto -mx-2 px-2">
-          <table className="w-full min-w-[720px] text-[13px]">
-            <thead>
-              <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-                <th className="px-2 py-2 w-8">
+          <DataTable
+            rows={filtered}
+            rowKey={(m) => m.id}
+            minWidth={720}
+            expandable={false}
+            onRowClick={(m) => update(m.id, { checked: !rows[m.id]?.checked })}
+            rowClassName={(m) => (rows[m.id]?.checked ? "bg-botanical-100/40" : "")}
+            empty={
+              materials.length === 0
+                ? "Semua material sudah punya item stok 🎉"
+                : "Tidak ada material yang cocok dengan pencarian."
+            }
+            columns={[
+              {
+                key: "pilih",
+                header: (
                   <input
                     type="checkbox"
+                    aria-label="Pilih semua material yang tampil"
                     checked={allFilteredChecked}
                     onChange={toggleAllFiltered}
                     className="accent-[#2f4f3e]"
                   />
-                </th>
-                <th className="px-2 py-2 font-semibold">Material</th>
-                <th className="px-2 py-2 font-semibold">Kategori</th>
-                <th className="px-2 py-2 font-semibold">Supplier</th>
-                <th className="px-2 py-2 font-semibold w-[100px]">Satuan</th>
-                <th className="px-2 py-2 font-semibold w-[110px]">Stok Min</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center text-muted py-8 text-sm">
-                    {materials.length === 0
-                      ? "Semua material sudah punya item stok 🎉"
-                      : "Tidak ada material yang cocok dengan pencarian."}
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((m) => {
-                  const row = rows[m.id];
-                  return (
-                    <tr
-                      key={m.id}
-                      className={`border-b border-line last:border-0 transition-colors cursor-pointer ${
-                        row?.checked ? "bg-botanical-100/40" : "hover:bg-white/40"
-                      }`}
-                      onClick={() => update(m.id, { checked: !row?.checked })}
-                    >
-                      <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={row?.checked || false}
-                          onChange={(e) => update(m.id, { checked: e.target.checked })}
-                          className="accent-[#2f4f3e]"
-                        />
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <div className="font-medium max-w-[220px] truncate" title={m.tradename}>
-                          {m.tradename}
-                        </div>
-                        <div className="text-[11px] text-muted font-mono">
-                          {m.material_code}
-                        </div>
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <span
-                          className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                            m.kategori === "Kemasan"
-                              ? "bg-amber-100 text-amber-500"
-                              : "bg-botanical-100 text-botanical-700"
-                          }`}
-                        >
-                          {m.kategori}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <div
-                          className="max-w-[160px] truncate text-[12.5px]"
-                          title={m.supplier_nama || undefined}
-                        >
-                          {m.supplier_nama || "-"}
-                        </div>
-                      </td>
-                      <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          value={row?.satuan || ""}
-                          onChange={(e) => update(m.id, { satuan: e.target.value })}
-                          disabled={!row?.checked}
-                          className={`${inputCls} disabled:opacity-40`}
-                        />
-                      </td>
-                      <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={row?.stokMin || ""}
-                          onChange={(e) => update(m.id, { stokMin: e.target.value })}
-                          disabled={!row?.checked}
-                          placeholder="0"
-                          className={`${inputCls} disabled:opacity-40`}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                ),
+                headClassName: "w-8",
+                role: "badge",
+                cell: (m) => (
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Pilih ${m.tradename}`}
+                      checked={rows[m.id]?.checked || false}
+                      onChange={(e) => update(m.id, { checked: e.target.checked })}
+                      className="accent-[#2f4f3e]"
+                    />
+                  </span>
+                ),
+              },
+              {
+                key: "material",
+                header: "Material",
+                role: "title",
+                cell: (m) => (
+                  <>
+                    <div className="font-medium max-w-[220px] truncate" title={m.tradename}>
+                      {m.tradename}
+                    </div>
+                    <div className="text-[11px] text-muted font-mono">
+                      {m.material_code}
+                    </div>
+                  </>
+                ),
+                cardCell: (m) => (
+                  <>
+                    <div>{m.tradename}</div>
+                    <div className="text-[11px] text-muted font-mono font-normal">
+                      {m.material_code}
+                    </div>
+                  </>
+                ),
+              },
+              {
+                key: "kategori",
+                header: "Kategori",
+                role: "badge",
+                cell: (m) => (
+                  <span
+                    className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                      m.kategori === "Kemasan"
+                        ? "bg-amber-100 text-amber-500"
+                        : "bg-botanical-100 text-botanical-700"
+                    }`}
+                  >
+                    {m.kategori}
+                  </span>
+                ),
+              },
+              {
+                key: "supplier",
+                header: "Supplier",
+                role: "primary",
+                cell: (m) => (
+                  <div
+                    className="max-w-[160px] truncate text-[12.5px]"
+                    title={m.supplier_nama || undefined}
+                  >
+                    {m.supplier_nama || "-"}
+                  </div>
+                ),
+                cardCell: (m) => m.supplier_nama || "-",
+              },
+              {
+                key: "satuan",
+                header: "Satuan",
+                role: "primary",
+                headClassName: "w-[100px]",
+                cell: (m) => (
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <input
+                      aria-label={`Satuan ${m.tradename}`}
+                      value={rows[m.id]?.satuan || ""}
+                      onChange={(e) => update(m.id, { satuan: e.target.value })}
+                      disabled={!rows[m.id]?.checked}
+                      className={`${inputCls} disabled:opacity-40`}
+                    />
+                  </span>
+                ),
+              },
+              {
+                key: "stokmin",
+                header: "Stok Min",
+                role: "primary",
+                headClassName: "w-[110px]",
+                cell: (m) => (
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      aria-label={`Stok minimum ${m.tradename}`}
+                      value={rows[m.id]?.stokMin || ""}
+                      onChange={(e) => update(m.id, { stokMin: e.target.value })}
+                      disabled={!rows[m.id]?.checked}
+                      placeholder="0"
+                      className={`${inputCls} disabled:opacity-40`}
+                    />
+                  </span>
+                ),
+              },
+            ]}
+          />
       </div>
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}

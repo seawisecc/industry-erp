@@ -4,6 +4,7 @@ import { getFinishedStock } from "@/lib/salesStock";
 import ProdukShell from "@/components/ProdukShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
 import {
   PAGE_SIZE,
   pageInfo,
@@ -84,62 +85,103 @@ export default async function FinishedGoodsPage({
         <TableToolbar placeholder="Cari produk / varian..." info={info} />
 
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[640px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Kode</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Produk</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Varian</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Produksi</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Konsinyasi</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Terjual</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Tersedia</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  {sp.q
-                    ? "Tidak ada produk yang cocok dengan pencarian."
-                    : "Belum ada produk jadi, hasil muncul setelah produksi selesai."}
-                </td>
-              </tr>
-            ) : (
-              list.map((r, i) => (
-                <tr
-                  key={i}
-                  className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                >
-                  <td className="px-4 py-3 font-mono text-[12.5px] whitespace-nowrap">
-                    {r.kode || "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium max-w-[220px] truncate">{r.nama}</div>
-                    {r.brand && (
-                      <div className="text-[11.5px] text-muted">{r.brand}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">{r.varian}</td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {r.produced.toLocaleString("id-ID")}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap text-amber-500">
-                    {r.consigned.toLocaleString("id-ID")}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap text-clay-600">
-                    {r.sold.toLocaleString("id-ID")}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-botanical-700">
-                    {r.available.toLocaleString("id-ID")}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(_r, i) => String(i)}
+        minWidth={640}
+        empty={
+          sp.q
+            ? "Tidak ada produk yang cocok dengan pencarian."
+            : "Belum ada produk jadi, hasil muncul setelah produksi selesai."
+        }
+        columns={[
+          {
+            key: "kode",
+            header: "Kode",
+            role: "subtitle",
+            cell: (r) => (
+              <span className="font-mono text-[12.5px] whitespace-nowrap">
+                {r.kode || "-"}
+              </span>
+            ),
+          },
+          {
+            key: "nama",
+            header: "Produk",
+            role: "title",
+            cell: (r) => (
+              <>
+                <div className="font-medium max-w-[220px] truncate">{r.nama}</div>
+                {r.brand && (
+                  <div className="text-[11.5px] text-muted">{r.brand}</div>
+                )}
+              </>
+            ),
+            cardCell: (r) => (
+              <>
+                <div>{r.nama}</div>
+                {r.brand && (
+                  <div className="text-[11.5px] text-muted font-normal">{r.brand}</div>
+                )}
+              </>
+            ),
+          },
+          {
+            key: "varian",
+            header: "Varian",
+            role: "badge",
+            className: "whitespace-nowrap",
+            cell: (r) => r.varian,
+            cardCell: (r) => (
+              <span className="inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium bg-white/70 text-muted whitespace-nowrap">
+                {r.varian}
+              </span>
+            ),
+          },
+          {
+            key: "produksi",
+            header: "Produksi",
+            role: "secondary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) => r.produced.toLocaleString("id-ID"),
+          },
+          {
+            key: "konsinyasi",
+            header: "Konsinyasi",
+            role: "secondary",
+            align: "right",
+            className: "whitespace-nowrap text-amber-500",
+            cell: (r) => (
+              <span className="text-amber-500">
+                {r.consigned.toLocaleString("id-ID")}
+              </span>
+            ),
+          },
+          {
+            key: "terjual",
+            header: "Terjual",
+            role: "secondary",
+            align: "right",
+            className: "whitespace-nowrap text-clay-600",
+            cell: (r) => (
+              <span className="text-clay-600">{r.sold.toLocaleString("id-ID")}</span>
+            ),
+          },
+          {
+            key: "tersedia",
+            header: "Tersedia",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap font-semibold text-botanical-700",
+            cell: (r) => (
+              <span className="font-semibold text-botanical-700">
+                {r.available.toLocaleString("id-ID")}
+              </span>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </ProdukShell>
   );

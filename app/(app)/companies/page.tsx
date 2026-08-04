@@ -4,6 +4,7 @@ import CompanyToggle from "./CompanyToggle";
 import MesToggle from "./MesToggle";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
 import {
   ilikeOrWithIds,
   pageInfo,
@@ -91,6 +92,15 @@ export default async function CompaniesPage({
   const list = (orgs || []) as unknown as OrgRow[];
   const info = pageInfo(sp.page, count, list.length);
 
+  /** Belum diaktifkan / masa aktif lewat / aktif — dipakai untuk pil status. */
+  const statusOrg = (o: OrgRow) => {
+    if (!o.aktif)
+      return { label: "Menunggu Aktivasi", cls: "bg-amber-100 text-amber-500" };
+    if (o.aktif_sampai !== null && o.aktif_sampai < todayStr)
+      return { label: "Kedaluwarsa", cls: "bg-clay-100 text-clay-600" };
+    return { label: "Aktif", cls: "bg-botanical-100 text-botanical-700" };
+  };
+
   // Fitur berbayar per company (MES dsb.)
   const { data: settingsRows } = await admin
     .from("organization_settings")
@@ -135,108 +145,133 @@ export default async function CompaniesPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto overflow-y-visible">
-        <table className="w-full min-w-[1080px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Company</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Admin</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">User</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Valid Sampai</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">
-                Fitur Paket Full
-              </th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((o) => {
-              const adminUser = o.profiles.find((p) => p.role === "Admin");
-              const expired =
-                o.aktif && o.aktif_sampai !== null && o.aktif_sampai < todayStr;
-              const status = !o.aktif
-                ? { label: "Menunggu Aktivasi", cls: "bg-amber-100 text-amber-500" }
-                : expired
-                  ? { label: "Kedaluwarsa", cls: "bg-clay-100 text-clay-600" }
-                  : { label: "Aktif", cls: "bg-botanical-100 text-botanical-700" };
+      <DataTable
+        rows={list}
+        rowKey={(o) => o.id}
+        minWidth={1080}
+        empty="Belum ada company."
+        columns={[
+          {
+            key: "company",
+            header: "Company",
+            role: "title",
+            cell: (o) => (
+              <>
+                <div className="font-medium max-w-[220px] truncate" title={o.nama}>
+                  {o.nama}
+                </div>
+                <div className="text-[11.5px] text-muted font-mono max-w-[220px] truncate">
+                  {o.slug}
+                </div>
+              </>
+            ),
+            cardCell: (o) => (
+              <>
+                <div>{o.nama}</div>
+                <div className="text-[11.5px] text-muted font-mono font-normal">
+                  {o.slug}
+                </div>
+              </>
+            ),
+          },
+          {
+            key: "admin",
+            header: "Admin",
+            role: "primary",
+            cell: (o) => {
+              const admin = o.profiles.find((p) => p.role === "Admin");
+              if (!admin) return "-";
               return (
-                <tr
-                  key={o.id}
-                  className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium max-w-[220px] truncate" title={o.nama}>
-                      {o.nama}
-                    </div>
-                    <div className="text-[11.5px] text-muted font-mono max-w-[220px] truncate">
-                      {o.slug}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {adminUser ? (
-                      <>
-                        <div className="whitespace-nowrap">{adminUser.nama}</div>
-                        <div className="text-[11.5px] text-muted whitespace-nowrap">
-                          {adminUser.email}
-                        </div>
-                      </>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                  <td className="px-4 py-3">{o.profiles.length}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium whitespace-nowrap ${status.cls}`}
-                    >
-                      {status.label}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {!o.aktif ? (
-                      "-"
-                    ) : o.aktif_sampai ? (
-                      <span className={expired ? "text-clay-600 font-medium" : ""}>
-                        {formatTanggal(o.aktif_sampai)}
-                      </span>
-                    ) : (
-                      <span className="text-muted">Tanpa batas</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <MesToggle
-                        organizationId={o.id}
-                        initialOn={mesOf.get(o.id) || false}
-                        featureKey="mes"
-                      />
-                      <MesToggle
-                        organizationId={o.id}
-                        initialOn={qcOf.get(o.id) || false}
-                        featureKey="qc"
-                      />
-                      <MesToggle
-                        organizationId={o.id}
-                        initialOn={qaOf.get(o.id) || false}
-                        featureKey="qa"
-                      />
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <CompanyToggle
-                      id={o.id}
-                      nama={o.nama}
-                      aktif={o.aktif}
-                      aktifSampai={o.aktif_sampai}
-                    />
-                  </td>
-                </tr>
+                <>
+                  <div className="whitespace-nowrap">{admin.nama}</div>
+                  <div className="text-[11.5px] text-muted whitespace-nowrap">
+                    {admin.email}
+                  </div>
+                </>
               );
-            })}
-          </tbody>
-        </table>
-      </div>
+            },
+          },
+          {
+            key: "user",
+            header: "User",
+            role: "primary",
+            cell: (o) => o.profiles.length,
+          },
+          {
+            key: "status",
+            header: "Status",
+            role: "badge",
+            cell: (o) => {
+              const s = statusOrg(o);
+              return (
+                <span
+                  className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium whitespace-nowrap ${s.cls}`}
+                >
+                  {s.label}
+                </span>
+              );
+            },
+          },
+          {
+            key: "valid",
+            header: "Valid Sampai",
+            role: "secondary",
+            className: "whitespace-nowrap",
+            cell: (o) =>
+              !o.aktif ? (
+                "-"
+              ) : o.aktif_sampai ? (
+                <span
+                  className={
+                    o.aktif_sampai < todayStr ? "text-clay-600 font-medium" : ""
+                  }
+                >
+                  {formatTanggal(o.aktif_sampai)}
+                </span>
+              ) : (
+                <span className="text-muted">Tanpa batas</span>
+              ),
+          },
+          {
+            key: "fitur",
+            header: "Fitur Paket Full",
+            role: "secondary",
+            cell: (o) => (
+              <div className="flex items-center gap-1.5">
+                <MesToggle
+                  organizationId={o.id}
+                  initialOn={mesOf.get(o.id) || false}
+                  featureKey="mes"
+                />
+                <MesToggle
+                  organizationId={o.id}
+                  initialOn={qcOf.get(o.id) || false}
+                  featureKey="qc"
+                />
+                <MesToggle
+                  organizationId={o.id}
+                  initialOn={qaOf.get(o.id) || false}
+                  featureKey="qa"
+                />
+              </div>
+            ),
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (o) => (
+              <CompanyToggle
+                id={o.id}
+                nama={o.nama}
+                aktif={o.aktif}
+                aktifSampai={o.aktif_sampai}
+              />
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </div>
   );

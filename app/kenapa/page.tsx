@@ -7,7 +7,7 @@
    gelap/terang bergantian, animasi reveal halus saat scroll.
    ============================================================ */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import {
@@ -42,7 +42,25 @@ const EMAIL_LINK = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
   "Tanya Industry Management | Seawise Studio"
 )}`;
 
-/* ---------- Reveal on scroll (hormati prefers-reduced-motion) ---------- */
+/* ---------- Reveal on scroll (hormati prefers-reduced-motion) ----------
+
+   Preferensi "kurangi gerakan" dibaca lewat useSyncExternalStore, bukan
+   di dalam effect. matchMedia adalah external store yang sebenarnya:
+   punya nilai sekarang + event kalau berubah, dan tidak ada di server.
+   Membacanya di effect lalu setState memaksa satu render tambahan untuk
+   TIAP blok Reveal di halaman ini — dan halaman ini penuh Reveal. */
+const MQ_REDUCE = "(prefers-reduced-motion: reduce)";
+
+function reduceSubscribe(cb: () => void) {
+  const mq = window.matchMedia(MQ_REDUCE);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+
+function reduceSnapshot() {
+  return window.matchMedia(MQ_REDUCE).matches;
+}
+
 function Reveal({
   children,
   delay = 0,
@@ -53,19 +71,23 @@ function Reveal({
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  const [terlihat, setTerlihat] = useState(false);
+  const kurangiGerak = useSyncExternalStore(
+    reduceSubscribe,
+    reduceSnapshot,
+    () => false // server: anggap animasi boleh, klien mengoreksi sendiri
+  );
+  // Tanpa animasi, isi langsung tampil penuh
+  const visible = kurangiGerak || terlihat;
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setVisible(true);
-      return;
-    }
+    if (kurangiGerak) return;
     const el = ref.current;
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setVisible(true);
+          setTerlihat(true);
           io.disconnect();
         }
       },
@@ -73,7 +95,7 @@ function Reveal({
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [kurangiGerak]);
 
   return (
     <div

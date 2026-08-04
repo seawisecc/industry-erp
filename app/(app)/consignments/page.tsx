@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus, Store } from "lucide-react";
+import { Plus, Store, Eye } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   ilikeOrWithIds,
   pageInfo,
@@ -81,6 +83,17 @@ export default async function ConsignmentsPage({
 
   const list = (cons || []) as unknown as ConsRow[];
   const info = pageInfo(sp.page, count, list.length);
+
+  /** Sisa yang masih di outlet = terkirim - terjual - retur. */
+  const qtyKonsinyasi = (c: ConsRow) => {
+    const kirim = c.consignment_items.reduce((s, i) => s + Number(i.qty_kirim), 0);
+    const terjual = c.consignment_items.reduce(
+      (s, i) => s + Number(i.qty_terjual),
+      0
+    );
+    const retur = c.consignment_items.reduce((s, i) => s + Number(i.qty_retur), 0);
+    return { kirim, terjual, sisa: kirim - terjual - retur };
+  };
 
   // Rekap outlet harus melihat SELURUH pengiriman yang masih aktif, bukan
   // cuma halaman yang sedang tampil — jadi diambil terpisah dari tabel.
@@ -255,91 +268,102 @@ export default async function ConsignmentsPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[800px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No.</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Client</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal Kirim</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Terkirim</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Terjual</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Sisa di Lokasi</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  {sp.q || sp.filter("status")
-                    ? "Tidak ada konsinyasi yang cocok dengan pencarian/filter."
-                    : "Belum ada konsinyasi."}
-                </td>
-              </tr>
-            ) : (
-              list.map((c) => {
-                const kirim = c.consignment_items.reduce(
-                  (s, i) => s + Number(i.qty_kirim),
-                  0
-                );
-                const terjual = c.consignment_items.reduce(
-                  (s, i) => s + Number(i.qty_terjual),
-                  0
-                );
-                const retur = c.consignment_items.reduce(
-                  (s, i) => s + Number(i.qty_retur),
-                  0
-                );
-                const sisa = kirim - terjual - retur;
-                return (
-                  <tr
-                    key={c.id}
-                    className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                      {c.no_konsinyasi}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="max-w-[200px] truncate font-medium">
-                        {c.clients?.company_brand || "-"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {formatTanggal(c.tanggal_kirim)}
-                    </td>
-                    <td className="px-4 py-3 text-right">{kirim.toLocaleString("id-ID")}</td>
-                    <td className="px-4 py-3 text-right text-botanical-700 font-medium">
-                      {terjual.toLocaleString("id-ID")}
-                    </td>
-                    <td className="px-4 py-3 text-right">{sisa.toLocaleString("id-ID")}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
-                          c.status === "Aktif"
-                            ? "bg-amber-100 text-amber-500"
-                            : "bg-botanical-100 text-botanical-700"
-                        }`}
-                      >
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/consignments/${c.id}`}
-                        className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        Detail
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(c) => c.id}
+        minWidth={800}
+        empty={
+          sp.q || sp.filter("status")
+            ? "Tidak ada konsinyasi yang cocok dengan pencarian/filter."
+            : "Belum ada konsinyasi."
+        }
+        columns={[
+          {
+            key: "no",
+            header: "No.",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (c) => (
+              <span className="font-mono text-[12px]">{c.no_konsinyasi}</span>
+            ),
+          },
+          {
+            key: "client",
+            header: "Client",
+            role: "title",
+            cell: (c) => (
+              <div className="max-w-[200px] truncate font-medium">
+                {c.clients?.company_brand || "-"}
+              </div>
+            ),
+            cardCell: (c) => c.clients?.company_brand || "-",
+          },
+          {
+            key: "tanggal",
+            header: "Tanggal Kirim",
+            role: "secondary",
+            className: "whitespace-nowrap",
+            cell: (c) => formatTanggal(c.tanggal_kirim),
+          },
+          {
+            key: "kirim",
+            header: "Terkirim",
+            role: "secondary",
+            align: "right",
+            cell: (c) => qtyKonsinyasi(c).kirim.toLocaleString("id-ID"),
+          },
+          {
+            key: "terjual",
+            header: "Terjual",
+            role: "primary",
+            align: "right",
+            className: "text-botanical-700 font-medium",
+            cell: (c) => (
+              <span className="text-botanical-700 font-medium">
+                {qtyKonsinyasi(c).terjual.toLocaleString("id-ID")}
+              </span>
+            ),
+          },
+          {
+            key: "sisa",
+            header: "Sisa di Lokasi",
+            role: "primary",
+            align: "right",
+            cell: (c) => qtyKonsinyasi(c).sisa.toLocaleString("id-ID"),
+          },
+          {
+            key: "status",
+            header: "Status",
+            role: "badge",
+            cell: (c) => (
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
+                  c.status === "Aktif"
+                    ? "bg-amber-100 text-amber-500"
+                    : "bg-botanical-100 text-botanical-700"
+                }`}
+              >
+                {c.status}
+              </span>
+            ),
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            cell: (c) => (
+              <RowActions>
+                <IconAction
+                  icon={Eye}
+                  label="Lihat detail konsinyasi"
+                  href={`/consignments/${c.id}`}
+                  tone="primary"
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </SalesShell>
   );

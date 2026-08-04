@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import type { InciMaster } from "@/lib/types";
 import BahanShell from "@/components/BahanShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   ilikeOr,
   pageInfo,
@@ -60,46 +62,82 @@ export default async function InciPage({
       <div className="mt-4">
         <TableToolbar placeholder="Cari INCI name / CAS..." info={info} />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[760px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">INCI Name</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">CAS Number</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">NOAEL</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Function</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Reference</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  {sp.q
-                    ? "Tidak ada INCI Name yang cocok dengan pencarian."
-                    : "Belum ada INCI Name."}
-                </td>
-              </tr>
-            ) : (
-              list.map((item) => (
-                <tr key={item.id} className="border-b border-line last:border-0 hover:bg-white/40 transition-colors">
-                  <td className="px-4 py-3 font-medium">{item.inci_name}</td>
-                  <td className="px-4 py-3">{item.cas_number || "-"}</td>
-                  <td className="px-4 py-3">{item.noael || "-"}</td>
-                  <td className="px-4 py-3">{item.function || "-"}</td>
-                  <td className="px-4 py-3 w-[220px]">{item.reference ? (item.reference.startsWith("http") ? (<a href={item.reference} target="_blank" rel="noopener noreferrer" className="block max-w-[220px] truncate text-botanical-700 hover:underline" title={item.reference}>{item.reference.replace(/^https?:\/\/(www\.)?/, "")}</a>) : (<span className="block max-w-[220px] truncate" title={item.reference}>{item.reference}</span>)) : ("-")}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Link href={`/inci/${item.id}/edit`} className="text-botanical-700 text-[12.5px] font-medium hover:underline">
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(i) => i.id}
+        minWidth={760}
+        empty={
+          sp.q
+            ? "Tidak ada INCI Name yang cocok dengan pencarian."
+            : "Belum ada INCI Name."
+        }
+        columns={[
+          {
+            key: "inci",
+            header: "INCI Name",
+            role: "title",
+            cell: (i) => <span className="font-medium">{i.inci_name}</span>,
+            cardCell: (i) => i.inci_name,
+          },
+          {
+            key: "cas",
+            header: "CAS Number",
+            role: "primary",
+            cell: (i) => i.cas_number || "-",
+          },
+          {
+            key: "noael",
+            header: "NOAEL",
+            role: "primary",
+            cell: (i) => i.noael || "-",
+          },
+          {
+            key: "function",
+            header: "Function",
+            role: "secondary",
+            cell: (i) => i.function || "-",
+          },
+          {
+            key: "reference",
+            header: "Reference",
+            role: "secondary",
+            headClassName: "w-[220px]",
+            cell: (i) =>
+              !i.reference ? (
+                "-"
+              ) : i.reference.startsWith("http") ? (
+                <a
+                  href={i.reference}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block max-w-[220px] truncate text-botanical-700 hover:underline"
+                  title={i.reference}
+                >
+                  {i.reference.replace(/^https?:\/\/(www\.)?/, "")}
+                </a>
+              ) : (
+                <span className="block max-w-[220px] truncate" title={i.reference}>
+                  {i.reference}
+                </span>
+              ),
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            cell: (i) => (
+              <RowActions>
+                <IconAction
+                  icon={Pencil}
+                  label="Edit INCI Name"
+                  href={`/inci/${i.id}/edit`}
+                  tone="primary"
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </BahanShell>
   );

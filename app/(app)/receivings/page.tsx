@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Printer, Eye } from "lucide-react";
 import PembelianShell from "@/components/PembelianShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   ilikeOrWithIds,
   pageInfo,
@@ -98,70 +100,83 @@ export default async function ReceivingsPage({
         <TableToolbar placeholder="Cari no. PO / supplier..." info={info} />
 
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[760px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. PO</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. Invoice</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Supplier</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Total Invoice</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  {sp.q
-                    ? "Tidak ada penerimaan yang cocok dengan pencarian."
-                    : "Belum ada penerimaan barang."}
-                </td>
-              </tr>
-            ) : (
-              list.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                >
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {formatTanggal(r.tanggal_terima)}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[12.5px]">
-                    {r.purchase_orders?.no_po || "-"}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[12.5px]">
-                    {r.no_invoice || "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[220px] truncate font-medium">
-                      {r.supplier_nama || "-"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {formatRupiah(Number(r.total_invoice))}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <Link
-                      href={`/print/receiving/${r.id}`}
-                      className="text-muted text-[12.5px] font-medium hover:underline mr-3"
-                    >
-                      Cetak
-                    </Link>
-                    <Link
-                      href={`/receivings/${r.id}`}
-                      className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                    >
-                      Detail
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(r) => r.id}
+        minWidth={760}
+        empty={
+          sp.q
+            ? "Tidak ada penerimaan yang cocok dengan pencarian."
+            : "Belum ada penerimaan barang."
+        }
+        columns={[
+          {
+            key: "tanggal",
+            header: "Tanggal",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (r) => formatTanggal(r.tanggal_terima),
+          },
+          {
+            key: "po",
+            header: "No. PO",
+            role: "primary",
+            cell: (r) => (
+              <span className="font-mono text-[12.5px]">
+                {r.purchase_orders?.no_po || "-"}
+              </span>
+            ),
+          },
+          {
+            key: "invoice",
+            header: "No. Invoice",
+            role: "primary",
+            cell: (r) => (
+              <span className="font-mono text-[12.5px]">{r.no_invoice || "-"}</span>
+            ),
+          },
+          {
+            key: "supplier",
+            header: "Supplier",
+            role: "title",
+            cell: (r) => (
+              <div className="max-w-[220px] truncate font-medium">
+                {r.supplier_nama || "-"}
+              </div>
+            ),
+            cardCell: (r) => r.supplier_nama || "-",
+          },
+          {
+            key: "total",
+            header: "Total Invoice",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) => formatRupiah(Number(r.total_invoice)),
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) => (
+              <RowActions>
+                <IconAction
+                  icon={Printer}
+                  label="Cetak bukti terima"
+                  href={`/print/receiving/${r.id}`}
+                />
+                <IconAction
+                  icon={Eye}
+                  label="Lihat detail penerimaan"
+                  href={`/receivings/${r.id}`}
+                  tone="primary"
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </PembelianShell>
   );

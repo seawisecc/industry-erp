@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, TriangleAlert } from "lucide-react";
 import { createPOsFromGuide, type GuideLine } from "./actions";
+import DataTable from "@/components/DataTable";
 
 export type GuideItem = {
   id: string;
@@ -161,100 +162,134 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
       </div>
 
       {/* ===== Tabel item stok rendah ===== */}
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[900px] text-[13px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Item</th>
-              <th className="px-4 py-2.5 font-semibold">Supplier</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Stok</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Stok Min</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">MOQ</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap w-[130px]">Qty Order</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Harga</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  Semua stok aman 🎉, tidak ada item di bawah stok minimum.
-                </td>
-              </tr>
-            ) : (
-              items.map((it) => {
-                const q = parseNum(qty[it.id] || "");
-                const issue = moqIssue(it);
-                const habis = it.stok <= 0;
-                return (
-                  <tr
-                    key={it.id}
-                    className={`border-b border-line last:border-0 ${
-                      habis ? "bg-clay-100/25" : ""
+      <DataTable
+        rows={items}
+        rowKey={(it) => it.id}
+        minWidth={900}
+        expandable={false}
+        rowClassName={(it) => (it.stok <= 0 ? "bg-clay-100/25" : "")}
+        empty="Semua stok aman 🎉, tidak ada item di bawah stok minimum."
+        columns={[
+          {
+            key: "item",
+            header: "Item",
+            role: "title",
+            cell: (it) => (
+              <>
+                <div className="font-medium max-w-[200px] truncate" title={it.nama}>
+                  {it.nama}
+                </div>
+                <div className="text-[11px] text-muted font-mono">{it.kode}</div>
+              </>
+            ),
+            cardCell: (it) => (
+              <>
+                <div>{it.nama}</div>
+                <div className="text-[11px] text-muted font-mono font-normal">
+                  {it.kode}
+                </div>
+              </>
+            ),
+          },
+          {
+            key: "supplier",
+            header: "Supplier",
+            role: "primary",
+            cell: (it) =>
+              it.supplier_nama ? (
+                <div
+                  className="max-w-[150px] truncate text-[12.5px]"
+                  title={it.supplier_nama}
+                >
+                  {it.supplier_nama}
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11.5px] text-clay-600">
+                  <TriangleAlert size={12} /> belum ada
+                </span>
+              ),
+          },
+          {
+            key: "stok",
+            header: "Stok",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (it) => (
+              <span className={it.stok <= 0 ? "text-clay-600 font-semibold" : ""}>
+                {formatNum(it.stok)} {it.satuan}
+              </span>
+            ),
+          },
+          {
+            key: "stokmin",
+            header: "Stok Min",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap text-muted",
+            cell: (it) => formatNum(it.stokMin),
+          },
+          {
+            key: "moq",
+            header: "MOQ",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap text-muted",
+            cell: (it) => (it.moq ? formatNum(it.moq) : "-"),
+          },
+          {
+            key: "qty",
+            header: "Qty Order",
+            role: "primary",
+            headClassName: "whitespace-nowrap w-[130px]",
+            cell: (it) => {
+              const issue = moqIssue(it);
+              return (
+                <>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    aria-label={`Qty order ${it.nama}`}
+                    value={qty[it.id] || ""}
+                    onChange={(e) =>
+                      setQty((s) => ({ ...s, [it.id]: e.target.value }))
+                    }
+                    disabled={!it.supplier_id}
+                    placeholder="0"
+                    className={`w-full glass-input rounded-lg px-2.5 py-2 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700 disabled:opacity-40 ${
+                      issue ? "ring-2 ring-clay-500" : ""
                     }`}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="font-medium max-w-[200px] truncate" title={it.nama}>
-                        {it.nama}
-                      </div>
-                      <div className="text-[11px] text-muted font-mono">{it.kode}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {it.supplier_nama ? (
-                        <div className="max-w-[150px] truncate text-[12.5px]" title={it.supplier_nama}>
-                          {it.supplier_nama}
-                        </div>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11.5px] text-clay-600">
-                          <TriangleAlert size={12} /> belum ada
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <span className={habis ? "text-clay-600 font-semibold" : ""}>
-                        {formatNum(it.stok)} {it.satuan}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap text-muted">
-                      {formatNum(it.stokMin)}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap text-muted">
-                      {it.moq ? formatNum(it.moq) : "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={qty[it.id] || ""}
-                        onChange={(e) =>
-                          setQty((s) => ({ ...s, [it.id]: e.target.value }))
-                        }
-                        disabled={!it.supplier_id}
-                        placeholder="0"
-                        className={`w-full glass-input rounded-lg px-2.5 py-2 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700 disabled:opacity-40 ${
-                          issue ? "ring-2 ring-clay-500" : ""
-                        }`}
-                      />
-                      {issue && (
-                        <div className="text-clay-600 text-[10.5px] mt-0.5 text-right">
-                          {issue}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {it.harga != null ? formatRupiah(it.harga) : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap font-medium">
-                      {q > 0 && it.harga != null ? formatRupiah(q * it.harga) : "-"}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                  />
+                  {issue && (
+                    <div className="text-clay-600 text-[10.5px] mt-0.5 text-right">
+                      {issue}
+                    </div>
+                  )}
+                </>
+              );
+            },
+          },
+          {
+            key: "harga",
+            header: "Harga",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (it) => (it.harga != null ? formatRupiah(it.harga) : "-"),
+          },
+          {
+            key: "subtotal",
+            header: "Subtotal",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap font-medium",
+            cell: (it) => {
+              const q = parseNum(qty[it.id] || "");
+              return q > 0 && it.harga != null ? formatRupiah(q * it.harga) : "-";
+            },
+          },
+        ]}
+      />
 
       {tanpaSupplier > 0 && (
         <p className="text-amber-500 text-[12px] bg-amber-100 rounded-lg px-3 py-2">

@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import ProdukShell from "@/components/ProdukShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   ilikeOr,
   pageInfo,
@@ -87,77 +89,94 @@ export default async function ServicesPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[720px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Kode</th>
-              <th className="px-4 py-2.5 font-semibold">Nama Jasa</th>
-              <th className="px-4 py-2.5 font-semibold">Keterangan</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Biaya</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  {sp.q || sp.filter("status")
-                    ? "Tidak ada layanan jasa yang cocok dengan pencarian/filter."
-                    : "Belum ada layanan jasa. Tambahkan misalnya: Jasa Formulasi, Uji Stabilitas, Notifikasi BPOM."}
-                </td>
-              </tr>
-            ) : (
-              list.map((s) => (
-                <tr
-                  key={s.id}
-                  className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                >
-                  <td className="px-4 py-3 font-mono text-[12.5px] whitespace-nowrap">
-                    {s.kode || "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium max-w-[240px] truncate" title={s.nama_jasa}>
-                      {s.nama_jasa}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div
-                      className="max-w-[260px] text-[12.5px] text-muted line-clamp-2"
-                      title={s.keterangan || undefined}
-                    >
-                      {s.keterangan || "-"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap font-medium">
-                    {formatRupiah(Number(s.biaya))}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
-                        s.aktif
-                          ? "bg-botanical-100 text-botanical-700"
-                          : "bg-clay-100 text-clay-600"
-                      }`}
-                    >
-                      {s.aktif ? "Aktif" : "Nonaktif"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <Link
-                      href={`/services/${s.id}/edit`}
-                      className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                    >
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(s) => s.id}
+        minWidth={720}
+        empty={
+          sp.q || sp.filter("status")
+            ? "Tidak ada layanan jasa yang cocok dengan pencarian/filter."
+            : "Belum ada layanan jasa. Tambahkan misalnya: Jasa Formulasi, Uji Stabilitas, Notifikasi BPOM."
+        }
+        columns={[
+          {
+            key: "kode",
+            header: "Kode",
+            role: "subtitle",
+            cell: (s) => (
+              <span className="font-mono text-[12.5px] whitespace-nowrap">
+                {s.kode || "-"}
+              </span>
+            ),
+          },
+          {
+            key: "nama",
+            header: "Nama Jasa",
+            role: "title",
+            cell: (s) => (
+              <div className="font-medium max-w-[240px] truncate" title={s.nama_jasa}>
+                {s.nama_jasa}
+              </div>
+            ),
+            cardCell: (s) => s.nama_jasa,
+          },
+          {
+            key: "keterangan",
+            header: "Keterangan",
+            role: "secondary",
+            cell: (s) => (
+              <div
+                className="max-w-[260px] text-[12.5px] text-muted line-clamp-2"
+                title={s.keterangan || undefined}
+              >
+                {s.keterangan || "-"}
+              </div>
+            ),
+            cardCell: (s) => (
+              <span className="text-[12.5px]">{s.keterangan || "-"}</span>
+            ),
+          },
+          {
+            key: "biaya",
+            header: "Biaya",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap font-medium",
+            cell: (s) => formatRupiah(Number(s.biaya)),
+          },
+          {
+            key: "status",
+            header: "Status",
+            role: "badge",
+            cell: (s) => (
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
+                  s.aktif
+                    ? "bg-botanical-100 text-botanical-700"
+                    : "bg-clay-100 text-clay-600"
+                }`}
+              >
+                {s.aktif ? "Aktif" : "Nonaktif"}
+              </span>
+            ),
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            cell: (s) => (
+              <RowActions>
+                <IconAction
+                  icon={Pencil}
+                  label="Edit layanan jasa"
+                  href={`/services/${s.id}/edit`}
+                  tone="primary"
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </ProdukShell>
   );

@@ -105,6 +105,126 @@ body {
   }
 }
 
+/* ---------- Kolom pertama tabel yang menempel saat scroll horizontal ----------
+   Dipakai components/DataTable.tsx.
+
+   Latarnya PEKAT, tidak mengikuti .glass yang 0.55. Panel kaca itu
+   tembus pandang; kalau sel sticky ikut transparan, teks kolom lain
+   terbaca menembus di baliknya waktu tabel digeser. Pernah dicoba
+   0.94 + blur — sisa 6% itu tetap terbaca sebagai bayangan angka yang
+   ikut bergerak, dan blur tidak menolong karena backdrop-filter pada
+   sel tabel tidak menghasilkan backdrop root di Chrome.
+
+   Warnanya sama dengan .sticky-head, lihat catatan di sana.
+
+   Bayangan kanan menandai bahwa masih ada kolom di seberangnya. */
+@utility sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #f7f5f1;
+  box-shadow:
+    1px 0 0 var(--color-line),
+    8px 0 12px -10px rgba(28, 28, 26, 0.35);
+}
+
+/* ---------- Baris judul yang menempel saat scroll vertikal ----------
+
+   Syarat yang gampang terlewat: `top: 0` itu relatif terhadap
+   SCROLL CONTAINER terdekat, bukan terhadap layar. Pembungkus tabel
+   punya overflow-x-auto (dan begitu satu sumbu bukan `visible`,
+   sumbu satunya ikut jadi `auto`), jadi container itulah jangkarnya.
+   Selama tinggi container mengikuti isi, dia tidak pernah ter-scroll
+   sendiri — header akan ikut hanyut bersama halaman dan `sticky`
+   tidak terasa apa-apa.
+
+   Maka `.dt-table` diberi batas tinggi (lihat prop `maxHeight` di
+   DataTable): area tabel jadi punya scroll vertikalnya sendiri, dan
+   di situlah header menempel.
+
+   Garis bawahnya pakai inset shadow, bukan `border`. Preflight
+   Tailwind menyetel `border-collapse: collapse`, dan di mode itu
+   border sel jadi milik "border grid" tabel — tidak ikut menempel
+   bersama selnya, sehingga garisnya putus begitu header digeser.
+
+   #F7F5F1 = perkiraan warna panel .glass (putih 0.55) di atas latar
+   #EDE9E0. Gradien halaman menggeser nilainya beberapa digit di
+   posisi tertentu, dan itu tidak kasat mata pada pita setipis ini.
+   Dipakai juga oleh .sticky-col dan baris total. */
+@utility sticky-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f7f5f1;
+  box-shadow: inset 0 -1px 0 var(--color-line);
+}
+
+@utility sticky-col-head {
+  z-index: 4;
+}
+
+/* Baris total (<tfoot>) menempel di dasar area scroll — tanpa ini,
+   membatasi tinggi tabel justru menyembunyikan angka totalnya.
+   Sama seperti header: pekat penuh, karena baris data lewat di baliknya. */
+.dt-foot > tr > td {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: #f7f5f1;
+  box-shadow: inset 0 1px 0 var(--color-line);
+}
+
+/* Sudut kiri-atas & kiri-bawah menempel di dua sumbu sekaligus, jadi
+   harus berada di atas header maupun kolom sticky. Ditulis sebagai CSS
+   biasa (bukan @utility) supaya tidak bergantung pada urutan layer:
+   aturan tanpa layer selalu menang atas utility yang ber-layer. */
+.sticky-col.sticky-head,
+.dt-foot > tr > td.sticky-col {
+  z-index: 4;
+  background: #f7f5f1;
+}
+.sticky-col.sticky-head {
+  box-shadow:
+    inset 0 -1px 0 var(--color-line),
+    1px 0 0 var(--color-line),
+    8px 0 12px -10px rgba(28, 28, 26, 0.35);
+}
+.dt-foot > tr > td.sticky-col {
+  box-shadow:
+    inset 0 1px 0 var(--color-line),
+    1px 0 0 var(--color-line),
+    8px 0 12px -10px rgba(28, 28, 26, 0.35);
+}
+
+/* Hover baris tetap terasa sampai ke kolom sticky.
+   Header & footer dikecualikan: keduanya bukan baris data. */
+tbody > tr:hover > .sticky-col {
+  background: #fbfaf7;
+}
+
+/* Saat dicetak tidak ada scroll — sticky cuma bikin kolom/baris melayang,
+   dan batas tinggi akan memotong isi tabel jadi satu layar saja.
+   Cetak juga selalu memakai bentuk tabel, tidak peduli lebar layar
+   perangkat yang mencetak: kartu boros kertas dan sulit dibandingkan. */
+@media print {
+  .sticky-col,
+  .sticky-head,
+  .dt-foot > tr > td {
+    position: static;
+    background: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+  .dt-table {
+    display: block !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  .dt-cards {
+    display: none !important;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

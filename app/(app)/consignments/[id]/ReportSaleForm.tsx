@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { reportConsignmentSale, closeConsignment } from "../actions";
 import { computeTotals } from "@/lib/invoiceMath";
+import DataTable from "@/components/DataTable";
 
 export type ConsItem = {
   id: string;
@@ -20,6 +21,10 @@ function parseNum(s: string) {
 }
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
+/** Yang masih ada di outlet: dikirim dikurangi yang sudah laku & diretur. */
+function sisaOf(it: ConsItem) {
+  return it.qty_kirim - it.qty_terjual - it.qty_retur;
 }
 
 export default function ReportSaleForm({
@@ -130,66 +135,106 @@ export default function ReportSaleForm({
           )}
         </div>
 
-        <div className="overflow-x-auto -mx-2 px-2">
-          <table className="w-full min-w-[640px] text-[13px]">
-            <thead>
-              <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-                <th className="px-2 py-2 font-semibold">Produk</th>
-                <th className="px-2 py-2 font-semibold text-right">Kirim</th>
-                <th className="px-2 py-2 font-semibold text-right">Terjual</th>
-                <th className="px-2 py-2 font-semibold text-right">Retur</th>
-                <th className="px-2 py-2 font-semibold text-right">Sisa</th>
-                <th className="px-2 py-2 font-semibold text-right">Harga Jual</th>
-                {aktif && <th className="px-2 py-2 font-semibold w-[110px]">Laku</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => {
-                const sisa = it.qty_kirim - it.qty_terjual - it.qty_retur;
-                const over = parseNum(laku[it.id] || "") > sisa;
-                return (
-                  <tr key={it.id} className="border-b border-line last:border-0">
-                    <td className="px-2 py-2.5">
-                      <div className="font-medium">{it.nama}</div>
-                      {it.varian && (
-                        <div className="text-[11px] text-muted">{it.varian}</div>
-                      )}
-                    </td>
-                    <td className="px-2 py-2.5 text-right">
-                      {it.qty_kirim.toLocaleString("id-ID")}
-                    </td>
-                    <td className="px-2 py-2.5 text-right text-botanical-700 font-medium">
-                      {it.qty_terjual.toLocaleString("id-ID")}
-                    </td>
-                    <td className="px-2 py-2.5 text-right">
-                      {it.qty_retur.toLocaleString("id-ID")}
-                    </td>
-                    <td className="px-2 py-2.5 text-right font-medium">
-                      {sisa.toLocaleString("id-ID")}
-                    </td>
-                    <td className="px-2 py-2.5 text-right whitespace-nowrap">
-                      {formatRupiah(it.harga_jual)}
-                    </td>
-                    {aktif && (
-                      <td className="px-2 py-2.5">
+          <DataTable
+            rows={items}
+            rowKey={(it) => it.id}
+            minWidth={640}
+            expandable={false}
+            empty="Belum ada produk pada pengiriman ini."
+            columns={[
+              {
+                key: "produk",
+                header: "Produk",
+                role: "title",
+                cell: (it) => (
+                  <>
+                    <div className="font-medium">{it.nama}</div>
+                    {it.varian && (
+                      <div className="text-[11px] text-muted">{it.varian}</div>
+                    )}
+                  </>
+                ),
+                cardCell: (it) => (
+                  <>
+                    <div>{it.nama}</div>
+                    {it.varian && (
+                      <div className="text-[11px] text-muted font-normal">
+                        {it.varian}
+                      </div>
+                    )}
+                  </>
+                ),
+              },
+              {
+                key: "kirim",
+                header: "Kirim",
+                role: "primary",
+                align: "right",
+                cell: (it) => it.qty_kirim.toLocaleString("id-ID"),
+              },
+              {
+                key: "terjual",
+                header: "Terjual",
+                role: "primary",
+                align: "right",
+                cell: (it) => (
+                  <span className="text-botanical-700 font-medium">
+                    {it.qty_terjual.toLocaleString("id-ID")}
+                  </span>
+                ),
+              },
+              {
+                key: "retur",
+                header: "Retur",
+                role: "primary",
+                align: "right",
+                cell: (it) => it.qty_retur.toLocaleString("id-ID"),
+              },
+              {
+                key: "sisa",
+                header: "Sisa",
+                role: "primary",
+                align: "right",
+                className: "font-medium",
+                cell: (it) => sisaOf(it).toLocaleString("id-ID"),
+              },
+              {
+                key: "harga",
+                header: "Harga Jual",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (it) => formatRupiah(it.harga_jual),
+              },
+              ...(aktif
+                ? [
+                    {
+                      key: "laku",
+                      header: "Laku",
+                      role: "primary" as const,
+                      headClassName: "w-[110px]",
+                      cell: (it: ConsItem) => (
                         <input
                           type="text"
                           inputMode="decimal"
+                          aria-label={`Jumlah laku ${it.nama}`}
                           value={laku[it.id] || ""}
                           onChange={(e) =>
                             setLaku((s) => ({ ...s, [it.id]: e.target.value }))
                           }
                           placeholder="0"
-                          className={`${inputCls} ${over ? "ring-2 ring-clay-500" : ""}`}
+                          className={`${inputCls} ${
+                            parseNum(laku[it.id] || "") > sisaOf(it)
+                              ? "ring-2 ring-clay-500"
+                              : ""
+                          }`}
                         />
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
+          />
       </div>
 
       {/* ===== Generate proforma ===== */}

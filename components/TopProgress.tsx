@@ -12,10 +12,16 @@ export default function TopProgress() {
   const pathname = usePathname();
   const [active, setActive] = useState(false);
 
-  // Navigasi selesai (pathname berubah) → sembunyikan bar
-  useEffect(() => {
+  // Navigasi selesai (pathname berubah) → sembunyikan bar.
+  //
+  // Dibandingkan saat render, bukan lewat useEffect. Effect berjalan
+  // sesudah browser melukis, jadi bar sempat terlihat sekejap di atas
+  // halaman yang sudah selesai dimuat — persis kebalikan dari gunanya.
+  const [pathTerakhir, setPathTerakhir] = useState(pathname);
+  if (pathTerakhir !== pathname) {
+    setPathTerakhir(pathname);
     setActive(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     function onClick(e: MouseEvent) {

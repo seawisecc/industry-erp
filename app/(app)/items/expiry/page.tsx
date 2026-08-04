@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import ExpiryActions from "./ExpiryActions";
 import { addDaysStr, localDateStr } from "@/lib/dates";
+import DataTable from "@/components/DataTable";
 
 type BatchRow = {
   id: string;
@@ -81,143 +82,178 @@ export default async function ExpiryPage() {
         lanjut: Re-test (perpanjang exp) atau Musnahkan.
       </p>
 
-      <div className="glass rounded-2xl overflow-x-auto mb-6">
-        <table className="w-full min-w-[820px] text-[13px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Item</th>
-              <th className="px-4 py-2.5 font-semibold">Lot Supplier</th>
-              <th className="px-4 py-2.5 font-semibold">Exp Date</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Qty Sisa</th>
-              <th className="px-4 py-2.5 font-semibold">Supplier</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Tindak Lanjut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  Tidak ada batch yang perlu tindak lanjut 🎉
-                </td>
-              </tr>
-            ) : (
-              list.map((b) => {
+      <div className="mb-6">
+        <DataTable
+          rows={list}
+          rowKey={(b) => b.id}
+          minWidth={820}
+          rowClassName={(b) => (b.exp_date < todayStr ? "bg-clay-100/30" : "")}
+          empty="Tidak ada batch yang perlu tindak lanjut 🎉"
+          columns={[
+            {
+              key: "item",
+              header: "Item",
+              role: "title",
+              cell: (b) => (
+                <>
+                  <div className="font-medium max-w-[200px] truncate">
+                    {b.items?.nama}
+                  </div>
+                  <div className="text-[11px] text-muted font-mono">
+                    {b.items?.kode}
+                    {b.retest_note && (
+                      <span className="ml-1.5 text-botanical-700">
+                        · re-test: {b.retest_note}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ),
+              cardCell: (b) => (
+                <>
+                  <div>{b.items?.nama}</div>
+                  <div className="text-[11px] text-muted font-mono font-normal">
+                    {b.items?.kode}
+                    {b.retest_note && (
+                      <span className="ml-1.5 text-botanical-700">
+                        · re-test: {b.retest_note}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ),
+            },
+            {
+              key: "lot",
+              header: "Lot Supplier",
+              role: "primary",
+              className: "whitespace-nowrap",
+              cell: (b) => (
+                <span className="font-mono text-[12px]">
+                  {b.no_lot_supplier || "-"}
+                </span>
+              ),
+            },
+            {
+              key: "exp",
+              header: "Exp Date",
+              role: "badge",
+              className: "whitespace-nowrap",
+              cell: (b) => {
                 const expired = b.exp_date < todayStr;
                 return (
-                  <tr
-                    key={b.id}
-                    className={`border-b border-line last:border-0 transition-colors ${
-                      expired ? "bg-clay-100/30" : "hover:bg-white/40"
+                  <span
+                    className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium whitespace-nowrap ${
+                      expired
+                        ? "bg-clay-100 text-clay-600"
+                        : "bg-amber-100 text-amber-500"
                     }`}
                   >
-                    <td className="px-4 py-3">
-                      <div className="font-medium max-w-[200px] truncate">
-                        {b.items?.nama}
-                      </div>
-                      <div className="text-[11px] text-muted font-mono">
-                        {b.items?.kode}
-                        {b.retest_note && (
-                          <span className="ml-1.5 text-botanical-700">
-                            · re-test: {b.retest_note}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                      {b.no_lot_supplier || "-"}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
-                          expired
-                            ? "bg-clay-100 text-clay-600"
-                            : "bg-amber-100 text-amber-500"
-                        }`}
-                      >
-                        {formatTanggal(b.exp_date)}
-                        {expired ? " · expired" : ""}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {Number(b.qty_sisa).toLocaleString("id-ID")} {b.items?.satuan}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div
-                        className="max-w-[150px] truncate text-[12.5px]"
-                        title={b.supplier_nama || undefined}
-                      >
-                        {b.supplier_nama || "-"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <ExpiryActions
-                        batchId={b.id}
-                        itemNama={b.items?.nama || ""}
-                        qtySisa={Number(b.qty_sisa)}
-                        satuan={b.items?.satuan || ""}
-                      />
-                    </td>
-                  </tr>
+                    {formatTanggal(b.exp_date)}
+                    {expired ? " · expired" : ""}
+                  </span>
                 );
-              })
-            )}
-          </tbody>
-        </table>
+              },
+            },
+            {
+              key: "qty",
+              header: "Qty Sisa",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (b) =>
+                `${Number(b.qty_sisa).toLocaleString("id-ID")} ${b.items?.satuan}`,
+            },
+            {
+              key: "supplier",
+              header: "Supplier",
+              role: "secondary",
+              cell: (b) => (
+                <div
+                  className="max-w-[150px] truncate text-[12.5px]"
+                  title={b.supplier_nama || undefined}
+                >
+                  {b.supplier_nama || "-"}
+                </div>
+              ),
+              cardCell: (b) => b.supplier_nama || "-",
+            },
+            {
+              key: "aksi",
+              header: "Tindak Lanjut",
+              role: "actions",
+              align: "right",
+              cell: (b) => (
+                <ExpiryActions
+                  batchId={b.id}
+                  itemNama={b.items?.nama || ""}
+                  qtySisa={Number(b.qty_sisa)}
+                  satuan={b.items?.satuan || ""}
+                />
+              ),
+            },
+          ]}
+        />
       </div>
 
       {/* ===== Audit log ===== */}
       <h2 className="font-display text-[15px] font-semibold text-ink mb-2">
         Riwayat Tindak Lanjut
       </h2>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[720px] text-[13px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold">Tanggal</th>
-              <th className="px-4 py-2.5 font-semibold">Item</th>
-              <th className="px-4 py-2.5 font-semibold">Tindakan</th>
-              <th className="px-4 py-2.5 font-semibold">Detail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logList.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="text-center text-muted py-8 text-sm">
-                  Belum ada riwayat.
-                </td>
-              </tr>
-            ) : (
-              logList.map((l, i) => (
-                <tr key={i} className="border-b border-line last:border-0">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {formatTanggal(l.created_at)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[200px] truncate">{l.items?.nama}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                        l.tipe === "Re-test"
-                          ? "bg-botanical-100 text-botanical-700"
-                          : "bg-clay-100 text-clay-600"
-                      }`}
-                    >
-                      {l.tipe}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-[12.5px]">
-                    {l.tipe === "Re-test"
-                      ? `${l.exp_lama ? formatTanggal(l.exp_lama) : ""} → ${l.exp_baru ? formatTanggal(l.exp_baru) : ""}`
-                      : `${Number(l.qty || 0).toLocaleString("id-ID")} dimusnahkan`}
-                    {l.catatan ? ` · ${l.catatan}` : ""}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={logList}
+        rowKey={(_l, i) => String(i)}
+        minWidth={720}
+        empty="Belum ada riwayat."
+        columns={[
+          {
+            key: "tanggal",
+            header: "Tanggal",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (l) => formatTanggal(l.created_at),
+          },
+          {
+            key: "item",
+            header: "Item",
+            role: "title",
+            cell: (l) => (
+              <div className="max-w-[200px] truncate">{l.items?.nama}</div>
+            ),
+            cardCell: (l) => l.items?.nama,
+          },
+          {
+            key: "tindakan",
+            header: "Tindakan",
+            role: "badge",
+            cell: (l) => (
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                  l.tipe === "Re-test"
+                    ? "bg-botanical-100 text-botanical-700"
+                    : "bg-clay-100 text-clay-600"
+                }`}
+              >
+                {l.tipe}
+              </span>
+            ),
+          },
+          {
+            key: "detail",
+            header: "Detail",
+            role: "primary",
+            className: "text-[12.5px]",
+            cell: (l) =>
+              `${
+                l.tipe === "Re-test"
+                  ? `${l.exp_lama ? formatTanggal(l.exp_lama) : ""} → ${
+                      l.exp_baru ? formatTanggal(l.exp_baru) : ""
+                    }`
+                  : `${Number(l.qty || 0).toLocaleString("id-ID")} dimusnahkan`
+              }${l.catatan ? ` · ${l.catatan}` : ""}`,
+          },
+        ]}
+      />
     </div>
   );
 }

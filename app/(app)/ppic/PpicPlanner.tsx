@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2, ShoppingCart, PackageSearch } from "lucide-react";
+import DataTable from "@/components/DataTable";
 
 export type PpicProduct = {
   id: string;
@@ -206,56 +207,86 @@ export default function PpicPlanner({
               </p>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-[13px]">
-              <thead>
-                <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
-                  <th className="px-4 py-2 font-semibold">Bahan</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Kebutuhan</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Stok Sisa</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Kekurangan</th>
-                  <th className="px-4 py-2 font-semibold whitespace-nowrap">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {calcs.map((c) => (
-                  <tr key={c.item.id} className="border-b border-line last:border-0">
-                    <td className="px-4 py-2.5">
+          <div className="px-6 pb-5">
+            <DataTable
+              rows={calcs}
+              rowKey={(c) => c.item.id}
+              minWidth={720}
+              chrome="bare"
+              empty="Belum ada kebutuhan bahan."
+              columns={[
+                {
+                  key: "bahan",
+                  header: "Bahan",
+                  role: "title",
+                  cell: (c) => (
+                    <>
                       <div className="font-medium max-w-[220px] truncate" title={c.item.nama}>
                         {c.item.nama}
                       </div>
-                      <div className="text-[11px] text-muted font-mono">{c.item.kode}</div>
-                    </td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {formatNum(c.butuh)} {c.item.satuan}
-                    </td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {formatNum(c.item.stok)} {c.item.satuan}
-                    </td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap font-medium">
-                      {c.kurang > 0 ? (
-                        <span className="text-clay-600">
-                          {formatNum(c.kurang)} {c.item.satuan}
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
-                          c.kurang > 0
-                            ? "bg-clay-100 text-clay-600"
-                            : "bg-botanical-100 text-botanical-700"
-                        }`}
-                      >
-                        {c.kurang > 0 ? "Perlu Beli" : "Cukup"}
+                      <div className="text-[11px] text-muted font-mono">
+                        {c.item.kode}
+                      </div>
+                    </>
+                  ),
+                  cardCell: (c) => (
+                    <>
+                      <div>{c.item.nama}</div>
+                      <div className="text-[11px] text-muted font-mono font-normal">
+                        {c.item.kode}
+                      </div>
+                    </>
+                  ),
+                },
+                {
+                  key: "butuh",
+                  header: "Kebutuhan",
+                  role: "primary",
+                  align: "right",
+                  className: "whitespace-nowrap",
+                  cell: (c) => `${formatNum(c.butuh)} ${c.item.satuan}`,
+                },
+                {
+                  key: "stok",
+                  header: "Stok Sisa",
+                  role: "primary",
+                  align: "right",
+                  className: "whitespace-nowrap",
+                  cell: (c) => `${formatNum(c.item.stok)} ${c.item.satuan}`,
+                },
+                {
+                  key: "kurang",
+                  header: "Kekurangan",
+                  role: "primary",
+                  align: "right",
+                  className: "whitespace-nowrap font-medium",
+                  cell: (c) =>
+                    c.kurang > 0 ? (
+                      <span className="text-clay-600">
+                        {formatNum(c.kurang)} {c.item.satuan}
                       </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ) : (
+                      "-"
+                    ),
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  role: "badge",
+                  cell: (c) => (
+                    <span
+                      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                        c.kurang > 0
+                          ? "bg-clay-100 text-clay-600"
+                          : "bg-botanical-100 text-botanical-700"
+                      }`}
+                    >
+                      {c.kurang > 0 ? "Perlu Beli" : "Cukup"}
+                    </span>
+                  ),
+                },
+              ]}
+            />
           </div>
         </div>
       )}
@@ -276,62 +307,122 @@ export default function PpicPlanner({
               </p>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-[13px]">
-              <thead>
-                <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
-                  <th className="px-4 py-2 font-semibold">Bahan</th>
-                  <th className="px-4 py-2 font-semibold whitespace-nowrap">Supplier</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Kekurangan</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">MOQ</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Qty Beli</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Harga/Unit</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Est. Dana</th>
-                </tr>
-              </thead>
-              <tbody>
-                {perluBeli.map((c) => (
-                  <tr key={c.item.id} className="border-b border-line last:border-0">
-                    <td className="px-4 py-2.5">
+          <div className="px-6 pb-5">
+            <DataTable
+              rows={perluBeli}
+              rowKey={(c) => c.item.id}
+              minWidth={820}
+              chrome="bare"
+              empty="Tidak ada yang perlu dibeli."
+              footer={{
+                row: (
+                  <tr className="border-t border-line bg-white/50">
+                    <td colSpan={6} className="px-4 py-3 text-right font-semibold">
+                      Total Estimasi Dana
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap font-display text-[15px] font-semibold text-botanical-700">
+                      {formatRupiah(totalDana)}
+                    </td>
+                  </tr>
+                ),
+                card: (
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[12px] text-muted">
+                      Total Estimasi Dana
+                    </span>
+                    <span className="font-display text-[15px] font-semibold text-botanical-700">
+                      {formatRupiah(totalDana)}
+                    </span>
+                  </div>
+                ),
+              }}
+              columns={[
+                {
+                  key: "bahan",
+                  header: "Bahan",
+                  role: "title",
+                  cell: (c) => (
+                    <>
                       <div className="font-medium max-w-[200px] truncate" title={c.item.nama}>
                         {c.item.nama}
                       </div>
-                      <div className="text-[11px] text-muted font-mono">{c.item.kode}</div>
-                    </td>
-                    <td className="px-4 py-2.5 whitespace-nowrap text-[12.5px]">
-                      <div className="max-w-[160px] truncate" title={c.item.supplier || undefined}>
-                        {c.item.supplier || <span className="text-muted">-</span>}
+                      <div className="text-[11px] text-muted font-mono">
+                        {c.item.kode}
                       </div>
-                    </td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {formatNum(c.kurang)} {c.item.satuan}
-                    </td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {c.item.moq ? `${formatNum(c.item.moq)} ${c.item.satuan}` : "-"}
-                    </td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap font-semibold text-botanical-700">
+                    </>
+                  ),
+                  cardCell: (c) => (
+                    <>
+                      <div>{c.item.nama}</div>
+                      <div className="text-[11px] text-muted font-mono font-normal">
+                        {c.item.kode}
+                      </div>
+                    </>
+                  ),
+                },
+                {
+                  key: "supplier",
+                  header: "Supplier",
+                  role: "primary",
+                  className: "whitespace-nowrap text-[12.5px]",
+                  cell: (c) => (
+                    <div
+                      className="max-w-[160px] truncate"
+                      title={c.item.supplier || undefined}
+                    >
+                      {c.item.supplier || <span className="text-muted">-</span>}
+                    </div>
+                  ),
+                  cardCell: (c) => c.item.supplier || "-",
+                },
+                {
+                  key: "kurang",
+                  header: "Kekurangan",
+                  role: "secondary",
+                  align: "right",
+                  className: "whitespace-nowrap",
+                  cell: (c) => `${formatNum(c.kurang)} ${c.item.satuan}`,
+                },
+                {
+                  key: "moq",
+                  header: "MOQ",
+                  role: "secondary",
+                  align: "right",
+                  className: "whitespace-nowrap",
+                  cell: (c) =>
+                    c.item.moq ? `${formatNum(c.item.moq)} ${c.item.satuan}` : "-",
+                },
+                {
+                  key: "beli",
+                  header: "Qty Beli",
+                  role: "primary",
+                  align: "right",
+                  className: "whitespace-nowrap font-semibold text-botanical-700",
+                  cell: (c) => (
+                    <span className="font-semibold text-botanical-700">
                       {formatNum(c.qtyBeli)} {c.item.satuan}
-                    </td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {c.item.harga != null ? formatRupiah(c.item.harga) : "-"}
-                    </td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap font-medium">
-                      {c.dana != null ? formatRupiah(c.dana) : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-line bg-white/50">
-                  <td colSpan={6} className="px-4 py-3 text-right font-semibold">
-                    Total Estimasi Dana
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap font-display text-[15px] font-semibold text-botanical-700">
-                    {formatRupiah(totalDana)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                    </span>
+                  ),
+                },
+                {
+                  key: "harga",
+                  header: "Harga/Unit",
+                  role: "secondary",
+                  align: "right",
+                  className: "whitespace-nowrap",
+                  cell: (c) =>
+                    c.item.harga != null ? formatRupiah(c.item.harga) : "-",
+                },
+                {
+                  key: "dana",
+                  header: "Est. Dana",
+                  role: "primary",
+                  align: "right",
+                  className: "whitespace-nowrap font-medium",
+                  cell: (c) => (c.dana != null ? formatRupiah(c.dana) : "-"),
+                },
+              ]}
+            />
           </div>
           {adaTanpaHarga && (
             <p className="text-amber-500 text-[12px] px-6 py-3 bg-amber-100/60">

@@ -40,9 +40,18 @@ export default function MobileBottomNav({
   const barRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLAnchorElement>(null);
 
-  useEffect(() => {
+  // Tutup sheet tiap pindah halaman.
+  //
+  // Dibandingkan saat render, bukan lewat useEffect. Effect berjalan
+  // SESUDAH browser melukis, jadi halaman baru sempat tampil sepersekian
+  // detik dengan sheet masih terbuka, baru menutup. Menyetel state saat
+  // render membuat React membuang hasil render itu dan mengulang sebelum
+  // apa pun sampai ke layar.
+  const [pathTerakhir, setPathTerakhir] = useState(pathname);
+  if (pathTerakhir !== pathname) {
+    setPathTerakhir(pathname);
     setOpen(false);
-  }, [pathname]);
+  }
 
   // Geser bar supaya tab aktif kelihatan (mis. Reports/Settings di kanan)
   useEffect(() => {

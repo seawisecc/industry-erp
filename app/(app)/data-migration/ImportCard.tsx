@@ -248,7 +248,7 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
 
       {rows.length > 0 && (
         <>
-          <div className="border border-line rounded-lg overflow-hidden">
+          <div className="border border-line rounded-lg overflow-x-auto">
             <table className="w-full text-[11.5px]">
               <thead>
                 <tr className="bg-white/60 text-left text-muted">

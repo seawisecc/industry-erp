@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Eye } from "lucide-react";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 
 type AdjRow = {
   id: string;
@@ -60,56 +62,57 @@ export default async function StockAdjustmentPage() {
         </Link>
       </div>
 
-      <div className="mt-6 glass rounded-2xl overflow-x-auto">
-        <table className="w-full text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Catatan</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Item Disesuaikan</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Oleh</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center text-muted py-10 text-sm">
-                  Belum ada adjustment.
-                </td>
-              </tr>
-            ) : (
-              list.map((a) => (
-                <tr
-                  key={a.id}
-                  className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                >
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {formatTanggal(a.tanggal)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[300px] truncate">{a.catatan || "-"}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {a.stock_adjustment_items.length} item
-                  </td>
-                  <td className="px-4 py-3">
-                    {(a.dibuat_oleh && namaOleh.get(a.dibuat_oleh)) || "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/data-migration/adjustment/${a.id}`}
-                      className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                    >
-                      Detail
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(a) => a.id}
+        minWidth={720}
+        empty="Belum ada adjustment."
+        columns={[
+          {
+            key: "tanggal",
+            header: "Tanggal",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (a) => formatTanggal(a.tanggal),
+          },
+          {
+            key: "catatan",
+            header: "Catatan",
+            role: "title",
+            cell: (a) => (
+              <div className="max-w-[300px] truncate">{a.catatan || "-"}</div>
+            ),
+            cardCell: (a) => a.catatan || "-",
+          },
+          {
+            key: "item",
+            header: "Item Disesuaikan",
+            role: "primary",
+            cell: (a) => `${a.stock_adjustment_items.length} item`,
+          },
+          {
+            key: "oleh",
+            header: "Oleh",
+            role: "primary",
+            cell: (a) => (a.dibuat_oleh && namaOleh.get(a.dibuat_oleh)) || "-",
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            cell: (a) => (
+              <RowActions>
+                <IconAction
+                  icon={Eye}
+                  label="Lihat detail adjustment"
+                  href={`/data-migration/adjustment/${a.id}`}
+                  tone="primary"
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

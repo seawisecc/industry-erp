@@ -6,6 +6,8 @@ import Link from "next/link";
 import ProdukShell from "@/components/ProdukShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   pageInfo,
   parseListQuery,
@@ -111,64 +113,68 @@ export default async function QcFinishedPage({
       <div className="mb-3">
         <TableToolbar placeholder="Cari no. batch..." info={info} />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[720px] text-[13px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. Batch</th>
-              <th className="px-4 py-2.5 font-semibold">Produk</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tgl Produksi</th>
-              <th className="px-4 py-2.5 font-semibold">Hasil</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">
-                Lembar Uji
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center text-muted py-10 text-sm">
-                  {sp.q
-                    ? "Tidak ada batch yang cocok dengan pencarian."
-                    : "Tidak ada batch menunggu pengujian 🎉"}
-                </td>
-              </tr>
-            ) : (
-              list.map((b) => {
-                return (
-                  <tr
-                    key={b.id}
-                    className="border-b border-line last:border-0 bg-amber-100/20"
-                  >
-                    <td className="px-4 py-3 font-mono text-[12.5px] whitespace-nowrap">
-                      {b.no_batch_produksi}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium max-w-[190px] truncate" title={produkOf(b)}>
-                        {produkOf(b)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {formatTanggal(b.tanggal_produksi)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                      {hasilOf(b)}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <Link
-                        href={`/qc-finished/${b.id}`}
-                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
-                      >
-                        <ClipboardList size={13} /> Uji Produk
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(b) => b.id}
+        minWidth={720}
+        rowClassName={() => "bg-amber-100/20"}
+        empty={
+          sp.q
+            ? "Tidak ada batch yang cocok dengan pencarian."
+            : "Tidak ada batch menunggu pengujian 🎉"
+        }
+        columns={[
+          {
+            key: "batch",
+            header: "No. Batch",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (b) => (
+              <span className="font-mono text-[12.5px]">{b.no_batch_produksi}</span>
+            ),
+          },
+          {
+            key: "produk",
+            header: "Produk",
+            role: "title",
+            cell: (b) => (
+              <div className="font-medium max-w-[190px] truncate" title={produkOf(b)}>
+                {produkOf(b)}
+              </div>
+            ),
+            cardCell: (b) => produkOf(b),
+          },
+          {
+            key: "tgl",
+            header: "Tgl Produksi",
+            role: "primary",
+            className: "whitespace-nowrap",
+            cell: (b) => formatTanggal(b.tanggal_produksi),
+          },
+          {
+            key: "hasil",
+            header: "Hasil",
+            role: "primary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (b) => hasilOf(b),
+          },
+          {
+            key: "aksi",
+            header: "Lembar Uji",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (b) => (
+              <Link
+                href={`/qc-finished/${b.id}`}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
+              >
+                <ClipboardList size={13} /> Uji Produk
+              </Link>
+            ),
+          },
+        ]}
+      />
 
       <Pagination info={info} />
 
@@ -176,83 +182,95 @@ export default async function QcFinishedPage({
       <h3 className="font-display text-[15px] font-semibold text-ink mt-6 mb-2">
         Riwayat Pengujian
       </h3>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[820px] text-[13px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tgl Uji</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. Batch</th>
-              <th className="px-4 py-2.5 font-semibold">Produk</th>
-              <th className="px-4 py-2.5 font-semibold">Hasil</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Diuji Oleh</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status QA</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">
-                Dokumen
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center text-muted py-8 text-sm">
-                  Belum ada riwayat pengujian.
-                </td>
-              </tr>
-            ) : (
-              logs.map((b) => (
-                <tr key={b.id} className="border-b border-line last:border-0">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {formatTanggal(b.qc_produk_tanggal_uji)}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                    {b.no_batch_produksi}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[190px] truncate" title={produkOf(b)}>
-                      {produkOf(b)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                    {hasilOf(b)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                    {b.qc_produk_oleh || "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
-                        b.qa_status === "Released"
-                          ? "bg-botanical-100 text-botanical-700"
-                          : b.qa_status === "Rejected"
-                            ? "bg-clay-100 text-clay-600"
-                            : "bg-amber-100 text-amber-500"
-                      }`}
-                    >
-                      {b.qa_status === "Hold" ? "Menunggu QA" : b.qa_status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <div className="inline-flex items-center gap-3">
-                      <Link
-                        href={`/qc-finished/${b.id}`}
-                        className="inline-flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        <Eye size={13} /> Detail
-                      </Link>
-                      <Link
-                        href={`/print/qc-produk/${b.id}`}
-                        className="inline-flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        <Printer size={13} /> Cetak
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={logs}
+        rowKey={(b) => b.id}
+        minWidth={820}
+        empty="Belum ada riwayat pengujian."
+        columns={[
+          {
+            key: "tgluji",
+            header: "Tgl Uji",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (b) => formatTanggal(b.qc_produk_tanggal_uji),
+          },
+          {
+            key: "batch",
+            header: "No. Batch",
+            role: "primary",
+            className: "whitespace-nowrap",
+            cell: (b) => (
+              <span className="font-mono text-[12px]">{b.no_batch_produksi}</span>
+            ),
+          },
+          {
+            key: "produk",
+            header: "Produk",
+            role: "title",
+            cell: (b) => (
+              <div className="max-w-[190px] truncate" title={produkOf(b)}>
+                {produkOf(b)}
+              </div>
+            ),
+            cardCell: (b) => produkOf(b),
+          },
+          {
+            key: "hasil",
+            header: "Hasil",
+            role: "primary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (b) => hasilOf(b),
+          },
+          {
+            key: "oleh",
+            header: "Diuji Oleh",
+            role: "secondary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (b) => b.qc_produk_oleh || "-",
+          },
+          {
+            key: "qa",
+            header: "Status QA",
+            role: "badge",
+            cell: (b) => (
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                  b.qa_status === "Released"
+                    ? "bg-botanical-100 text-botanical-700"
+                    : b.qa_status === "Rejected"
+                      ? "bg-clay-100 text-clay-600"
+                      : "bg-amber-100 text-amber-500"
+                }`}
+              >
+                {b.qa_status === "Hold" ? "Menunggu QA" : b.qa_status}
+              </span>
+            ),
+          },
+          {
+            key: "aksi",
+            header: "Dokumen",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (b) => (
+              <RowActions>
+                <IconAction
+                  icon={Eye}
+                  label="Lihat detail pengujian"
+                  href={`/qc-finished/${b.id}`}
+                  tone="primary"
+                />
+                <IconAction
+                  icon={Printer}
+                  label="Cetak lembar uji produk"
+                  href={`/print/qc-produk/${b.id}`}
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
     </ProdukShell>
   );
 }

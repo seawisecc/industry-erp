@@ -149,7 +149,9 @@ export default async function QcDetailPage({
             <table className="w-full min-w-[600px] text-[13px]">
               <thead>
                 <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
-                  <th className="px-4 py-2 font-semibold">Parameter</th>
+                  <th className="px-4 py-2 font-semibold sticky-col sticky-col-head">
+                    Parameter
+                  </th>
                   <th className="px-4 py-2 font-semibold">Spesifikasi</th>
                   <th className="px-4 py-2 font-semibold">Hasil</th>
                 </tr>
@@ -173,7 +175,7 @@ export default async function QcDetailPage({
                               key={h.nama}
                               className="border-b border-line last:border-0"
                             >
-                              <td className="px-4 py-2.5">
+                              <td className="px-4 py-2.5 sticky-col">
                                 {h.nama}
                                 {h.satuan && (
                                   <span className="text-muted text-[11.5px]">

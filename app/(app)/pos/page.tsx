@@ -1,8 +1,10 @@
+import { Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { getSalesOptions } from "@/lib/salesOptions";
-import Link from "next/link";
 import SalesShell from "@/components/SalesShell";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import InvoiceForm from "../sales-invoices/InvoiceForm";
 import { localDateStr } from "@/lib/dates";
 
@@ -60,50 +62,52 @@ export default async function PosPage() {
             {formatRupiah(totalHariIni)}
           </span>
         </div>
-        <div className="glass rounded-2xl overflow-x-auto">
-          <table className="w-full min-w-[560px] text-[13px]">
-            <thead>
-              <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-                <th className="px-4 py-2.5 font-semibold">No.</th>
-                <th className="px-4 py-2.5 font-semibold">Pembeli</th>
-                <th className="px-4 py-2.5 font-semibold text-right">Total</th>
-                <th className="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted py-8 text-sm">
-                    Belum ada penjualan hari ini.
-                  </td>
-                </tr>
-              ) : (
-                list.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono text-[12px]">{r.no_invoice}</td>
-                    <td className="px-4 py-3">
-                      {r.clients?.company_brand || r.nama_pembeli || "Walk-in"}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {formatRupiah(Number(r.total))}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/print/invoice/${r.id}`}
-                        className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        Cetak
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={list}
+          rowKey={(r) => r.id}
+          minWidth={560}
+          empty="Belum ada penjualan hari ini."
+          columns={[
+            {
+              key: "no",
+              header: "No.",
+              role: "subtitle",
+              cell: (r) => (
+                <span className="font-mono text-[12px]">{r.no_invoice}</span>
+              ),
+            },
+            {
+              key: "pembeli",
+              header: "Pembeli",
+              role: "title",
+              cell: (r) =>
+                r.clients?.company_brand || r.nama_pembeli || "Walk-in",
+            },
+            {
+              key: "total",
+              header: "Total",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) => formatRupiah(Number(r.total)),
+            },
+            {
+              key: "aksi",
+              role: "actions",
+              align: "right",
+              cell: (r) => (
+                <RowActions>
+                  <IconAction
+                    icon={Printer}
+                    label="Cetak faktur"
+                    href={`/print/invoice/${r.id}`}
+                    tone="primary"
+                  />
+                </RowActions>
+              ),
+            },
+          ]}
+        />
       </div>
     </SalesShell>
   );

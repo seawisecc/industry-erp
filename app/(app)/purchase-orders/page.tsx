@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus, Wand2 } from "lucide-react";
+import { Plus, Wand2, Printer, Pencil, Eye } from "lucide-react";
 import PembelianShell from "@/components/PembelianShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
 import CancelTxButton from "@/components/CancelTxButton";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import { cancelPO } from "./actions";
 import {
   ilikeOrWithIds,
@@ -100,6 +102,15 @@ export default async function PurchaseOrdersPage({
   const list = (pos || []) as unknown as PORow[];
   const info = pageInfo(sp.page, count, list.length);
 
+  /** Nilai PO termasuk PPN — subtotal baris item lalu ditambah pajak. */
+  const totalPO = (po: PORow) => {
+    const subtotal = po.po_items.reduce(
+      (s, r) => s + Number(r.qty_pesan) * Number(r.harga_per_unit),
+      0
+    );
+    return subtotal * (1 + Number(po.ppn_percent) / 100);
+  };
+
   return (
     <PembelianShell>
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -148,108 +159,123 @@ export default async function PurchaseOrdersPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[960px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. PO</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Supplier</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Item</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Total (incl. PPN)</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">TOP</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  {sp.q || sp.filter("status")
-                    ? "Tidak ada PO yang cocok dengan pencarian/filter."
-                    : "Belum ada Purchase Order."}
-                </td>
-              </tr>
-            ) : (
-              list.map((po) => {
-                const subtotal = po.po_items.reduce(
-                  (s, r) => s + Number(r.qty_pesan) * Number(r.harga_per_unit),
-                  0
-                );
-                const total = subtotal * (1 + Number(po.ppn_percent) / 100);
-                const editable = po.status === "Dibuat";
-                return (
-                  <tr
-                    key={po.id}
-                    className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono text-[12.5px]">
-                      {po.no_po || "-"}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {formatTanggal(po.tanggal_po)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="max-w-[220px] truncate font-medium">
-                        {po.suppliers?.nama || "-"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">{po.po_items.length}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {formatRupiah(total)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                      {po.top_days == null
-                        ? "-"
-                        : po.top_days === 0
-                          ? "Tunai"
-                          : `${po.top_days} hr`}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium whitespace-nowrap ${STATUS_STYLE[po.status]}`}
-                      >
-                        {po.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-3">
-                        {canCancel &&
-                          po.status !== "Selesai" &&
-                          po.status !== "Diterima Sebagian" &&
-                          po.status !== "Dibatalkan" && (
-                            <CancelTxButton
-                              id={po.id}
-                              action={cancelPO}
-                              canCancel={canCancel}
-                              variant="link"
-                              label="Batal"
-                              judul="Batalkan Purchase Order"
-                              keterangan="PO akan ditandai Dibatalkan. Hanya bisa bila belum ada barang yang diterima."
-                            />
-                          )}
-                        <Link
-                          href={`/print/po/${po.id}`}
-                          className="text-muted text-[12.5px] font-medium hover:underline"
-                        >
-                          Cetak
-                        </Link>
-                        <Link
-                          href={`/purchase-orders/${po.id}/edit`}
-                          className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                        >
-                          {editable ? "Edit" : "Detail"}
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(po) => po.id}
+        minWidth={960}
+        empty={
+          sp.q || sp.filter("status")
+            ? "Tidak ada PO yang cocok dengan pencarian/filter."
+            : "Belum ada Purchase Order."
+        }
+        columns={[
+          {
+            key: "no",
+            header: "No. PO",
+            role: "subtitle",
+            cell: (po) => (
+              <span className="font-mono text-[12.5px]">{po.no_po || "-"}</span>
+            ),
+          },
+          {
+            key: "tanggal",
+            header: "Tanggal",
+            role: "primary",
+            className: "whitespace-nowrap",
+            cell: (po) => formatTanggal(po.tanggal_po),
+          },
+          {
+            key: "supplier",
+            header: "Supplier",
+            role: "title",
+            cell: (po) => (
+              <div className="max-w-[220px] truncate font-medium">
+                {po.suppliers?.nama || "-"}
+              </div>
+            ),
+            cardCell: (po) => po.suppliers?.nama || "-",
+          },
+          {
+            key: "item",
+            header: "Item",
+            cardLabel: "Jumlah item",
+            role: "secondary",
+            cell: (po) => po.po_items.length,
+          },
+          {
+            key: "total",
+            header: "Total (incl. PPN)",
+            cardLabel: "Total",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (po) => formatRupiah(totalPO(po)),
+          },
+          {
+            key: "top",
+            header: "TOP",
+            cardLabel: "Termin (TOP)",
+            role: "secondary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (po) =>
+              po.top_days == null
+                ? "-"
+                : po.top_days === 0
+                  ? "Tunai"
+                  : `${po.top_days} hr`,
+          },
+          {
+            key: "status",
+            header: "Status",
+            role: "badge",
+            cell: (po) => (
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium whitespace-nowrap ${STATUS_STYLE[po.status]}`}
+              >
+                {po.status}
+              </span>
+            ),
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (po) => {
+              const editable = po.status === "Dibuat";
+              return (
+                <RowActions>
+                  {canCancel &&
+                    po.status !== "Selesai" &&
+                    po.status !== "Diterima Sebagian" &&
+                    po.status !== "Dibatalkan" && (
+                      <CancelTxButton
+                        id={po.id}
+                        action={cancelPO}
+                        canCancel={canCancel}
+                        variant="icon"
+                        label="Batalkan PO"
+                        judul="Batalkan Purchase Order"
+                        keterangan="PO akan ditandai Dibatalkan. Hanya bisa bila belum ada barang yang diterima."
+                      />
+                    )}
+                  <IconAction
+                    icon={Printer}
+                    label="Cetak PO"
+                    href={`/print/po/${po.id}`}
+                  />
+                  <IconAction
+                    icon={editable ? Pencil : Eye}
+                    label={editable ? "Edit PO" : "Lihat detail PO"}
+                    href={`/purchase-orders/${po.id}/edit`}
+                    tone="primary"
+                  />
+                </RowActions>
+              );
+            },
+          },
+        ]}
+      />
       <Pagination info={info} />
     </PembelianShell>
   );

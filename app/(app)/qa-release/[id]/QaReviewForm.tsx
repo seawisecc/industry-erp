@@ -90,7 +90,7 @@ function TabelUji({ rows }: { rows: UjiRow[] }) {
       <table className="w-full min-w-[520px] text-[12.5px]">
         <thead>
           <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
-            <th className="px-4 py-1.5 font-semibold">Parameter</th>
+            <th className="px-4 py-1.5 font-semibold sticky-col sticky-col-head">Parameter</th>
             <th className="px-4 py-1.5 font-semibold">Spesifikasi</th>
             <th className="px-4 py-1.5 font-semibold">Hasil</th>
           </tr>
@@ -98,7 +98,7 @@ function TabelUji({ rows }: { rows: UjiRow[] }) {
         <tbody>
           {rows.map((r, i) => (
             <tr key={i} className="border-b border-line last:border-0">
-              <td className="px-4 py-1.5">
+              <td className="px-4 py-1.5 sticky-col">
                 {r.nama}
                 {r.satuan && (
                   <span className="text-muted text-[11px]"> ({r.satuan})</span>

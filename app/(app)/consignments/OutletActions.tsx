@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ShoppingBag, Undo2, X } from "lucide-react";
@@ -28,7 +28,6 @@ export default function OutletActions({
   produk: OutletProdItem[];
 }) {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<null | "laku" | "retur">(null);
   const [qty, setQty] = useState<Record<string, string>>({});
   const [pakaiTax, setPakaiTax] = useState(false);
@@ -36,7 +35,6 @@ export default function OutletActions({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => setMounted(true), []);
 
   function keyOf(p: OutletProdItem) {
     return `${p.product_id}|${p.varian}`;
@@ -126,7 +124,7 @@ export default function OutletActions({
         </button>
       </div>
 
-      {mode && mounted && createPortal(
+      {mode && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           onClick={() => !loading && setMode(null)}

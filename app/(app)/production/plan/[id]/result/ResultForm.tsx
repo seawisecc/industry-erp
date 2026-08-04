@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { finishProduction } from "../../../actions";
+import DataTable from "@/components/DataTable";
 
 export type ResultVariant = {
   nama_varian: string;
@@ -82,70 +83,110 @@ export default function ResultForm({
           </p>
         </div>
 
-        <div className="overflow-x-auto -mx-2 px-2">
-          <table className="w-full min-w-[480px] text-[13px]">
-            <thead>
-              <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-                <th className="px-2 py-2 font-semibold">Varian</th>
-                <th className="px-2 py-2 font-semibold text-right">Teoritis (pcs)</th>
-                <th className="px-2 py-2 font-semibold w-[150px]">Real (pcs)</th>
-                <th className="px-2 py-2 font-semibold text-right">Selisih</th>
-              </tr>
-            </thead>
-            <tbody>
-              {variants.map((v) => {
-                const realVal = parseNum(real[v.nama_varian] || "");
-                const diff = realVal - v.teoritis_pcs;
-                return (
-                  <tr key={v.nama_varian} className="border-b border-line last:border-0">
-                    <td className="px-2 py-2.5 font-medium">{v.nama_varian}</td>
-                    <td className="px-2 py-2.5 text-right font-mono text-[12px]">
-                      {v.teoritis_pcs.toLocaleString("id-ID")}
-                    </td>
-                    <td className="px-2 py-2.5">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={real[v.nama_varian] || ""}
-                        onChange={(e) =>
-                          setReal((s) => ({ ...s, [v.nama_varian]: e.target.value }))
-                        }
-                        className={inputCls}
-                      />
-                    </td>
-                    <td
-                      className={`px-2 py-2.5 text-right font-mono text-[12px] ${
-                        diff === 0
-                          ? "text-muted"
-                          : diff < 0
-                            ? "text-clay-600"
-                            : "text-botanical-700"
-                      }`}
-                    >
-                      {diff === 0 ? "-" : `${diff > 0 ? "+" : ""}${diff.toLocaleString("id-ID")}`}
-                    </td>
-                  </tr>
-                );
-              })}
+        <DataTable
+          rows={variants}
+          rowKey={(v) => v.nama_varian}
+          minWidth={480}
+          chrome="bare"
+          expandable={false}
+          empty="Belum ada varian."
+          footer={{
+            row: (
               <tr className="bg-white/50 font-semibold">
-                <td className="px-2 py-2.5">Total</td>
-                <td className="px-2 py-2.5 text-right font-mono text-[12px]">
+                <td className="px-4 py-2.5 sticky-col">Total</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[12px]">
                   {totalTeoritis.toLocaleString("id-ID")}
                 </td>
-                <td className="px-2 py-2.5 font-mono text-[12px]">
+                <td className="px-4 py-2.5 font-mono text-[12px]">
                   {totalReal.toLocaleString("id-ID")}
                 </td>
                 <td
-                  className={`px-2 py-2.5 text-right text-[12px] ${
+                  className={`px-4 py-2.5 text-right text-[12px] ${
                     yieldPct >= 95 ? "text-botanical-700" : "text-clay-600"
                   }`}
                 >
-                  yield {yieldPct.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%
+                  yield{" "}
+                  {yieldPct.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
+            ),
+            card: (
+              <div className="flex items-baseline justify-between gap-3 font-semibold">
+                <span className="text-[12px] text-muted">
+                  Total {totalReal.toLocaleString("id-ID")} dari{" "}
+                  {totalTeoritis.toLocaleString("id-ID")} pcs
+                </span>
+                <span
+                  className={
+                    yieldPct >= 95 ? "text-botanical-700" : "text-clay-600"
+                  }
+                >
+                  yield{" "}
+                  {yieldPct.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%
+                </span>
+              </div>
+            ),
+          }}
+          columns={[
+            {
+              key: "varian",
+              header: "Varian",
+              role: "title",
+              className: "font-medium",
+              cell: (v) => v.nama_varian,
+            },
+            {
+              key: "teoritis",
+              header: "Teoritis (pcs)",
+              role: "primary",
+              align: "right",
+              className: "font-mono text-[12px]",
+              cell: (v) => v.teoritis_pcs.toLocaleString("id-ID"),
+            },
+            {
+              key: "real",
+              header: "Real (pcs)",
+              role: "primary",
+              headClassName: "w-[150px]",
+              cell: (v) => (
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  aria-label={`Hasil real ${v.nama_varian}`}
+                  value={real[v.nama_varian] || ""}
+                  onChange={(e) =>
+                    setReal((s) => ({ ...s, [v.nama_varian]: e.target.value }))
+                  }
+                  className={inputCls}
+                />
+              ),
+            },
+            {
+              key: "selisih",
+              header: "Selisih",
+              role: "primary",
+              align: "right",
+              cell: (v) => {
+                const diff = parseNum(real[v.nama_varian] || "") - v.teoritis_pcs;
+                return (
+                  <span
+                    className={`font-mono text-[12px] ${
+                      diff === 0
+                        ? "text-muted"
+                        : diff < 0
+                          ? "text-clay-600"
+                          : "text-botanical-700"
+                    }`}
+                  >
+                    {diff === 0
+                      ? "-"
+                      : `${diff > 0 ? "+" : ""}${diff.toLocaleString("id-ID")}`}
+                  </span>
+                );
+              },
+            },
+          ]}
+        />
       </div>
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}

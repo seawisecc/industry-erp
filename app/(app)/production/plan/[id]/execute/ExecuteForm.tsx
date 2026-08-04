@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, X, RotateCcw } from "lucide-react";
 import {
@@ -9,6 +9,7 @@ import {
   StepLog,
   IpcHasil,
 } from "../../../actions";
+import DataTable from "@/components/DataTable";
 
 /* ------------------------------------------------------------
    Draft otomatis di browser.
@@ -45,6 +46,41 @@ function readDraft(planId: string): Draft | null {
   } catch {
     return null;
   }
+}
+
+/* ------------------------------------------------------------
+   Draft yang DITAWARKAN saat form dibuka.
+
+   localStorage tidak ada di server, jadi tidak bisa dibaca sebagai
+   initial state biasa — hidrasinya akan bentrok (server tanpa banner,
+   klien dengan banner). useSyncExternalStore menyelesaikan itu:
+   getServerSnapshot dipakai saat render server & hidrasi, lalu React
+   berpindah ke getSnapshot tanpa dianggap bentrok.
+
+   Syaratnya getSnapshot harus mengembalikan nilai yang SAMA PERSIS
+   selama tidak ada perubahan. readDraft mem-parse JSON, jadi tiap
+   panggilan menghasilkan objek baru dan React akan me-render tanpa
+   henti — makanya hasilnya di-cache per plan.
+
+   Cache sengaja TIDAK dibatalkan oleh autosave: yang ditawarkan memang
+   harus tetap versi saat form dibuka, bukan ketikan yang barusan
+   tersimpan. Pembatalannya di unmount, supaya kunjungan berikutnya
+   membaca ulang dari localStorage.
+   ------------------------------------------------------------ */
+const draftAwalCache = new Map<string, Draft | null>();
+
+function draftAwal(planId: string): Draft | null {
+  if (!draftAwalCache.has(planId)) draftAwalCache.set(planId, readDraft(planId));
+  return draftAwalCache.get(planId) ?? null;
+}
+
+function lupakanDraftAwal(planId: string) {
+  draftAwalCache.delete(planId);
+}
+
+/** Nilainya cuma dibaca sekali saat form dibuka, tidak perlu langganan. */
+function tanpaLangganan() {
+  return () => {};
 }
 
 export type ItemInfo = {
@@ -106,6 +142,14 @@ export default function ExecuteForm({
 }) {
   const router = useRouter();
   const itemOf = (id: string) => items.find((it) => it.id === id);
+  /** Formula diurut per fase, lalu bahan terbesar dulu — urutan kerja di lantai. */
+  const formulaTersortir = [...plan.formulas].sort(
+    (a, b) =>
+      (a.fase || "zz").localeCompare(b.fase || "zz") || b.percentage - a.percentage
+  );
+  /** Jumlah bahan seharusnya untuk ukuran batch ini. */
+  const teoritisOf = (f: (typeof plan.formulas)[number]) =>
+    (f.percentage / 100) * plan.bulkKg;
 
   // ===== Bahan (formula): teoritis fixed, real editable =====
   const [bahanReal, setBahanReal] = useState<Record<string, string>>(() => {
@@ -199,29 +243,28 @@ export default function ExecuteForm({
   }
 
   // ===== Draft otomatis =====
-  const [draftFound, setDraftFound] = useState<Draft | null>(null);
-  const firstRun = useRef(true);
+  /** Sidik jari isi form saat pertama dirender — pembanding "sudah berubah?" */
+  const isiAwal = useRef<string | null>(null);
   const dirty = useRef(false);
   const submitted = useRef(false);
 
-  // Tawarkan draft yang tertinggal dari sesi sebelumnya
-  useEffect(() => {
-    const d = readDraft(plan.id);
-    if (d) setDraftFound(d);
-  }, [plan.id]);
+  // Draft yang tertinggal dari sesi sebelumnya (lihat catatan di draftAwal)
+  const draftTersimpan = useSyncExternalStore(
+    tanpaLangganan,
+    () => draftAwal(plan.id),
+    () => null // server & hidrasi: belum ada draft yang bisa dibaca
+  );
+  const [draftDitutup, setDraftDitutup] = useState(false);
+  const draftFound = draftDitutup ? null : draftTersimpan;
+
+  // Baca ulang dari localStorage kalau form ini dibuka lagi nanti
+  useEffect(() => () => lupakanDraftAwal(plan.id), [plan.id]);
 
   // Simpan tiap ada perubahan
   useEffect(() => {
     if (submitted.current) return;
-    // Render pertama = nilai awal form, bukan perubahan user
-    if (firstRun.current) {
-      firstRun.current = false;
-      return;
-    }
-    dirty.current = true;
 
-    const draft: Draft = {
-      savedAt: new Date().toISOString(),
+    const isi = {
       bahanReal,
       variantPcs,
       kemasanQty,
@@ -234,6 +277,24 @@ export default function ExecuteForm({
       ipcRows,
       stepLogs,
     };
+    // Tanpa savedAt: yang dibandingkan isinya, bukan jamnya
+    const sidikJari = JSON.stringify(isi);
+
+    // Render pertama = nilai awal form, bukan perubahan user.
+    //
+    // Perbandingan isi, BUKAN flag "sudah pernah jalan". Flag ref tidak
+    // aman: React StrictMode (dev) menjalankan effect → cleanup → effect
+    // lagi, dan pada putaran kedua flag-nya sudah terpakai sehingga form
+    // yang masih kosong ikut ditulis — menimpa draft asli user dengan
+    // nilai awal. Itu justru menghapus data yang mau diselamatkan.
+    if (isiAwal.current === null) {
+      isiAwal.current = sidikJari;
+      return;
+    }
+    if (sidikJari === isiAwal.current) return; // belum ada perubahan nyata
+
+    dirty.current = true;
+    const draft: Draft = { savedAt: new Date().toISOString(), ...isi };
     try {
       localStorage.setItem(draftKey(plan.id), JSON.stringify(draft));
     } catch {
@@ -279,7 +340,7 @@ export default function ExecuteForm({
     );
     if (d.ipcRows?.length) setIpcRows(d.ipcRows);
     if (d.stepLogs?.length) setStepLogs(d.stepLogs);
-    setDraftFound(null);
+    setDraftDitutup(true);
   }
 
   function discardDraft() {
@@ -288,7 +349,8 @@ export default function ExecuteForm({
     } catch {
       // abaikan
     }
-    setDraftFound(null);
+    lupakanDraftAwal(plan.id);
+    setDraftDitutup(true);
   }
 
   // Kebutuhan kemasan teoritis dari rencana pcs varian
@@ -306,6 +368,17 @@ export default function ExecuteForm({
   const kemasanIds = Array.from(
     new Set([...kemasanTeoritis.keys(), ...Object.keys(kemasanQty)])
   );
+
+  /** Kemasan yang benar-benar diambil ke lantai produksi. */
+  const diambilOf = (id: string) => {
+    const teoritis = kemasanTeoritis.get(id) || 0;
+    return kemasanQty[id] !== undefined ? parseNum(kemasanQty[id]) : teoritis;
+  };
+  /** Diambil - terpakai - rusak; harus nol atau lebih supaya rekonsiliasi seimbang. */
+  const sisaKemasanOf = (id: string) =>
+    diambilOf(id) -
+    parseNum(kemasanTerpakai[id] || "") -
+    parseNum(kemasanRusak[id] || "");
 
   function updateAdjust(idx: number, patch: Partial<AdjustRow>) {
     setAdjustRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -491,48 +564,59 @@ export default function ExecuteForm({
         <h3 className="font-display text-[15px] font-semibold text-ink px-6 pt-5 pb-3">
           Formulasi &amp; Fase
         </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-[13px]">
-            <thead>
-              <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
-                <th className="px-4 py-2 font-semibold whitespace-nowrap">Fase</th>
-                <th className="px-4 py-2 font-semibold whitespace-nowrap">Kode</th>
-                <th className="px-4 py-2 font-semibold">Bahan</th>
-                <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">%</th>
-                <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">
-                  Qty Batch
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...plan.formulas]
-                .sort((a, b) =>
-                  (a.fase || "zz").localeCompare(b.fase || "zz") ||
-                  b.percentage - a.percentage
-                )
-                .map((f) => {
-                  const it = itemOf(f.item_id);
-                  return (
-                    <tr key={f.item_id} className="border-b border-line last:border-0">
-                      <td className="px-4 py-2 text-center font-semibold text-botanical-700">
-                        {f.fase || "-"}
-                      </td>
-                      <td className="px-4 py-2 font-mono text-[11.5px] whitespace-nowrap">
-                        {it?.kode}
-                      </td>
-                      <td className="px-4 py-2">{it?.nama || "-"}</td>
-                      <td className="px-4 py-2 text-right whitespace-nowrap">
-                        {f.percentage.toLocaleString("id-ID")}%
-                      </td>
-                      <td className="px-4 py-2 text-right whitespace-nowrap font-mono text-[12px]">
-                        {formatId((f.percentage / 100) * plan.bulkKg)} {it?.satuan}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={formulaTersortir}
+          rowKey={(f) => f.item_id}
+          minWidth={560}
+          chrome="bare"
+          expandable={false}
+          empty="Belum ada formulasi."
+          columns={[
+            {
+              key: "fase",
+              header: "Fase",
+              role: "badge",
+              align: "center",
+              className: "font-semibold text-botanical-700 whitespace-nowrap",
+              cell: (f) => f.fase || "-",
+              cardCell: (f) => (
+                <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium bg-botanical-100 text-botanical-700 whitespace-nowrap">
+                  Fase {f.fase || "-"}
+                </span>
+              ),
+            },
+            {
+              key: "kode",
+              header: "Kode",
+              role: "subtitle",
+              className: "font-mono text-[11.5px] whitespace-nowrap",
+              cell: (f) => itemOf(f.item_id)?.kode,
+            },
+            {
+              key: "bahan",
+              header: "Bahan",
+              role: "title",
+              cell: (f) => itemOf(f.item_id)?.nama || "-",
+            },
+            {
+              key: "pct",
+              header: "%",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (f) => `${f.percentage.toLocaleString("id-ID")}%`,
+            },
+            {
+              key: "qty",
+              header: "Qty Batch",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap font-mono text-[12px]",
+              cell: (f) =>
+                `${formatId(teoritisOf(f))} ${itemOf(f.item_id)?.satuan ?? ""}`,
+            },
+          ]}
+        />
       </div>
 
       {/* ===== BAHAN BAKU: teoritis vs real ===== */}
@@ -547,68 +631,108 @@ export default function ExecuteForm({
           </p>
         </div>
 
-        <div className="overflow-x-auto -mx-2 px-2">
-          <table className="w-full min-w-[620px] text-[13px]">
-            <thead>
-              <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-                <th className="px-2 py-2 font-semibold">Bahan</th>
-                <th className="px-2 py-2 font-semibold text-right">% Formula</th>
-                <th className="px-2 py-2 font-semibold text-right">Teoritis</th>
-                <th className="px-2 py-2 font-semibold w-[140px]">Timbang Real</th>
-                <th className="px-2 py-2 font-semibold text-right">Selisih</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plan.formulas.map((f) => {
+        <DataTable
+          rows={plan.formulas}
+          rowKey={(f) => f.item_id}
+          minWidth={620}
+          chrome="bare"
+          expandable={false}
+          empty="Belum ada bahan pada formula."
+          columns={[
+            {
+              key: "bahan",
+              header: "Bahan",
+              role: "title",
+              cell: (f) => {
                 const it = itemOf(f.item_id);
-                const teoritis = (f.percentage / 100) * plan.bulkKg;
-                const real = parseNum(bahanReal[f.item_id] || "");
-                const diff = real - teoritis;
-                const stokKurang = it && real > it.stok;
                 return (
-                  <tr key={f.item_id} className="border-b border-line last:border-0">
-                    <td className="px-2 py-2.5">
-                      <div className="font-medium">{it?.nama || "-"}</div>
-                      <div className="text-[11px] text-muted font-mono">
-                        {it?.kode} · stok {formatId(it?.stok || 0)} {it?.satuan}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2.5 text-right whitespace-nowrap">
-                      {f.percentage.toLocaleString("id-ID")}%
-                    </td>
-                    <td className="px-2 py-2.5 text-right whitespace-nowrap font-mono text-[12px]">
-                      {formatId(teoritis)} {it?.satuan}
-                    </td>
-                    <td className="px-2 py-2.5">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={bahanReal[f.item_id] || ""}
-                        onChange={(e) =>
-                          setBahanReal((s) => ({ ...s, [f.item_id]: e.target.value }))
-                        }
-                        className={`${inputCls} ${stokKurang ? "ring-2 ring-clay-500" : ""}`}
-                      />
-                    </td>
-                    <td
-                      className={`px-2 py-2.5 text-right whitespace-nowrap font-mono text-[12px] ${
-                        Math.abs(diff) < 0.0001
-                          ? "text-muted"
-                          : diff > 0
-                            ? "text-clay-600"
-                            : "text-botanical-700"
-                      }`}
-                    >
-                      {Math.abs(diff) < 0.0001
-                        ? "-"
-                        : `${diff > 0 ? "+" : ""}${formatId(diff)}`}
-                    </td>
-                  </tr>
+                  <>
+                    <div className="font-medium">{it?.nama || "-"}</div>
+                    <div className="text-[11px] text-muted font-mono">
+                      {it?.kode} · stok {formatId(it?.stok || 0)} {it?.satuan}
+                    </div>
+                  </>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              },
+              cardCell: (f) => {
+                const it = itemOf(f.item_id);
+                return (
+                  <>
+                    <div>{it?.nama || "-"}</div>
+                    <div className="text-[11px] text-muted font-mono font-normal">
+                      {it?.kode} · stok {formatId(it?.stok || 0)} {it?.satuan}
+                    </div>
+                  </>
+                );
+              },
+            },
+            {
+              key: "pct",
+              header: "% Formula",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (f) => `${f.percentage.toLocaleString("id-ID")}%`,
+            },
+            {
+              key: "teoritis",
+              header: "Teoritis",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap font-mono text-[12px]",
+              cell: (f) =>
+                `${formatId(teoritisOf(f))} ${itemOf(f.item_id)?.satuan ?? ""}`,
+            },
+            {
+              key: "real",
+              header: "Timbang Real",
+              role: "primary",
+              headClassName: "w-[140px]",
+              cell: (f) => {
+                const it = itemOf(f.item_id);
+                const real = parseNum(bahanReal[f.item_id] || "");
+                return (
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    aria-label={`Timbang real ${it?.nama ?? ""}`}
+                    value={bahanReal[f.item_id] || ""}
+                    onChange={(e) =>
+                      setBahanReal((s) => ({ ...s, [f.item_id]: e.target.value }))
+                    }
+                    className={`${inputCls} ${
+                      it && real > it.stok ? "ring-2 ring-clay-500" : ""
+                    }`}
+                  />
+                );
+              },
+            },
+            {
+              key: "selisih",
+              header: "Selisih",
+              role: "primary",
+              align: "right",
+              cell: (f) => {
+                const diff = parseNum(bahanReal[f.item_id] || "") - teoritisOf(f);
+                return (
+                  <span
+                    className={`whitespace-nowrap font-mono text-[12px] ${
+                      Math.abs(diff) < 0.0001
+                        ? "text-muted"
+                        : diff > 0
+                          ? "text-clay-600"
+                          : "text-botanical-700"
+                    }`}
+                  >
+                    {Math.abs(diff) < 0.0001
+                      ? "-"
+                      : `${diff > 0 ? "+" : ""}${formatId(diff)}`}
+                  </span>
+                );
+              },
+            },
+          ]}
+        />
       </div>
 
       {/* ===== ADJUSTING ===== */}
@@ -858,7 +982,9 @@ export default function ExecuteForm({
             <table className="w-full min-w-[560px] text-[13px]">
               <thead>
                 <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
-                  <th className="px-4 py-2 font-semibold">Parameter</th>
+                  <th className="px-4 py-2 font-semibold sticky-col sticky-col-head">
+                    Parameter
+                  </th>
                   <th className="px-4 py-2 font-semibold w-[210px]">Spesifikasi</th>
                   <th className="px-4 py-2 font-semibold w-[210px]">Hasil</th>
                 </tr>
@@ -866,7 +992,7 @@ export default function ExecuteForm({
               <tbody>
                 {ipcRows.map((r, i) => (
                   <tr key={r.nama} className="border-b border-line last:border-0">
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2 sticky-col">
                       {r.nama}
                       {r.satuan && (
                         <span className="text-muted text-[11.5px]"> ({r.satuan})</span>
@@ -999,52 +1125,80 @@ export default function ExecuteForm({
         </div>
 
         {kemasanIds.length > 0 && (
-          <div className="overflow-x-auto -mx-2 px-2 mt-1">
-            <table className="w-full min-w-[520px] text-[13px]">
-              <thead>
-                <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-                  <th className="px-2 py-2 font-semibold">Kemasan</th>
-                  <th className="px-2 py-2 font-semibold text-right">Teoritis</th>
-                  <th className="px-2 py-2 font-semibold w-[140px]">Ambil Real</th>
-                </tr>
-              </thead>
-              <tbody>
-                {kemasanIds.map((id) => {
-                  const it = itemOf(id);
-                  const teoritis = kemasanTeoritis.get(id) || 0;
-                  const val =
-                    kemasanQty[id] !== undefined
-                      ? kemasanQty[id]
-                      : teoritis > 0
-                        ? toStr(teoritis)
-                        : "";
-                  return (
-                    <tr key={id} className="border-b border-line last:border-0">
-                      <td className="px-2 py-2.5">
+          <div className="mt-1">
+            <DataTable
+              rows={kemasanIds}
+              rowKey={(id) => id}
+              minWidth={520}
+              chrome="bare"
+              expandable={false}
+              empty="Belum ada kemasan."
+              columns={[
+                {
+                  key: "kemasan",
+                  header: "Kemasan",
+                  role: "title",
+                  cell: (id) => {
+                    const it = itemOf(id);
+                    return (
+                      <>
                         <div className="font-medium">{it?.nama || "-"}</div>
                         <div className="text-[11px] text-muted font-mono">
                           {it?.kode} · stok {formatId(it?.stok || 0)} {it?.satuan}
                         </div>
-                      </td>
-                      <td className="px-2 py-2.5 text-right whitespace-nowrap font-mono text-[12px]">
-                        {formatId(teoritis)} {it?.satuan}
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={val}
-                          onChange={(e) =>
-                            setKemasanQty((s) => ({ ...s, [id]: e.target.value }))
-                          }
-                          className={inputCls}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </>
+                    );
+                  },
+                  cardCell: (id) => {
+                    const it = itemOf(id);
+                    return (
+                      <>
+                        <div>{it?.nama || "-"}</div>
+                        <div className="text-[11px] text-muted font-mono font-normal">
+                          {it?.kode} · stok {formatId(it?.stok || 0)} {it?.satuan}
+                        </div>
+                      </>
+                    );
+                  },
+                },
+                {
+                  key: "teoritis",
+                  header: "Teoritis",
+                  role: "primary",
+                  align: "right",
+                  className: "whitespace-nowrap font-mono text-[12px]",
+                  cell: (id) =>
+                    `${formatId(kemasanTeoritis.get(id) || 0)} ${itemOf(id)?.satuan ?? ""}`,
+                },
+                {
+                  key: "ambil",
+                  header: "Ambil Real",
+                  role: "primary",
+                  headClassName: "w-[140px]",
+                  cell: (id) => {
+                    const teoritis = kemasanTeoritis.get(id) || 0;
+                    const val =
+                      kemasanQty[id] !== undefined
+                        ? kemasanQty[id]
+                        : teoritis > 0
+                          ? toStr(teoritis)
+                          : "";
+                    return (
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        aria-label={`Ambil real ${itemOf(id)?.nama ?? ""}`}
+                        value={val}
+                        onChange={(e) =>
+                          setKemasanQty((s) => ({ ...s, [id]: e.target.value }))
+                        }
+                        className={inputCls}
+                      />
+                    );
+                  },
+                },
+              ]}
+            />
           </div>
         )}
       </div>
@@ -1061,88 +1215,127 @@ export default function ExecuteForm({
               selisih harus nol.
             </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-[13px]">
-              <thead>
-                <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
-                  <th className="px-4 py-2 font-semibold">Kemasan</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Diambil</th>
-                  <th className="px-4 py-2 font-semibold w-[120px]">Terpakai</th>
-                  <th className="px-4 py-2 font-semibold w-[120px]">Rusak</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Sisa</th>
-                  <th className="px-4 py-2 font-semibold text-right whitespace-nowrap">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {kemasanIds.map((id) => {
-                  const it = itemOf(id);
-                  const teoritis = kemasanTeoritis.get(id) || 0;
-                  const diambil =
-                    kemasanQty[id] !== undefined
-                      ? parseNum(kemasanQty[id])
-                      : teoritis;
-                  const terpakai = parseNum(kemasanTerpakai[id] || "");
-                  const rusak = parseNum(kemasanRusak[id] || "");
-                  const sisa = diambil - terpakai - rusak;
-                  const seimbang = Math.abs(sisa) < 0.0001 || sisa > 0;
-                  return (
-                    <tr key={id} className="border-b border-line last:border-0">
-                      <td className="px-4 py-2">
+          <div className="px-6 pb-5">
+            <DataTable
+              rows={kemasanIds}
+              rowKey={(id) => id}
+              minWidth={720}
+              chrome="bare"
+              expandable={false}
+              empty="Belum ada kemasan."
+              columns={[
+                {
+                  key: "kemasan",
+                  header: "Kemasan",
+                  role: "title",
+                  cell: (id) => {
+                    const it = itemOf(id);
+                    return (
+                      <>
                         <div className="font-medium max-w-[180px] truncate">
                           {it?.nama || "-"}
                         </div>
-                        <div className="text-[11px] text-muted font-mono">{it?.kode}</div>
-                      </td>
-                      <td className="px-4 py-2 text-right whitespace-nowrap font-mono text-[12px]">
-                        {formatId(diambil)} {it?.satuan}
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={kemasanTerpakai[id] || ""}
-                          onChange={(e) =>
-                            setKemasanTerpakai((s) => ({ ...s, [id]: e.target.value }))
-                          }
-                          placeholder="0"
-                          className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={kemasanRusak[id] || ""}
-                          onChange={(e) =>
-                            setKemasanRusak((s) => ({ ...s, [id]: e.target.value }))
-                          }
-                          placeholder="0"
-                          className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-right whitespace-nowrap font-mono text-[12px]">
-                        {formatId(sisa)}
-                      </td>
-                      <td className="px-4 py-2 text-right whitespace-nowrap">
-                        {terpakai > 0 || rusak > 0 ? (
-                          <span
-                            className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                              seimbang
-                                ? "bg-botanical-100 text-botanical-700"
-                                : "bg-clay-100 text-clay-600"
-                            }`}
-                          >
-                            {seimbang ? "Seimbang" : "Kurang"}
-                          </span>
-                        ) : (
-                          <span className="text-muted text-[11.5px]">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <div className="text-[11px] text-muted font-mono">
+                          {it?.kode}
+                        </div>
+                      </>
+                    );
+                  },
+                  cardCell: (id) => {
+                    const it = itemOf(id);
+                    return (
+                      <>
+                        <div>{it?.nama || "-"}</div>
+                        <div className="text-[11px] text-muted font-mono font-normal">
+                          {it?.kode}
+                        </div>
+                      </>
+                    );
+                  },
+                },
+                {
+                  key: "diambil",
+                  header: "Diambil",
+                  role: "primary",
+                  align: "right",
+                  className: "whitespace-nowrap font-mono text-[12px]",
+                  cell: (id) =>
+                    `${formatId(diambilOf(id))} ${itemOf(id)?.satuan ?? ""}`,
+                },
+                {
+                  key: "terpakai",
+                  header: "Terpakai",
+                  role: "primary",
+                  headClassName: "w-[120px]",
+                  cell: (id) => (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      aria-label={`Kemasan terpakai ${itemOf(id)?.nama ?? ""}`}
+                      value={kemasanTerpakai[id] || ""}
+                      onChange={(e) =>
+                        setKemasanTerpakai((s) => ({ ...s, [id]: e.target.value }))
+                      }
+                      placeholder="0"
+                      className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                    />
+                  ),
+                },
+                {
+                  key: "rusak",
+                  header: "Rusak",
+                  role: "primary",
+                  headClassName: "w-[120px]",
+                  cell: (id) => (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      aria-label={`Kemasan rusak ${itemOf(id)?.nama ?? ""}`}
+                      value={kemasanRusak[id] || ""}
+                      onChange={(e) =>
+                        setKemasanRusak((s) => ({ ...s, [id]: e.target.value }))
+                      }
+                      placeholder="0"
+                      className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                    />
+                  ),
+                },
+                {
+                  key: "sisa",
+                  header: "Sisa",
+                  role: "primary",
+                  align: "right",
+                  className: "whitespace-nowrap font-mono text-[12px]",
+                  cell: (id) => formatId(sisaKemasanOf(id)),
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  role: "badge",
+                  align: "right",
+                  className: "whitespace-nowrap",
+                  cell: (id) => {
+                    const terpakai = parseNum(kemasanTerpakai[id] || "");
+                    const rusak = parseNum(kemasanRusak[id] || "");
+                    if (terpakai <= 0 && rusak <= 0)
+                      return <span className="text-muted text-[11.5px]">-</span>;
+                    const sisa = sisaKemasanOf(id);
+                    const seimbang = Math.abs(sisa) < 0.0001 || sisa > 0;
+                    return (
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                          seimbang
+                            ? "bg-botanical-100 text-botanical-700"
+                            : "bg-clay-100 text-clay-600"
+                        }`}
+                      >
+                        {seimbang ? "Seimbang" : "Kurang"}
+                      </span>
+                    );
+                  },
+                },
+              ]}
+            />
           </div>
         </div>
       )}

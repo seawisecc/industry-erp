@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Eye, Pencil } from "lucide-react";
 import ProdukShell from "@/components/ProdukShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   ilikeOr,
   pageInfo,
@@ -87,88 +89,107 @@ export default async function ProductsPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[860px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Kode</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Nama Produk</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Brand</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Kategori</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Formulasi</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Varian</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center text-muted py-10 text-sm">
-                  {sp.q || sp.filter("status")
-                    ? "Tidak ada produk yang cocok dengan pencarian/filter."
-                    : "Belum ada produk."}
-                </td>
-              </tr>
-            ) : (
-              list.map((p) => (
-                <tr
-                  key={p.id}
-                  className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                >
-                  <td className="px-4 py-3 font-mono text-[12.5px]">{p.kode || "-"}</td>
-                  <td className="px-4 py-3 font-medium">{p.nama_produk}</td>
-                  <td className="px-4 py-3">{p.brand || "-"}</td>
-                  <td className="px-4 py-3">{p.kategori || "-"}</td>
-                  <td className="px-4 py-3">
-                    {p.product_formulas.length > 0 ? (
-                      <span className="text-[12.5px]">
-                        {p.product_formulas.length} bahan
-                      </span>
-                    ) : (
-                      <span className="text-[12.5px] text-clay-600">Belum ada</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.product_variants.length > 0 ? (
-                      <span className="text-[12.5px]">
-                        {p.product_variants.map((v) => v.nama_varian).join(", ")}
-                      </span>
-                    ) : (
-                      <span className="text-[12.5px] text-clay-600">Belum ada</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
-                        p.aktif
-                          ? "bg-botanical-100 text-botanical-700"
-                          : "bg-clay-100 text-clay-600"
-                      }`}
-                    >
-                      {p.aktif ? "Aktif" : "Nonaktif"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <Link
-                      href={`/products/${p.id}`}
-                      className="text-botanical-700 text-[12.5px] font-medium hover:underline mr-3"
-                    >
-                      Detail
-                    </Link>
-                    <Link
-                      href={`/products/${p.id}/edit`}
-                      className="text-muted text-[12.5px] font-medium hover:underline"
-                    >
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(p) => p.id}
+        minWidth={860}
+        empty={
+          sp.q || sp.filter("status")
+            ? "Tidak ada produk yang cocok dengan pencarian/filter."
+            : "Belum ada produk."
+        }
+        columns={[
+          {
+            key: "kode",
+            header: "Kode",
+            role: "subtitle",
+            cell: (p) => (
+              <span className="font-mono text-[12.5px]">{p.kode || "-"}</span>
+            ),
+          },
+          {
+            key: "nama",
+            header: "Nama Produk",
+            role: "title",
+            cell: (p) => <span className="font-medium">{p.nama_produk}</span>,
+            cardCell: (p) => p.nama_produk,
+          },
+          {
+            key: "brand",
+            header: "Brand",
+            role: "primary",
+            cell: (p) => p.brand || "-",
+          },
+          {
+            key: "kategori",
+            header: "Kategori",
+            role: "primary",
+            cell: (p) => p.kategori || "-",
+          },
+          {
+            key: "formulasi",
+            header: "Formulasi",
+            role: "secondary",
+            cell: (p) =>
+              p.product_formulas.length > 0 ? (
+                <span className="text-[12.5px]">
+                  {p.product_formulas.length} bahan
+                </span>
+              ) : (
+                <span className="text-[12.5px] text-clay-600">Belum ada</span>
+              ),
+          },
+          {
+            key: "varian",
+            header: "Varian",
+            role: "secondary",
+            cell: (p) =>
+              p.product_variants.length > 0 ? (
+                <span className="text-[12.5px]">
+                  {p.product_variants.map((v) => v.nama_varian).join(", ")}
+                </span>
+              ) : (
+                <span className="text-[12.5px] text-clay-600">Belum ada</span>
+              ),
+          },
+          {
+            key: "status",
+            header: "Status",
+            role: "badge",
+            cell: (p) => (
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
+                  p.aktif
+                    ? "bg-botanical-100 text-botanical-700"
+                    : "bg-clay-100 text-clay-600"
+                }`}
+              >
+                {p.aktif ? "Aktif" : "Nonaktif"}
+              </span>
+            ),
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            cell: (p) => (
+              <RowActions>
+                <IconAction
+                  icon={Eye}
+                  label="Lihat detail produk"
+                  href={`/products/${p.id}`}
+                  tone="primary"
+                />
+                <IconAction
+                  icon={Pencil}
+                  label="Edit produk"
+                  href={`/products/${p.id}/edit`}
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </ProdukShell>
   );

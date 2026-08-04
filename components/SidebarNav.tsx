@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "./Logo";
@@ -16,6 +16,48 @@ import { canAccessModule } from "@/lib/modules";
 import { NAV, HUBS } from "@/lib/navConfig";
 
 type OrgOption = { id: string; nama: string; slug: string; aktif: boolean };
+
+/* ------------------------------------------------------------
+   Preferensi "sidebar diminimize" — disimpan di localStorage.
+
+   localStorage tidak ada di server, jadi nilainya tidak bisa dipakai
+   sebagai initial state biasa — server render "lebar", klien render
+   "sempit", hidrasinya bentrok. useSyncExternalStore dibuat persis
+   untuk itu: React memakai getServerSnapshot saat render server &
+   hidrasi, lalu berpindah ke getSnapshot tanpa dianggap bentrok.
+
+   Yang TIDAK hilang: sidebar tetap sekilas lebar dulu sebelum
+   menyempit di muat pertama, karena server memang tidak punya cara
+   tahu preferensinya. Menghilangkan itu berarti memindahkan preferensi
+   ke cookie supaya terbaca di server — perubahan tersendiri, belum
+   dikerjakan di sini.
+   ------------------------------------------------------------ */
+const COLLAPSE_KEY = "sidebar-collapsed";
+const collapsePendengar = new Set<() => void>();
+
+function collapseSubscribe(cb: () => void) {
+  collapsePendengar.add(cb);
+  return () => {
+    collapsePendengar.delete(cb);
+  };
+}
+
+function collapseSnapshot() {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setCollapsedTersimpan(nilai: boolean) {
+  try {
+    localStorage.setItem(COLLAPSE_KEY, nilai ? "1" : "0");
+  } catch {
+    // mode privasi / storage penuh — cukup abaikan, UI tetap jalan
+  }
+  for (const cb of collapsePendengar) cb();
+}
 
 export default function SidebarNav({
   profileNama,
@@ -36,24 +78,26 @@ export default function SidebarNav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false); // drawer HP
-  const [collapsed, setCollapsed] = useState(false); // minimize desktop
-
-  // Ingat preferensi minimize
-  useEffect(() => {
-    setCollapsed(localStorage.getItem("sidebar-collapsed") === "1");
-  }, []);
+  const collapsed = useSyncExternalStore(
+    collapseSubscribe,
+    collapseSnapshot,
+    () => false // server & hidrasi: selalu lebar
+  );
 
   function toggleCollapsed() {
-    setCollapsed((c) => {
-      localStorage.setItem("sidebar-collapsed", c ? "0" : "1");
-      return !c;
-    });
+    setCollapsedTersimpan(!collapsed);
   }
 
-  // Tutup drawer tiap pindah halaman
-  useEffect(() => {
+  // Tutup drawer tiap pindah halaman.
+  //
+  // Dibandingkan saat render, bukan lewat useEffect. Effect berjalan
+  // sesudah browser melukis, jadi halaman baru sempat tampil dengan
+  // drawer masih menutupi layar sebelum ia menghilang.
+  const [pathTerakhir, setPathTerakhir] = useState(pathname);
+  if (pathTerakhir !== pathname) {
+    setPathTerakhir(pathname);
     setOpen(false);
-  }, [pathname]);
+  }
 
   const access = { isSuperAdmin, role, allowedModules };
   const visibleNav = NAV.filter((item) => {

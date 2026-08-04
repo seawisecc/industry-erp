@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Printer } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
 import CancelTxButton from "@/components/CancelTxButton";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import { cancelInvoice } from "./actions";
 import {
   ilikeOrWithIds,
@@ -135,110 +137,137 @@ export default async function SalesInvoicesPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[880px] text-[13px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No.</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tipe</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Client</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Sumber</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Total</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tax</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Bayar</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="text-center text-muted py-10 text-sm">
-                  {sp.q || sp.filter("tipe") || sp.filter("status")
-                    ? "Tidak ada dokumen yang cocok dengan pencarian/filter."
-                    : "Belum ada dokumen penjualan."}
-                </td>
-              </tr>
-            ) : (
-              list.map((inv) => (
-                <tr
-                  key={inv.id}
-                  className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                >
-                  <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                    {inv.no_invoice}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                        inv.tipe === "Invoice"
-                          ? "bg-botanical-100 text-botanical-700"
-                          : "bg-amber-100 text-amber-500"
-                      }`}
-                    >
-                      {inv.tipe}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[180px] truncate font-medium">
-                      {inv.clients?.company_brand || inv.nama_pembeli || "-"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                    {inv.sumber}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {formatTanggal(inv.tanggal)}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {formatRupiah(Number(inv.total))}
-                    {Number(inv.diskon_percent) > 0 && (
-                      <div className="text-[10.5px] text-muted">
-                        disc {Number(inv.diskon_percent)}%
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                    {inv.pakai_tax ? "PPN" : "Non-Tax"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                        inv.status_bayar === "Lunas"
-                          ? "bg-botanical-100 text-botanical-700"
-                          : "bg-amber-100 text-amber-500"
-                      }`}
-                    >
-                      {inv.status_bayar}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <div className="inline-flex items-center gap-3">
-                      {canCancel && inv.sumber !== "Konsinyasi" && (
-                        <CancelTxButton
-                          id={inv.id}
-                          action={cancelInvoice}
-                          canCancel={canCancel}
-                          variant="link"
-                          label="Batal"
-                          judul="Batalkan Dokumen Penjualan"
-                          keterangan="Dokumen dihapus dan stok produk jadi kembali. Tidak bisa bila client sudah membayar."
-                        />
-                      )}
-                      <Link
-                        href={`/print/invoice/${inv.id}`}
-                        className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        Cetak
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(inv) => inv.id}
+        minWidth={880}
+        empty={
+          sp.q || sp.filter("tipe") || sp.filter("status")
+            ? "Tidak ada dokumen yang cocok dengan pencarian/filter."
+            : "Belum ada dokumen penjualan."
+        }
+        columns={[
+          {
+            key: "no",
+            header: "No.",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (inv) => (
+              <span className="font-mono text-[12px]">{inv.no_invoice}</span>
+            ),
+          },
+          {
+            key: "tipe",
+            header: "Tipe",
+            role: "badge",
+            cell: (inv) => (
+              <span
+                className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                  inv.tipe === "Invoice"
+                    ? "bg-botanical-100 text-botanical-700"
+                    : "bg-amber-100 text-amber-500"
+                }`}
+              >
+                {inv.tipe}
+              </span>
+            ),
+          },
+          {
+            key: "client",
+            header: "Client",
+            role: "title",
+            cell: (inv) => (
+              <div className="max-w-[180px] truncate font-medium">
+                {inv.clients?.company_brand || inv.nama_pembeli || "-"}
+              </div>
+            ),
+            cardCell: (inv) =>
+              inv.clients?.company_brand || inv.nama_pembeli || "-",
+          },
+          {
+            key: "sumber",
+            header: "Sumber",
+            role: "secondary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (inv) => inv.sumber,
+          },
+          {
+            key: "tanggal",
+            header: "Tanggal",
+            role: "primary",
+            className: "whitespace-nowrap",
+            cell: (inv) => formatTanggal(inv.tanggal),
+          },
+          {
+            key: "total",
+            header: "Total",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (inv) => (
+              <>
+                {formatRupiah(Number(inv.total))}
+                {Number(inv.diskon_percent) > 0 && (
+                  <div className="text-[10.5px] text-muted">
+                    disc {Number(inv.diskon_percent)}%
+                  </div>
+                )}
+              </>
+            ),
+          },
+          {
+            key: "tax",
+            header: "Tax",
+            role: "secondary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (inv) => (inv.pakai_tax ? "PPN" : "Non-Tax"),
+          },
+          {
+            key: "bayar",
+            header: "Bayar",
+            role: "badge",
+            cell: (inv) => (
+              <span
+                className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                  inv.status_bayar === "Lunas"
+                    ? "bg-botanical-100 text-botanical-700"
+                    : "bg-amber-100 text-amber-500"
+                }`}
+              >
+                {inv.status_bayar}
+              </span>
+            ),
+          },
+          {
+            key: "aksi",
+            header: "Aksi",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (inv) => (
+              <RowActions>
+                {canCancel && inv.sumber !== "Konsinyasi" && (
+                  <CancelTxButton
+                    id={inv.id}
+                    action={cancelInvoice}
+                    canCancel={canCancel}
+                    variant="icon"
+                    label="Batalkan dokumen"
+                    judul="Batalkan Dokumen Penjualan"
+                    keterangan="Dokumen dihapus dan stok produk jadi kembali. Tidak bisa bila client sudah membayar."
+                  />
+                )}
+                <IconAction
+                  icon={Printer}
+                  label="Cetak faktur"
+                  href={`/print/invoice/${inv.id}`}
+                  tone="primary"
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </SalesShell>
   );

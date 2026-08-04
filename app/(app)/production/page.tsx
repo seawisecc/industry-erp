@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Play, ClipboardCheck, Eye } from "lucide-react";
 import ProdukShell from "@/components/ProdukShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   ilikeOrWithIds,
   pageInfo,
@@ -146,99 +148,121 @@ export default async function ProductionPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[800px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. Batch</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Produk</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Jml Batch</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Rencana</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {planList.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-muted py-10 text-sm">
-                  {sp.q || sp.filter("status")
-                    ? "Tidak ada plan yang cocok dengan pencarian/filter."
-                    : `Belum ada plan produksi.${
-                        canPlan ? " Mulai dari tombol Buat Plan Produksi." : ""
-                      }`}
-                </td>
-              </tr>
-            ) : (
-              planList.map((p) => (
-                <tr
-                  key={p.id}
-                  className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                >
-                  <td className="px-4 py-3 font-mono text-[12.5px] whitespace-nowrap">
-                    {p.no_batch}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[220px] truncate font-medium">
-                      {p.products?.nama_produk || "-"}
-                    </div>
-                    <div className="text-[11px] text-muted font-mono">
-                      {p.products?.kode}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {Number(p.jumlah_batch).toLocaleString("id-ID")}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {formatTanggal(p.tanggal_rencana)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11.5px] font-medium ${PLAN_STYLE[p.status] || ""}`}
-                    >
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {p.status === "Direncanakan" && (
-                      <Link
-                        href={`/production/plan/${p.id}/execute`}
-                        className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        Mulai Eksekusi
-                      </Link>
-                    )}
-                    {p.status === "Sedang Produksi" && (
-                      <>
-                        <Link
-                          href={`/production/plan/${p.id}/execute`}
-                          className="text-muted text-[12.5px] font-medium hover:underline mr-3"
-                        >
-                          Eksekusi
-                        </Link>
-                        <Link
-                          href={`/production/plan/${p.id}/result`}
-                          className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                        >
-                          Input Hasil
-                        </Link>
-                      </>
-                    )}
-                    {p.status === "Selesai" && p.production_batch_id && (
-                      <Link
-                        href={`/production/${p.production_batch_id}`}
-                        className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                      >
-                        Detail
-                      </Link>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={planList}
+        rowKey={(p) => p.id}
+        minWidth={800}
+        empty={
+          sp.q || sp.filter("status")
+            ? "Tidak ada plan yang cocok dengan pencarian/filter."
+            : `Belum ada plan produksi.${
+                canPlan ? " Mulai dari tombol Buat Plan Produksi." : ""
+              }`
+        }
+        columns={[
+          {
+            key: "batch",
+            header: "No. Batch",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (p) => (
+              <span className="font-mono text-[12.5px]">{p.no_batch}</span>
+            ),
+          },
+          {
+            key: "produk",
+            header: "Produk",
+            role: "title",
+            cell: (p) => (
+              <>
+                <div className="max-w-[220px] truncate font-medium">
+                  {p.products?.nama_produk || "-"}
+                </div>
+                <div className="text-[11px] text-muted font-mono">
+                  {p.products?.kode}
+                </div>
+              </>
+            ),
+            cardCell: (p) => (
+              <>
+                <div>{p.products?.nama_produk || "-"}</div>
+                <div className="text-[11px] text-muted font-mono font-normal">
+                  {p.products?.kode}
+                </div>
+              </>
+            ),
+          },
+          {
+            key: "jml",
+            header: "Jml Batch",
+            role: "primary",
+            align: "right",
+            cell: (p) => Number(p.jumlah_batch).toLocaleString("id-ID"),
+          },
+          {
+            key: "rencana",
+            header: "Rencana",
+            cardLabel: "Tanggal Rencana",
+            role: "primary",
+            className: "whitespace-nowrap",
+            cell: (p) => formatTanggal(p.tanggal_rencana),
+          },
+          {
+            key: "status",
+            header: "Status",
+            role: "badge",
+            cell: (p) => (
+              <span
+                className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11.5px] font-medium ${PLAN_STYLE[p.status] || ""}`}
+              >
+                {p.status}
+              </span>
+            ),
+          },
+          {
+            key: "aksi",
+            header: "Aksi",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (p) => (
+              <RowActions>
+                {p.status === "Direncanakan" && (
+                  <IconAction
+                    icon={Play}
+                    label="Mulai eksekusi"
+                    href={`/production/plan/${p.id}/execute`}
+                    tone="primary"
+                  />
+                )}
+                {p.status === "Sedang Produksi" && (
+                  <>
+                    <IconAction
+                      icon={Play}
+                      label="Lanjut eksekusi"
+                      href={`/production/plan/${p.id}/execute`}
+                    />
+                    <IconAction
+                      icon={ClipboardCheck}
+                      label="Input hasil produksi"
+                      href={`/production/plan/${p.id}/result`}
+                      tone="primary"
+                    />
+                  </>
+                )}
+                {p.status === "Selesai" && p.production_batch_id && (
+                  <IconAction
+                    icon={Eye}
+                    label="Lihat detail batch"
+                    href={`/production/${p.production_batch_id}`}
+                    tone="primary"
+                  />
+                )}
+              </RowActions>
+            ),
+          },
+        ]}
+      />
 
       <Pagination info={info} />
 
@@ -250,72 +274,83 @@ export default async function ProductionPage({
             · 30 terakhir
           </span>
         </h3>
-        <div className="glass rounded-2xl overflow-x-auto">
-          <table className="w-full min-w-[760px] text-[13.5px]">
-            <thead>
-              <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-                <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. Batch</th>
-                <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tanggal</th>
-                <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Produk</th>
-                <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Hasil</th>
-                <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Cost Bahan</th>
-                <th className="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {batchList.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center text-muted py-8 text-sm">
-                    Belum ada produksi selesai.
-                  </td>
-                </tr>
-              ) : (
-                batchList.map((b) => {
-                  const out = b.production_outputs?.[0];
-                  return (
-                    <tr
-                      key={b.id}
-                      className="border-b border-line last:border-0 hover:bg-white/40 transition-colors"
-                    >
-                      <td className="px-4 py-3 font-mono text-[12.5px] whitespace-nowrap">
-                        {b.no_batch_produksi}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {formatTanggal(b.tanggal_produksi)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="max-w-[220px] truncate font-medium">
-                          {out?.products?.nama_produk || "-"}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap text-[12.5px]">
-                        {b.production_outputs.length === 0
-                          ? "-"
-                          : b.production_outputs
-                              .map(
-                                (o) =>
-                                  `${o.varian_ukuran ? o.varian_ukuran + ": " : ""}${Number(o.qty_hasil).toLocaleString("id-ID")} ${o.satuan}`
-                              )
-                              .join(" · ")}
-                      </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        {formatRupiah(Number(b.total_cost_bahan))}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/production/${b.id}`}
-                          className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                        >
-                          Detail
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={batchList}
+          rowKey={(b) => b.id}
+          minWidth={760}
+          empty="Belum ada produksi selesai."
+          columns={[
+            {
+              key: "batch",
+              header: "No. Batch",
+              role: "subtitle",
+              className: "whitespace-nowrap",
+              cell: (b) => (
+                <span className="font-mono text-[12.5px]">
+                  {b.no_batch_produksi}
+                </span>
+              ),
+            },
+            {
+              key: "tanggal",
+              header: "Tanggal",
+              role: "secondary",
+              className: "whitespace-nowrap",
+              cell: (b) => formatTanggal(b.tanggal_produksi),
+            },
+            {
+              key: "produk",
+              header: "Produk",
+              role: "title",
+              cell: (b) => (
+                <div className="max-w-[220px] truncate font-medium">
+                  {b.production_outputs?.[0]?.products?.nama_produk || "-"}
+                </div>
+              ),
+              cardCell: (b) =>
+                b.production_outputs?.[0]?.products?.nama_produk || "-",
+            },
+            {
+              key: "hasil",
+              header: "Hasil",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap text-[12.5px]",
+              cell: (b) =>
+                b.production_outputs.length === 0
+                  ? "-"
+                  : b.production_outputs
+                      .map(
+                        (o) =>
+                          `${o.varian_ukuran ? o.varian_ukuran + ": " : ""}${Number(o.qty_hasil).toLocaleString("id-ID")} ${o.satuan}`
+                      )
+                      .join(" · "),
+            },
+            {
+              key: "cost",
+              header: "Cost Bahan",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (b) => formatRupiah(Number(b.total_cost_bahan)),
+            },
+            {
+              key: "aksi",
+              role: "actions",
+              align: "right",
+              cell: (b) => (
+                <RowActions>
+                  <IconAction
+                    icon={Eye}
+                    label="Lihat batch record"
+                    href={`/production/${b.id}`}
+                    tone="primary"
+                  />
+                </RowActions>
+              ),
+            },
+          ]}
+        />
       </div>
     </ProdukShell>
   );

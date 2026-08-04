@@ -235,7 +235,7 @@ export default function QcSheetForm({
             <table className="w-full min-w-[620px] text-[13px]">
               <thead>
                 <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-y border-line bg-white/40">
-                  <th className="px-4 py-2 font-semibold">Parameter</th>
+                  <th className="px-4 py-2 font-semibold sticky-col sticky-col-head">Parameter</th>
                   <th className="px-4 py-2 font-semibold w-[230px]">Spesifikasi</th>
                   <th className="px-4 py-2 font-semibold w-[230px]">Hasil Uji</th>
                 </tr>
@@ -253,7 +253,7 @@ export default function QcSheetForm({
                     </tr>
                     {idxs.map((i) => (
                       <tr key={rows[i].nama} className="border-b border-line last:border-0">
-                        <td className="px-4 py-2.5">
+                        <td className="px-4 py-2.5 sticky-col">
                           {rows[i].nama}
                           {rows[i].satuan && (
                             <span className="text-muted text-[11.5px]">

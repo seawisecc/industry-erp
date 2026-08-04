@@ -5,6 +5,7 @@ import PembelianShell from "@/components/PembelianShell";
 import PayButton from "./PayButton";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
 import {
   ilikeOrWithIds,
   pageInfo,
@@ -87,6 +88,12 @@ export default async function PaymentsPage({
 
   const list = (invoices || []) as unknown as InvoiceRow[];
   const info = pageInfo(sp.page, count, list.length);
+
+  /** Lewat jatuh tempo dan belum dibayar — barisnya diberi latar peringatan. */
+  const overdueFaktur = (inv: InvoiceRow) =>
+    inv.status_bayar !== "Lunas" &&
+    inv.jatuh_tempo !== null &&
+    inv.jatuh_tempo < todayStr;
 
   // Ringkasan hutang dihitung dari SELURUH faktur belum lunas, bukan cuma
   // halaman yang sedang tampil.
@@ -183,113 +190,145 @@ export default async function PaymentsPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[900px] text-[13px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">No. Faktur</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Supplier</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">PO</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tgl Faktur</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">TOP</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Jatuh Tempo</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Total</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Status</th>
-              <th className="px-4 py-2.5 font-semibold text-right whitespace-nowrap">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="text-center text-muted py-10 text-sm">
-                  {sp.q || sp.filter("status")
-                    ? "Tidak ada faktur yang cocok dengan pencarian/filter."
-                    : "Belum ada faktur. Faktur muncul otomatis dari Receiving."}
-                </td>
-              </tr>
-            ) : (
-              list.map((inv) => {
-                const paid = inv.status_bayar === "Lunas";
-                const overdue =
-                  !paid && inv.jatuh_tempo !== null && inv.jatuh_tempo < todayStr;
-                return (
-                  <tr
-                    key={inv.id}
-                    className={`border-b border-line last:border-0 transition-colors ${
-                      overdue ? "bg-clay-100/30" : "hover:bg-white/40"
+      <DataTable
+        rows={list}
+        rowKey={(inv) => inv.id}
+        minWidth={900}
+        rowClassName={(inv) => (overdueFaktur(inv) ? "bg-clay-100/30" : "")}
+        empty={
+          sp.q || sp.filter("status")
+            ? "Tidak ada faktur yang cocok dengan pencarian/filter."
+            : "Belum ada faktur. Faktur muncul otomatis dari Receiving."
+        }
+        columns={[
+          {
+            key: "no",
+            header: "No. Faktur",
+            role: "subtitle",
+            className: "whitespace-nowrap",
+            cell: (inv) => (
+              <span className="font-mono text-[12px]">{inv.no_invoice || "-"}</span>
+            ),
+          },
+          {
+            key: "supplier",
+            header: "Supplier",
+            role: "title",
+            cell: (inv) => (
+              <div
+                className="max-w-[190px] truncate font-medium"
+                title={inv.supplier_nama || undefined}
+              >
+                {inv.supplier_nama || "-"}
+              </div>
+            ),
+            cardCell: (inv) => inv.supplier_nama || "-",
+          },
+          {
+            key: "po",
+            header: "PO",
+            cardLabel: "No. PO",
+            role: "secondary",
+            className: "whitespace-nowrap",
+            cell: (inv) => (
+              <span className="font-mono text-[12px]">
+                {inv.purchase_orders?.no_po || "-"}
+              </span>
+            ),
+          },
+          {
+            key: "tgl",
+            header: "Tgl Faktur",
+            role: "secondary",
+            className: "whitespace-nowrap",
+            cell: (inv) => formatTanggal(inv.tanggal_terima),
+          },
+          {
+            key: "top",
+            header: "TOP",
+            cardLabel: "Termin (TOP)",
+            role: "secondary",
+            className: "whitespace-nowrap text-[12.5px]",
+            cell: (inv) =>
+              inv.top_days == null
+                ? "-"
+                : inv.top_days === 0
+                  ? "Tunai"
+                  : `${inv.top_days} hr`,
+          },
+          {
+            key: "tempo",
+            header: "Jatuh Tempo",
+            role: "primary",
+            className: "whitespace-nowrap",
+            cell: (inv) =>
+              inv.jatuh_tempo ? (
+                <span
+                  className={
+                    overdueFaktur(inv) ? "text-clay-600 font-semibold" : undefined
+                  }
+                >
+                  {formatTanggal(inv.jatuh_tempo)}
+                  {overdueFaktur(inv) && (
+                    <span className="block text-[10.5px] font-medium">
+                      terlambat
+                    </span>
+                  )}
+                </span>
+              ) : (
+                "-"
+              ),
+          },
+          {
+            key: "total",
+            header: "Total",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (inv) => formatRupiah(Number(inv.total_invoice)),
+          },
+          {
+            key: "status",
+            header: "Status",
+            role: "badge",
+            cell: (inv) => {
+              const paid = inv.status_bayar === "Lunas";
+              return (
+                <>
+                  <span
+                    className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                      paid
+                        ? "bg-botanical-100 text-botanical-700"
+                        : "bg-amber-100 text-amber-500"
                     }`}
                   >
-                    <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                      {inv.no_invoice || "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div
-                        className="max-w-[190px] truncate font-medium"
-                        title={inv.supplier_nama || undefined}
-                      >
-                        {inv.supplier_nama || "-"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
-                      {inv.purchase_orders?.no_po || "-"}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {formatTanggal(inv.tanggal_terima)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-[12.5px]">
-                      {inv.top_days == null
-                        ? "-"
-                        : inv.top_days === 0
-                          ? "Tunai"
-                          : `${inv.top_days} hr`}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {inv.jatuh_tempo ? (
-                        <span
-                          className={
-                            overdue ? "text-clay-600 font-semibold" : undefined
-                          }
-                        >
-                          {formatTanggal(inv.jatuh_tempo)}
-                          {overdue && (
-                            <span className="block text-[10.5px] font-medium">
-                              terlambat
-                            </span>
-                          )}
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {formatRupiah(Number(inv.total_invoice))}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                          paid
-                            ? "bg-botanical-100 text-botanical-700"
-                            : "bg-amber-100 text-amber-500"
-                        }`}
-                      >
-                        {paid ? "Lunas" : "Belum Lunas"}
-                      </span>
-                      {paid && inv.tanggal_bayar && (
-                        <div className="text-[10.5px] text-muted mt-0.5">
-                          {formatTanggal(inv.tanggal_bayar)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <PayButton id={inv.id} noInvoice={inv.no_invoice} paid={paid} />
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                    {paid ? "Lunas" : "Belum Lunas"}
+                  </span>
+                  {paid && inv.tanggal_bayar && (
+                    <div className="text-[10.5px] text-muted mt-0.5">
+                      {formatTanggal(inv.tanggal_bayar)}
+                    </div>
+                  )}
+                </>
+              );
+            },
+          },
+          {
+            key: "aksi",
+            header: "Aksi",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (inv) => (
+              <PayButton
+                id={inv.id}
+                noInvoice={inv.no_invoice}
+                paid={inv.status_bayar === "Lunas"}
+              />
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </PembelianShell>
   );

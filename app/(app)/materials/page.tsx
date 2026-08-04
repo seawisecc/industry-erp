@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import BahanShell from "@/components/BahanShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
+import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import {
   ilikeOr,
   pageInfo,
@@ -23,6 +25,14 @@ type MaterialRow = {
   suppliers: { nama: string } | null;
   material_inci: { inci_name: string; percentage: number }[];
 };
+
+/** Kemasan dijelaskan lewat keterangan bebas; bahan baku lewat komposisi INCI. */
+function inciTeks(m: MaterialRow) {
+  if (m.kategori === "Kemasan") return m.keterangan || "-";
+  return m.material_inci.length > 0
+    ? m.material_inci.map((i) => `${i.inci_name} (${i.percentage}%)`).join(", ")
+    : "-";
+}
 
 export default async function MaterialsPage({
   searchParams,
@@ -90,86 +100,114 @@ export default async function MaterialsPage({
           ]}
         />
       </div>
-      <div className="glass rounded-2xl overflow-x-auto">
-        <table className="w-full min-w-[960px] text-[13.5px]">
-          <thead>
-            <tr className="text-left text-muted text-[11.5px] uppercase tracking-wide border-b border-line">
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Kode</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Tradename</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Kategori</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Supplier</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">INCI / Keterangan</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">Origin</th>
-              <th className="px-4 py-2.5 font-semibold whitespace-nowrap">NOC</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center text-muted py-10 text-sm">
-                  {sp.q || sp.filter("kategori")
-                    ? "Tidak ada material yang cocok dengan pencarian/filter."
-                    : "Belum ada material."}
-                </td>
-              </tr>
-            ) : (
-              list.map((m) => (
-                <tr key={m.id} className="border-b border-line last:border-0 hover:bg-white/40 transition-colors">
-                  <td className="px-4 py-3 font-mono text-[12.5px] font-medium whitespace-nowrap">
-                    {m.material_code}
-                  </td>
-                  <td className="px-4 py-3 font-medium">
-                    <div className="max-w-[200px] truncate" title={m.tradename}>
-                      {m.tradename}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11.5px] font-medium ${m.kategori === "Kemasan" ? "bg-amber-100 text-amber-500" : "bg-botanical-100 text-botanical-700"}`}>
-                      {m.kategori}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[170px] truncate" title={m.suppliers?.nama}>
-                      {m.suppliers?.nama || "-"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {(() => {
-                      const teks =
-                        m.kategori === "Kemasan"
-                          ? m.keterangan || "-"
-                          : m.material_inci.length > 0
-                            ? m.material_inci
-                                .map((i) => `${i.inci_name} (${i.percentage}%)`)
-                                .join(", ")
-                            : "-";
-                      return (
-                        <div
-                          className="w-[280px] text-[12px] leading-snug line-clamp-2"
-                          title={teks}
-                        >
-                          {teks}
-                        </div>
-                      );
-                    })()}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">{m.origin || "-"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{m.noc || "-"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/materials/${m.id}/edit`}
-                      className="text-botanical-700 text-[12.5px] font-medium hover:underline"
-                    >
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list}
+        rowKey={(m) => m.id}
+        minWidth={960}
+        empty={
+          sp.q || sp.filter("kategori")
+            ? "Tidak ada material yang cocok dengan pencarian/filter."
+            : "Belum ada material."
+        }
+        columns={[
+          {
+            key: "kode",
+            header: "Kode",
+            role: "subtitle",
+            cell: (m) => (
+              <span className="font-mono text-[12.5px] font-medium whitespace-nowrap">
+                {m.material_code}
+              </span>
+            ),
+          },
+          {
+            key: "tradename",
+            header: "Tradename",
+            role: "title",
+            cell: (m) => (
+              <div className="max-w-[200px] truncate font-medium" title={m.tradename}>
+                {m.tradename}
+              </div>
+            ),
+            cardCell: (m) => m.tradename,
+          },
+          {
+            key: "kategori",
+            header: "Kategori",
+            role: "badge",
+            cell: (m) => (
+              <span
+                className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11.5px] font-medium ${
+                  m.kategori === "Kemasan"
+                    ? "bg-amber-100 text-amber-500"
+                    : "bg-botanical-100 text-botanical-700"
+                }`}
+              >
+                {m.kategori}
+              </span>
+            ),
+          },
+          {
+            key: "supplier",
+            header: "Supplier",
+            role: "primary",
+            cell: (m) => (
+              <div className="max-w-[170px] truncate" title={m.suppliers?.nama}>
+                {m.suppliers?.nama || "-"}
+              </div>
+            ),
+            cardCell: (m) => m.suppliers?.nama || "-",
+          },
+          {
+            key: "inci",
+            header: "INCI / Keterangan",
+            role: "secondary",
+            cell: (m) => {
+              const teks = inciTeks(m);
+              return (
+                <div
+                  className="w-[280px] text-[12px] leading-snug line-clamp-2"
+                  title={teks}
+                >
+                  {teks}
+                </div>
+              );
+            },
+            cardCell: (m) => (
+              <span className="text-[12px] leading-snug">{inciTeks(m)}</span>
+            ),
+          },
+          {
+            key: "origin",
+            header: "Origin",
+            role: "secondary",
+            className: "whitespace-nowrap",
+            cell: (m) => m.origin || "-",
+          },
+          {
+            key: "noc",
+            header: "NOC",
+            role: "secondary",
+            className: "whitespace-nowrap",
+            cell: (m) => m.noc || "-",
+          },
+          {
+            key: "aksi",
+            role: "actions",
+            align: "right",
+            cell: (m) => (
+              <RowActions>
+                <IconAction
+                  icon={Pencil}
+                  label="Edit material"
+                  href={`/materials/${m.id}/edit`}
+                  tone="primary"
+                />
+              </RowActions>
+            ),
+          },
+        ]}
+      />
       <Pagination info={info} />
     </BahanShell>
   );

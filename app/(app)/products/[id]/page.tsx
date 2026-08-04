@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, Calculator } from "lucide-react";
 import InciPanel, { InciEntry } from "./InciPanel";
+import DataTable from "@/components/DataTable";
 
 type ProductRaw = {
   id: string;
@@ -257,11 +258,13 @@ export default async function ProductDetailPage({
         {formulaRows.length === 0 ? (
           <p className="text-muted text-[13px]">Belum ada formulasi.</p>
         ) : (
-          <div className="border border-line rounded-xl overflow-hidden">
-            <table className="w-full text-[13px]">
+          <div className="border border-line rounded-xl overflow-x-auto">
+            <table className="w-full min-w-[560px] text-[13px]">
               <thead>
                 <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-b border-line bg-white/50">
-                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Kode</th>
+                  <th className="px-3 py-2 font-semibold whitespace-nowrap sticky-col sticky-col-head">
+                    Kode
+                  </th>
                   <th className="px-3 py-2 font-semibold">Bahan</th>
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Fase</th>
                   <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">%</th>
@@ -303,7 +306,7 @@ export default async function ProductDetailPage({
                         key={r.kode + r.nama}
                         className="border-b border-line last:border-0"
                       >
-                        <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">
+                        <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap sticky-col">
                           {r.kode}
                         </td>
                         <td className="px-3 py-2.5">
@@ -409,63 +412,86 @@ export default async function ProductDetailPage({
         </div>
 
         {variantCosts.length > 0 && (
-          <div className="border border-line rounded-xl overflow-hidden">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-b border-line bg-white/50">
-                  <th className="px-3 py-2 font-semibold">Varian</th>
-                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Cost Bulk/pcs</th>
-                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Cost Kemasan/pcs</th>
-                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Est. HPP/pcs</th>
-                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Harga Jual</th>
-                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">Margin</th>
-                </tr>
-              </thead>
-              <tbody>
-                {variantCosts.map((v) => (
-                  <tr key={v.nama} className="border-b border-line last:border-0">
-                    <td className="px-3 py-2.5 font-medium whitespace-nowrap">{v.nama}</td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                      {formatRupiah(v.bulkCost)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                      {formatRupiah(v.packCost)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap font-semibold text-botanical-700">
-                      {formatRupiah(v.total)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap font-semibold">
-                      {v.hargaJual != null ? formatRupiah(v.hargaJual) : "-"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                      {v.margin != null ? (
-                        <span
-                          className={
-                            v.margin >= 0
-                              ? "text-botanical-700 font-medium"
-                              : "text-clay-600 font-medium"
-                          }
-                        >
-                          {formatRupiah(v.margin)}
-                          {v.hargaJual! > 0 && (
-                            <span className="block text-[10.5px] text-muted font-normal">
-                              {((v.margin / v.hargaJual!) * 100).toLocaleString(
-                                "id-ID",
-                                { maximumFractionDigits: 1 }
-                              )}
-                              %
-                            </span>
-                          )}
+          <DataTable
+            rows={variantCosts}
+            rowKey={(v) => v.nama}
+            minWidth={720}
+            empty="Belum ada varian."
+            columns={[
+              {
+                key: "varian",
+                header: "Varian",
+                role: "title",
+                className: "font-medium whitespace-nowrap",
+                cell: (v) => v.nama,
+              },
+              {
+                key: "bulk",
+                header: "Cost Bulk/pcs",
+                role: "secondary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (v) => formatRupiah(v.bulkCost),
+              },
+              {
+                key: "pack",
+                header: "Cost Kemasan/pcs",
+                role: "secondary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (v) => formatRupiah(v.packCost),
+              },
+              {
+                key: "hpp",
+                header: "Est. HPP/pcs",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap font-semibold text-botanical-700",
+                cell: (v) => (
+                  <span className="font-semibold text-botanical-700">
+                    {formatRupiah(v.total)}
+                  </span>
+                ),
+              },
+              {
+                key: "jual",
+                header: "Harga Jual",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap font-semibold",
+                cell: (v) => (v.hargaJual != null ? formatRupiah(v.hargaJual) : "-"),
+              },
+              {
+                key: "margin",
+                header: "Margin",
+                role: "primary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (v) =>
+                  v.margin == null ? (
+                    <span className="text-muted">-</span>
+                  ) : (
+                    <span
+                      className={
+                        v.margin >= 0
+                          ? "text-botanical-700 font-medium"
+                          : "text-clay-600 font-medium"
+                      }
+                    >
+                      {formatRupiah(v.margin)}
+                      {v.hargaJual! > 0 && (
+                        <span className="block text-[10.5px] text-muted font-normal">
+                          {((v.margin / v.hargaJual!) * 100).toLocaleString("id-ID", {
+                            maximumFractionDigits: 1,
+                          })}
+                          %
                         </span>
-                      ) : (
-                        "-"
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </span>
+                  ),
+              },
+            ]}
+          />
         )}
       </div>
 
