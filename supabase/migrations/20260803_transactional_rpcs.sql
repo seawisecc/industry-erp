@@ -554,8 +554,13 @@ begin
   from po_items
   where po_id = v_po.id and qty_diterima < qty_pesan;
 
+  -- Cast wajib. Literal telanjang (`set status = 'Selesai'`) otomatis
+  -- dipaksa ke tipe kolom, tapi CASE yang seluruh cabangnya literal
+  -- tanpa tipe akan diselesaikan jadi `text` dulu — dan text→enum tidak
+  -- punya assignment cast, jadi Postgres menolak dengan
+  -- "column status is of type po_status but expression is of type text".
   update purchase_orders
-    set status = case when v_belum = 0 then 'Selesai' else 'Diterima Sebagian' end
+    set status = (case when v_belum = 0 then 'Selesai' else 'Diterima Sebagian' end)::po_status
     where id = v_po.id and organization_id = p_organization_id;
 
   return v_receiving;
@@ -684,6 +689,12 @@ declare
   v_total   numeric;
   v_dibayar numeric;
   v_lunas   boolean;
+  -- %TYPE, bukan nama tipe yang di-hardcode. Sama seperti status PO,
+  -- CASE yang seluruh cabangnya literal jadi `text` dan ditolak kalau
+  -- kolomnya enum. Lewat variabel bertipe kolom, assignment-nya pakai
+  -- konversi I/O plpgsql sehingga benar baik kolomnya text maupun enum —
+  -- termasuk kalau nanti diubah jadi enum.
+  v_status  sales_invoices.status_bayar%type;
 begin
   select total into v_total
   from sales_invoices
@@ -698,9 +709,13 @@ begin
   where invoice_id = p_invoice_id and organization_id = p_organization_id;
 
   v_lunas := v_dibayar >= v_total - 0.5;  -- toleransi pembulatan rupiah
+  v_status := case when v_lunas then 'Lunas' else 'Belum Lunas' end;
 
+  -- `tipe` tidak perlu diapa-apakan: salah satu cabang CASE-nya adalah
+  -- kolom `tipe` sendiri, jadi CASE-nya sudah beresolusi ke tipe kolom itu
+  -- dan literal 'Invoice' ikut dipaksa ke sana.
   update sales_invoices set
-    status_bayar  = case when v_lunas then 'Lunas' else 'Belum Lunas' end,
+    status_bayar  = v_status,
     tanggal_bayar = case when v_lunas then p_today else null end,
     tipe          = case when v_lunas then 'Invoice' else tipe end
   where id = p_invoice_id and organization_id = p_organization_id;
