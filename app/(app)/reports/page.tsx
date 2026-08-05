@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import PrintPageButton from "@/components/PrintPageButton";
 import DataTable from "@/components/DataTable";
 import { localDateStr, localMonthKey } from "@/lib/dates";
+import { getMarginReport } from "@/lib/margin";
 import type { ExecutionData } from "@/app/(app)/production/actions";
 
 type ReportType =
@@ -11,6 +12,7 @@ type ReportType =
   | "purchasing"
   | "production"
   | "stock"
+  | "margin"
   | "finance";
 
 const TYPES: { key: ReportType; label: string; desc: string }[] = [
@@ -19,6 +21,7 @@ const TYPES: { key: ReportType; label: string; desc: string }[] = [
   { key: "purchasing", label: "Purchasing", desc: "Purchase invoices per period" },
   { key: "production", label: "Production", desc: "Batches, COGS & yield" },
   { key: "stock", label: "Stock Movement", desc: "Material stock movement" },
+  { key: "margin", label: "Product Margin", desc: "Real COGS vs actual selling price per product" },
   { key: "finance", label: "Receivables & Payables", desc: "Open sales & purchase balances" },
 ];
 
@@ -674,8 +677,15 @@ export default async function ReportsPage({
   }
 
   if (type === "stock") {
-    const [{ data: items }, { data: masukRows }, { data: pakaiRows }, { data: musnahRows }, { data: adjRows }] =
-      await Promise.all([
+    const [
+      { data: items },
+      { data: masukRows },
+      { data: pakaiRows },
+      { data: musnahRows },
+      { data: adjRows },
+      { data: issueRows },
+      { data: returRows },
+    ] = await Promise.all([
         supabase
           .from("items")
           .select("id, kode, nama, satuan, purchase_batches(qty_sisa)")
@@ -706,6 +716,24 @@ export default async function ReportsPage({
           .eq("organization_id", organizationId)
           .gte("stock_adjustments.tanggal", from)
           .lte("stock_adjustments.tanggal", to),
+        supabase
+          .from("material_issue_items")
+          .select("item_id, qty, material_issues!inner(tanggal)")
+          .eq("organization_id", organizationId)
+          .gte("material_issues.tanggal", from)
+          .lte("material_issues.tanggal", to),
+        // Retur ke supplier. Yang dihitung qty_dari_karantina + qty_dari_sisa,
+        // BUKAN qty: baris untuk lot yang sudah ditolak QC nilainya nol di
+        // dua kolom itu karena stoknya sudah keluar lewat pemusnahan QC.
+        // Memakai qty akan menghitung barang yang sama dua kali.
+        supabase
+          .from("purchase_return_items")
+          .select(
+            "item_id, qty_dari_karantina, qty_dari_sisa, purchase_returns!inner(tanggal)"
+          )
+          .eq("organization_id", organizationId)
+          .gte("purchase_returns.tanggal", from)
+          .lte("purchase_returns.tanggal", to),
       ]);
 
     const masuk = new Map<string, number>();
@@ -721,6 +749,23 @@ export default async function ReportsPage({
     }
     for (const r of (musnahRows || []) as { item_id: string; qty: number | null }[]) {
       keluar.set(r.item_id, (keluar.get(r.item_id) || 0) + Number(r.qty || 0));
+    }
+    // Pemakaian di luar produksi (R&D, cleaning, sampel, rusak).
+    // Satu dokumen bisa punya beberapa baris per item kalau FEFO
+    // menyeberang lot, jadi semuanya dijumlahkan.
+    for (const r of (issueRows || []) as unknown as {
+      item_id: string;
+      qty: number;
+    }[]) {
+      keluar.set(r.item_id, (keluar.get(r.item_id) || 0) + Number(r.qty));
+    }
+    for (const r of (returRows || []) as unknown as {
+      item_id: string;
+      qty_dari_karantina: number;
+      qty_dari_sisa: number;
+    }[]) {
+      const qty = Number(r.qty_dari_karantina) + Number(r.qty_dari_sisa);
+      if (qty > 0) keluar.set(r.item_id, (keluar.get(r.item_id) || 0) + qty);
     }
     // Adjustment turun = keluar (adjustment naik sudah tercatat sebagai batch masuk)
     for (const r of (adjRows || []) as unknown as {
@@ -816,8 +861,8 @@ export default async function ReportsPage({
         />
         <p className="text-[11.5px] text-muted px-1 pt-2">
           {adaMutasi.length} dari {rows.length} item bergerak pada periode ini.
-          Masuk = receiving + adjustment naik; Keluar = produksi + pemusnahan +
-          adjustment turun.
+          Masuk = receiving + adjustment naik; Keluar = produksi + pemakaian di
+          luar produksi + retur ke supplier + pemusnahan + adjustment turun.
         </p>
       </>
     );
@@ -1020,7 +1065,7 @@ export default async function ReportsPage({
         </div>
 
         {outletRekap.length > 0 && (
-          <div className="glass rounded-2xl overflow-x-auto max-w-2xl">
+          <div className="glass rounded-2xl overflow-x-auto max-w-4xl">
             <table className="w-full text-[12.5px]">
               <thead>
                 <tr className={thead}>
@@ -1047,6 +1092,222 @@ export default async function ReportsPage({
             </table>
           </div>
         )}
+      </>
+    );
+  }
+
+  if (type === "margin") {
+    const m = await getMarginReport(organizationId!, from, to);
+
+    const persen = (n: number | null) =>
+      n == null
+        ? "-"
+        : `${n.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`;
+
+    content = (
+      <>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: "Omzet", value: formatRupiah(m.totalOmzet) },
+            { label: "HPP Terjual", value: formatRupiah(m.totalHpp) },
+            { label: "Margin Kotor", value: formatRupiah(m.totalMargin) },
+            { label: "Margin %", value: persen(m.marginPct) },
+          ].map((c) => (
+            <div key={c.label} className="glass rounded-xl p-3.5">
+              <div className="text-[10.5px] uppercase tracking-wide text-muted">
+                {c.label}
+              </div>
+              <div className="font-display text-[17px] font-semibold text-ink mt-1">
+                {c.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {m.tanpaHpp > 0 && (
+          <div className="bg-amber-100 text-amber-500 rounded-lg px-3 py-2.5 text-[12px] leading-relaxed mb-4">
+            ⚠ {m.tanpaHpp} baris senilai {formatRupiah(m.omzetTanpaHpp)} belum
+            punya HPP karena produknya belum pernah diproduksi lewat modul
+            Produksi (mis. stok awal dari adjustment). Baris itu tidak ikut
+            dihitung di kartu Margin di atas.
+          </div>
+        )}
+
+        <DataTable
+          rows={m.rows}
+          rowKey={(r) => r.key}
+          minWidth={900}
+          empty="Tidak ada penjualan produk pada periode ini."
+          footer={{
+            row: (
+              <tr className="border-t-2 border-line font-semibold">
+                <td className={`${td} sticky-col`} colSpan={3}>
+                  TOTAL ({m.rows.length} produk-varian)
+                </td>
+                <td className={`${td} text-right whitespace-nowrap`}>
+                  {formatRupiah(m.totalOmzet)}
+                </td>
+                <td className={td}></td>
+                <td className={`${td} text-right whitespace-nowrap`}>
+                  {formatRupiah(m.totalHpp)}
+                </td>
+                <td className={`${td} text-right whitespace-nowrap`}>
+                  {formatRupiah(m.totalMargin)}
+                </td>
+                <td className={`${td} text-right whitespace-nowrap`}>
+                  {persen(m.marginPct)}
+                </td>
+              </tr>
+            ),
+            card: (
+              <div className="flex flex-col gap-1 text-[13px]">
+                <div className="flex justify-between text-muted">
+                  <span>Omzet</span>
+                  <span>{formatRupiah(m.totalOmzet)}</span>
+                </div>
+                <div className="flex justify-between text-muted">
+                  <span>HPP</span>
+                  <span>{formatRupiah(m.totalHpp)}</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Margin ({persen(m.marginPct)})</span>
+                  <span>{formatRupiah(m.totalMargin)}</span>
+                </div>
+              </div>
+            ),
+          }}
+          columns={[
+            {
+              key: "produk",
+              header: "Produk",
+              role: "title",
+              cell: (r) => (
+                <>
+                  <div className="max-w-[220px] truncate">{r.nama_produk}</div>
+                  <div className="text-[11px] text-muted font-mono">{r.kode}</div>
+                </>
+              ),
+              cardCell: (r) => (
+                <>
+                  <div>{r.nama_produk}</div>
+                  <div className="text-[11px] text-muted font-mono font-normal">
+                    {r.kode}
+                  </div>
+                </>
+              ),
+            },
+            {
+              key: "varian",
+              header: "Varian",
+              role: "subtitle",
+              className: "whitespace-nowrap",
+              cell: (r) => r.varian,
+            },
+            {
+              key: "qty",
+              header: "Terjual",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) => formatQty(r.qtyTerjual),
+            },
+            {
+              key: "omzet",
+              header: "Omzet",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) => formatRupiah(r.omzet),
+            },
+            {
+              key: "hpp",
+              header: "HPP/pcs",
+              role: "secondary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) =>
+                r.hppPerPcs == null ? (
+                  <span className="text-muted">belum ada</span>
+                ) : (
+                  formatRupiah(r.hppPerPcs)
+                ),
+            },
+            {
+              key: "totalHpp",
+              header: "HPP Terjual",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) =>
+                r.totalHpp == null ? (
+                  <span className="text-muted">-</span>
+                ) : (
+                  formatRupiah(r.totalHpp)
+                ),
+            },
+            {
+              key: "margin",
+              header: "Margin",
+              role: "primary",
+              align: "right",
+              className: "whitespace-nowrap font-medium",
+              cell: (r) =>
+                r.margin == null ? (
+                  <span className="text-muted">-</span>
+                ) : (
+                  <span
+                    className={
+                      r.margin >= 0 ? "text-botanical-700" : "text-clay-600"
+                    }
+                  >
+                    {formatRupiah(r.margin)}
+                  </span>
+                ),
+            },
+            {
+              key: "pct",
+              header: "Margin %",
+              role: "badge",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) =>
+                r.marginPct == null ? (
+                  <span className="text-muted">-</span>
+                ) : (
+                  <span
+                    className={
+                      r.marginPct >= 0
+                        ? "text-botanical-700 font-medium"
+                        : "text-clay-600 font-medium"
+                    }
+                  >
+                    {persen(r.marginPct)}
+                  </span>
+                ),
+              cardCell: (r) => (
+                <span
+                  className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                    r.marginPct == null
+                      ? "bg-white/70 text-muted"
+                      : r.marginPct >= 0
+                        ? "bg-botanical-100 text-botanical-700"
+                        : "bg-clay-100 text-clay-600"
+                  }`}
+                >
+                  margin {persen(r.marginPct)}
+                </span>
+              ),
+            },
+          ]}
+        />
+        <p className="text-[11.5px] text-muted px-1 pt-2 leading-relaxed">
+          HPP diambil dari biaya bahan batch produksi yang sebenarnya, dihitung
+          dari SELURUH riwayat produksi (bukan hanya periode ini) supaya produk
+          yang terjual dari stok lama tetap punya harga pokok. Biaya batch yang
+          menghasilkan beberapa ukuran dibagi menurut netto tiap varian. Batch
+          yang ditolak QA tidak ikut. Omzet memakai subtotal baris, jadi belum
+          dipotong diskon dan pajak tingkat invoice.
+        </p>
       </>
     );
   }

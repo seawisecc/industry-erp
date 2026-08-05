@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
 import { getDocSigners } from "@/lib/docSignServer";
+import { urutkanFormula } from "@/lib/formulaOrder";
 import PrintButton from "../../po/[id]/PrintButton";
 
 type BatchPrint = {
@@ -133,18 +134,35 @@ export default async function PrintProductionPage({
         })
       : "";
 
-  // Fase per bahan (dari formula produk)
-  const faseMap = new Map<string, string>();
+  // Fase & persentase per bahan (dari formula produk)
+  const formulaMap = new Map<string, { fase: string | null; percentage: number }>();
   if (productId) {
     const { data: formulas } = await supabase
       .from("product_formulas")
-      .select("item_id, fase")
+      .select("item_id, fase, percentage")
       .eq("product_id", productId)
       .eq("organization_id", organizationId);
-    for (const f of (formulas || []) as { item_id: string; fase: string | null }[]) {
-      if (f.fase) faseMap.set(f.item_id, f.fase);
+    for (const f of (formulas || []) as {
+      item_id: string;
+      fase: string | null;
+      percentage: number;
+    }[]) {
+      formulaMap.set(f.item_id, {
+        fase: f.fase,
+        percentage: Number(f.percentage),
+      });
     }
   }
+
+  // Urutan bahan sama dengan detail produk & layar penimbangan: per fase,
+  // di dalam fase dari % terbesar. Bahan adjusting (tidak ada di formula)
+  // tidak punya fase, jadi otomatis jatuh paling akhir.
+  const komponenTersortir = urutkanFormula(
+    batch.production_components.map((c) => {
+      const f = formulaMap.get(c.item_id);
+      return { komponen: c, fase: f?.fase ?? null, percentage: f?.percentage ?? 0 };
+    })
+  );
 
 
   const totalPcs = batch.production_outputs.reduce(
@@ -252,10 +270,10 @@ export default async function PrintProductionPage({
             </tr>
           </thead>
           <tbody>
-            {batch.production_components.map((c, i) => (
+            {komponenTersortir.map(({ komponen: c, fase }, i) => (
               <tr key={i} className="border-b border-neutral-300">
                 <td className="py-2 pr-2 text-center font-semibold">
-                  {faseMap.get(c.item_id) || ""}
+                  {fase || ""}
                 </td>
                 <td className="py-2 pr-2 font-mono text-[11px] whitespace-nowrap">
                   {c.items?.kode}

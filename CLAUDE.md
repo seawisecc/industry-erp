@@ -9,11 +9,17 @@ Kode aplikasi memanggil fungsi Postgres yang definisinya ada di
 aplikasi.** Kalau terbalik, seluruh alur konsinyasi, receiving, pembatalan
 invoice, edit PO, dan pembayaran gagal dengan error "function not found".
 
-Migrasinya `CREATE OR REPLACE` dan tidak menyentuh tabel, jadi aman
-dijalankan berulang.
+Migrasinya `CREATE OR REPLACE` / `create table if not exists` /
+`add column if not exists`, jadi aman dijalankan berulang.
 
 Kalau menambah RPC baru, berlaku aturan yang sama: SQL naik lebih dulu,
 baru kode yang memanggilnya.
+
+**Antar-migrasi ada urutan.** Nama filenya bertanggal dan harus dijalankan
+menurut urutan itu: `20260806_activity_logs.sql` mendefinisikan
+`log_activity()`, dan migrasi sesudahnya memasang trigger yang memanggil
+fungsi itu. Menjalankan yang belakangan lebih dulu gagal di baris
+`create trigger`.
 
 ## Pola: satu advisory lock per organisasi
 
@@ -45,6 +51,23 @@ menyentuh lebih dari satu tabel dan harus utuh, tulis RPC baru.
 Pesan `raise exception` dari SQL sampai ke `error.message` di client, lalu
 dikembalikan sebagai nilai lewat `ActionResult` (`lib/actionResult.ts`) —
 jangan `throw` dari server action, pesannya disensor di build production.
+
+## RLS: pakai fungsi helper, jangan tulis subquery sendiri
+
+Definisi tabel dan policy TIDAK di-track di repo, jadi ini tidak bisa
+dibaca dari kode mana pun. Policy di project ini memakai tiga fungsi:
+
+```sql
+using (
+  is_authenticated_active()
+  and (is_super_admin() or organization_id = current_user_org())
+)
+```
+
+Menulis ulang `select organization_id from profiles where id = auth.uid()`
+inline memang jalan, tapi bikin policy tabel baru beda bentuk dengan
+puluhan tabel lain — dan itu yang harus disamakan manual sebelum skripnya
+bisa dipakai. Tabel baru: pakai ketiga helper itu sejak awal.
 
 ## Daftar RPC
 
@@ -78,6 +101,23 @@ Ditambahkan di `supabase/migrations/20260803_transactional_rpcs.sql` (12):
 | `record_sales_payment_tx` | Cek sisa tagihan + insert cicilan + hitung ulang status |
 | `delete_sales_payment_tx` | Hapus cicilan + hitung ulang status |
 
+Modul yang ditambahkan sesudahnya, satu migrasi per modul:
+
+| Migrasi | Fungsi | Guna |
+| --- | --- | --- |
+| `20260805_material_issues` | `create_material_issue_tx` | Pemakaian bahan di luar produksi, potong FEFO + biaya per lot |
+| | `cancel_material_issue_tx` | Kembalikan qty ke batch asal, hapus dokumen |
+| `20260806_activity_logs` | `log_activity` | Fungsi trigger umum audit trail (lihat bab Audit trail) |
+| | `log_formula_change` | Trigger per-PERNYATAAN untuk `product_formulas` + snapshot formula |
+| `20260807_purchase_returns` | `create_purchase_return_tx` | Retur ke supplier: potong stok **atau** tidak (lihat aturan QC), kurangi hutang |
+| | `cancel_purchase_return_tx` | Kembalikan qty ke kolom asalnya, pulihkan hutang |
+| `20260808_client_prices` | `save_client_prices_tx` | Ganti seluruh daftar harga khusus satu client, utuh |
+| | `log_client_price_change` | Trigger per-pernyataan + snapshot daftar harga |
+| `20260809_stock_opname` | `create_stock_opname_tx` | Buka opname + POTRET stok sistem seluruh item dalam cakupan |
+| | `save_opname_count_tx` | Simpan progres hitung fisik, boleh berkali-kali |
+| | `finish_stock_opname_tx` | Tutup opname, selisih → `create_stock_adjustment` |
+| | `cancel_stock_opname_tx` | Hapus opname yang belum ditutup |
+
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
 - **`sales_invoices.tipe` monoton.** Proforma naik jadi Invoice begitu
@@ -90,6 +130,90 @@ Ditambahkan di `supabase/migrations/20260803_transactional_rpcs.sql` (12):
 - **Tanggal "hari ini" dikirim dari aplikasi**, bukan `current_date` di
   SQL. Server berjalan di UTC; `lib/dates.ts` yang menghitung tanggal
   kalender di zona operasional.
+
+# Akuntansi stok: satu barang keluar sekali
+
+Barang bisa keluar lewat produksi, pemakaian di luar produksi, retur ke
+supplier, pemusnahan, dan adjustment turun. Yang gampang salah adalah
+menghitungnya dua kali.
+
+**Batch yang ditolak QC stoknya SUDAH nol.** `decideQc` menulis
+`qty_sisa = 0`, `qty_karantina = 0`, lalu mencatat `batch_dispositions`
+bertipe `QC Reject`. Jadi barangnya secara pembukuan sudah keluar, walau
+fisiknya masih ada di gudang menunggu dikirim balik.
+
+Konsekuensinya di retur pembelian: dokumen retur untuk lot yang ditolak QC
+**tidak boleh memotong stok lagi**, cuma mengurangi hutang. Karena itu tiap
+baris `purchase_return_items` menyimpan asal potongannya
+(`qty_dari_karantina` / `qty_dari_sisa`) — nol dua-duanya untuk lot yang
+sudah hangus. Itu juga yang membuat pembatalan retur bisa mengembalikan qty
+ke kolom yang persis benar.
+
+Aturan turunannya untuk laporan: **Stock Movement menjumlahkan
+`qty_dari_karantina + qty_dari_sisa`, BUKAN `qty`.** Memakai `qty` akan
+menghitung barang yang sama dua kali — sekali lewat pemusnahan QC, sekali
+lewat retur.
+
+# Audit trail ditulis trigger, bukan aplikasi
+
+`activity_logs` diisi oleh trigger Postgres (`log_activity`), bukan helper
+yang dipanggil dari server action. Dua alasan, dan dua-duanya menentukan:
+
+- Log yang ditulis dari TypeScript sesudah RPC berhasil adalah tulisan
+  KEDUA di luar transaksi. Gagal di situ = dokumen ada, jejaknya tidak.
+- Helper harus *diingat* di tiap jalur kode baru. Yang lupa tidak ketahuan
+  sampai auditnya jalan. Trigger berlaku untuk semua jalur — server action,
+  RPC, bahkan perubahan manual lewat SQL Editor.
+
+**Log-nya tidak bisa disunting siapa pun.** `activity_logs` cuma punya
+policy `select`; penulisan hanya lewat fungsi `SECURITY DEFINER`. Jangan
+menambahkan policy insert/update/delete "supaya gampang" — log yang bisa
+diedit bukan audit trail.
+
+Tiga hal yang menjaga isinya tetap terbaca:
+
+- **`TG_ARGV[2]` = daftar kolom yang dipantau.** Wajib untuk tabel yang
+  sering di-UPDATE karena hal rutin: `purchase_batches.qty_sisa` berubah
+  tiap pemotongan FEFO, dan tanpa filter itu log tenggelam.
+- **Tabel baris anak tidak dipantau** (`po_items`, `sales_invoice_items`,
+  `consignment_items`). Setiap alur yang mengubahnya pasti ikut menyentuh
+  header-nya, jadi kejadiannya sudah tercatat sekali dengan nomor dokumen
+  yang benar.
+- **Nilai jsonb/array besar ditandai `(diubah)`, tidak disalin.** Diff
+  `execution_data` utuh berukuran puluhan kilobyte tanpa menambah satu pun
+  informasi yang bisa dibaca orang.
+
+**Tabel yang isinya diganti utuh (hapus lalu sisip) pakai trigger
+`FOR EACH STATEMENT`, bukan per baris.** `product_formulas` dan
+`client_prices` disimpan dengan cara itu, jadi trigger per-baris
+menghasilkan 2N entri untuk satu kali simpan. Versi statement menghasilkan
+satu entri per pernyataan dan pada penyisipan ikut menyimpan SNAPSHOT
+hasil akhirnya — snapshot itulah yang bernilai untuk audit CPKB. Efek
+sampingnya diterima: satu kali edit tampil sebagai sepasang entri (Hapus
+lalu Ubah), karena memang begitu yang terjadi di database.
+
+# Jebakan Postgres yang sudah dibayar mahal
+
+- **Tidak ada agregat `min(uuid)`.** Untuk mengambil satu nilai dari
+  transition table atau subquery, pakai `limit 1`, bukan `min(id)`.
+- **`now()` mengembalikan waktu MULAI transaksi, bukan waktu insert.**
+  Jadi "ambil baris terbaru milik organisasi ini" BUKAN cara yang aman
+  untuk menemukan baris yang barusan kamu buat: dua transaksi bisa mulai
+  hampir bersamaan lalu bergantian memegang advisory lock dengan urutan
+  terbalik dari urutan `now()`-nya. Cari lewat penanda unik yang kamu tulis
+  sendiri — `finish_stock_opname_tx` mencocokkan `catatan` yang memuat
+  nomor opname.
+- **Foreign key di tabel audit bisa membatalkan operasi yang diauditnya.**
+  `activity_logs.user_id` sengaja TANPA FK ke `profiles`: menghapus
+  pengguna memicu trigger yang menulis baris ber-`user_id` pelakunya, dan
+  pada penghapusan diri sendiri FK-nya gagal lalu MEMBATALKAN penghapusan.
+  Nama & email di-snapshot, jadi tidak ada yang hilang.
+- **Expression index butuh fungsi `IMMUTABLE`.** `client_prices` unik atas
+  `varian_key(varian)` — itu jalan karena `varian_key` dideklarasikan
+  `immutable`. Fungsi baru yang dipakai di index harus sama.
+- **`substring(no from length(prefix)+1)::int` untuk penomoran, bukan
+  regex digit-terakhir.** `'MI.202608001'` akan terbaca `202608001` kalau
+  memakai `\d+$`.
 
 # Pola UI tabel
 
@@ -122,12 +246,21 @@ Prop yang ada karena kebutuhan nyata, bukan spekulasi:
 - `chrome="bare"` — tabel yang sudah berada di dalam panel `.glass`.
   Kaca di atas kaca membuat tepinya menumpuk.
 - `footer` — baris `<tfoot>`; di HP dirender ulang jadi kartu ringkasan.
+- `groupBy` — sisipkan baris pemisah antar kelompok baris yang berurutan
+  (mis. "Fase A · 3 bahan" di penimbangan produksi); di HP jadi judul kecil
+  di atas tiap kelompok kartu. **Barisnya tidak diurutkan ulang di sini** —
+  yang berurutan dengan kunci sama digabung, urutannya tetap tanggung jawab
+  pemanggil.
 
-**Tabel berkelompok tidak dijadikan kartu.** Formula per fase
-(`products/[id]`) dan lembar uji parameter QC/QA punya baris header grup —
-bentuk kartu menghapus pengelompokan yang justru jadi isi dokumennya.
-Yang itu tetap `<table>` biasa, cukup diberi `sticky-col` pada kolom
-pertamanya.
+**Tabel berkelompok yang punya subtotal per grup tetap `<table>` biasa.**
+Formula per fase di `products/[id]` dan lembar uji parameter QC/QA punya
+angka subtotal di baris headernya, dan `groupBy` cuma menyediakan satu sel
+melintang penuh. Yang itu cukup diberi `sticky-col` pada kolom pertamanya.
+
+**Jangan taruh combobox di dalam DataTable.** Pembungkusnya
+`overflow-auto`, jadi daftar saran yang muncul di bawah input akan
+terpotong. Baris form yang butuh ketik-cari pakai grid biasa — lihat
+bagian Adjusting di `ExecuteForm` dan `MaterialIssueForm`.
 
 ## Sticky: tiga jebakan yang mahal kalau dilanggar
 
@@ -170,7 +303,46 @@ Pengecualian: **CTA primer tetap teks** — "Uji & Putuskan", "Tinjau &
 Luluskan", "Bayar". Ikon telanjang untuk aksi utama menurunkan
 discoverability.
 
-# State klien: dua pola yang wajib diikuti
+## Pemilih ketik-cari, bukan `<select>` panjang
+
+`components/ClientPicker.tsx` dan `components/ProductPicker.tsx`. Daftar
+produk jadi punya satu baris per kombinasi produk × varian, jadi
+`<select>`-nya bisa ratusan baris. Keduanya membatasi jumlah saran yang
+dirender (30) supaya tetap ringan.
+
+`ProductPicker` menandai baris **jasa** dengan pil, bukan angka stok —
+jasa tidak punya stok dan "stok 0" di sebelahnya menyesatkan. Prop
+`showStock={false}` untuk layar yang ketersediaan barangnya tidak relevan
+(mis. menyusun daftar harga khusus client).
+
+**Kartu yang memuat picker perlu `relative` + `z-index` lebih tinggi
+daripada kartu di bawahnya.** Efek `.glass` membentuk stacking context,
+jadi tanpa itu daftar sarannya tertimbun panel berikutnya. Lihat
+`InvoiceForm` (`z-40` untuk kartu header, `z-10` untuk kartu item).
+
+# Bahasa antarmuka
+
+Aplikasinya dwibahasa dengan pembagian yang tegas. Kalau menambah layar
+baru, ikuti kolom kanan:
+
+| Bagian | Bahasa | Contoh |
+| --- | --- | --- |
+| Menu, sub-menu, kartu navigasi shell | **Inggris** | Stock Items, Purchase Return, Activity Log |
+| Judul halaman DAFTAR / hub | **Inggris** | Sales Payments, Expiry Control, Product Margin |
+| Judul halaman FORM / aksi | Indonesia | Tambah Client, Buat Purchase Order, Opname Baru |
+| Judul seksi di dalam halaman | Indonesia | Penimbangan Bahan, Produk yang Dijual |
+| Header kolom tabel | Indonesia | Kode, Stok Sisa, Jatuh Tempo |
+| Tombol, teks penjelas, pesan error | Indonesia | Simpan, Cetak, "Stok tidak cukup" |
+| Nilai data (status, kategori) | Indonesia | Dibuat, Lunas, Karantina, R&D |
+| Dokumen cetak | Indonesia | BUKTI PENERIMAAN BARANG |
+
+`subtitle` kartu navigasi tetap Indonesia walau `title`-nya Inggris — itu
+kalimat penjelas, bukan nama menu.
+
+Nilai data ada di database dan divalidasi di SQL, jadi mengubah bahasanya
+butuh migrasi data — bukan sekadar ganti teks. Jangan diutak-atik.
+
+# State klien: tiga pola yang wajib diikuti
 
 ## Baca `localStorage` / `matchMedia` lewat `useSyncExternalStore`
 
@@ -213,6 +385,33 @@ if (sidikJari === isiAwal.current) return;      // belum ada perubahan nyata
 Berapa kali pun effect diulang, selama isinya sama dengan kondisi awal
 tidak ada yang ditulis.
 
+## State yang bereaksi atas state lain: kerjakan di handler
+
+Mengganti client di `InvoiceForm` harus mengisi ulang harga baris yang
+belum disentuh user. Godaannya menaruh itu di `useEffect` yang mengawasi
+`clientId` — jangan. Sama seperti dua pola di atas: melanggar
+`react-hooks/set-state-in-effect` dan menambah satu render sesudah layar
+terlanjur dilukis. Kerjakan di `onChange`-nya (`gantiClient`).
+
+Yang membuatnya benar bukan lokasinya saja, tapi **menandai baris yang
+sudah disentuh user** (`hargaManual`). Tanpa itu, ganti client di tengah
+pengisian akan menimpa angka yang sengaja dinegosiasikan.
+
+# Batas server/klien di `lib/`
+
+Sebagian file `lib/` meng-import `@/lib/supabase/server`. Mengambil NILAI
+(bukan `type`) dari file seperti itu ke dalam komponen `"use client"` akan
+menyeret klien Supabase sisi server ikut ke bundle browser.
+
+Karena itu `lib/clientPrice.ts` ada terpisah dari `lib/salesOptions.ts`:
+isinya cuma penghitung kunci dan tipe, tanpa import server, supaya
+`InvoiceForm` dan `ConsignmentForm` bisa memakainya. Kalau butuh helper
+kecil yang dipakai dua sisi, taruh di file sendiri yang bersih dari import
+server — jangan menambahkannya ke file yang sudah menyentuh database.
+
+`import type { … }` dari file server tetap aman: tipe dihapus saat
+kompilasi.
+
 # Known issue
 
 **Sidebar berkedip lebar → sempit saat muat pertama.** Preferensi minimize
@@ -221,3 +420,23 @@ selalu dirender lebar lalu dikoreksi di klien. `useSyncExternalStore`
 menghapus bentrok hidrasi dan render sesudah paint, tapi **tidak**
 menghapus kedipannya. Perbaikan sebenarnya: pindahkan preferensi ke cookie
 supaya server bisa merender lebar yang benar sejak awal. Belum dikerjakan.
+
+**Menu Notifications tidak punya badge jumlah.** Itu yang biasanya membuat
+notification center dipakai, tapi sidebar dirender di setiap halaman —
+badge berarti menjalankan tujuh query `lib/notifikasi.ts` di tiap navigasi.
+Perbaikan sebenarnya: hitungan yang di-cache (materialized view atau cache
+ber-TTL pendek), bukan query langsung. Belum dikerjakan.
+
+**Retur atas faktur yang sudah Lunas belum jadi piutang balik.** Secara
+akuntansi supplier jadi berhutang, tapi `receivings.total_retur` cuma
+mengurangi tagihan yang tersisa dan berhenti di nol. RPC menolak retur
+melebihi nilai faktur, jadi datanya tidak ngawur — klaimnya saja yang harus
+diurus di luar sistem. Butuh modul nota kredit / saldo supplier.
+
+**Riwayat versi formula belum bisa dibandingkan.** Snapshot tiap kali
+formula disimpan sudah ada di `activity_logs.perubahan`, tapi belum ada
+layar yang menampilkan dua versi berdampingan.
+
+**`activity_logs` tumbuh cepat dari import CSV.** Satu baris log per item
+yang diimpor. Itu perilaku yang benar untuk audit trail; kalau tabelnya
+jadi berat, jawabannya kebijakan retensi, bukan mengurangi trigger.

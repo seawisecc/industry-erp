@@ -26,7 +26,7 @@ const CARDS: SettingsCard[] = [
   },
   {
     href: "/qc-finished",
-    title: "QC Produk Jadi",
+    title: "QC Finished Goods",
     subtitle: "Uji produk jadi sebelum pelulusan",
   },
   {

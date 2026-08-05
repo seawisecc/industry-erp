@@ -10,6 +10,7 @@ import {
   IpcHasil,
 } from "../../../actions";
 import DataTable from "@/components/DataTable";
+import { urutkanFormula, faseKey, faseLabel } from "@/lib/formulaOrder";
 
 /* ------------------------------------------------------------
    Draft otomatis di browser.
@@ -142,11 +143,16 @@ export default function ExecuteForm({
 }) {
   const router = useRouter();
   const itemOf = (id: string) => items.find((it) => it.id === id);
-  /** Formula diurut per fase, lalu bahan terbesar dulu — urutan kerja di lantai. */
-  const formulaTersortir = [...plan.formulas].sort(
-    (a, b) =>
-      (a.fase || "zz").localeCompare(b.fase || "zz") || b.percentage - a.percentage
-  );
+  /**
+   * Formula diurut per fase, lalu bahan terbesar dulu, urutan kerja di
+   * lantai. Persis sama dengan urutan di detail produk dan Batch Record,
+   * supaya operator tidak perlu mencocokkan baris satu per satu.
+   *
+   * Ini urutan TAMPILAN saja. Yang dikirim ke server tetap
+   * `plan.formulas` apa adanya (lihat handleSubmit), supaya
+   * execution_data batch yang sedang berjalan tidak berubah bentuk.
+   */
+  const formulaTersortir = urutkanFormula(plan.formulas);
   /** Jumlah bahan seharusnya untuk ukuran batch ini. */
   const teoritisOf = (f: (typeof plan.formulas)[number]) =>
     (f.percentage / 100) * plan.bulkKg;
@@ -632,12 +638,27 @@ export default function ExecuteForm({
         </div>
 
         <DataTable
-          rows={plan.formulas}
+          rows={formulaTersortir}
           rowKey={(f) => f.item_id}
           minWidth={620}
           chrome="bare"
           expandable={false}
           empty="Belum ada bahan pada formula."
+          groupBy={{
+            key: (f) => faseKey(f.fase),
+            header: (g) => (
+              <>
+                {faseLabel(g.key)}
+                <span className="font-normal text-muted normal-case tracking-normal">
+                  {" "}
+                  · {g.rows.length} bahan ·{" "}
+                  {formatId(
+                    g.rows.reduce((s, f) => s + teoritisOf(f), 0)
+                  )} kg
+                </span>
+              </>
+            ),
+          }}
           columns={[
             {
               key: "bahan",

@@ -1,5 +1,6 @@
 import {
   LayoutGrid,
+  Bell,
   Boxes,
   ClipboardList,
   Briefcase,
@@ -17,6 +18,8 @@ import {
   Wrench,
   LayoutPanelLeft,
   PackageOpen,
+  PackageMinus,
+  Undo2,
   BadgeCheck,
   Contact,
   Store,
@@ -27,6 +30,7 @@ import {
   ClipboardCheck,
   Zap,
   DatabaseZap,
+  ScrollText,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -47,8 +51,21 @@ export type SubItem = {
 
 // Menu "hub": satu item mewakili beberapa halaman (navigasi detail di dalam halaman)
 export const HUBS: Record<string, string[]> = {
-  "/items": ["/items", "/materials", "/inci", "/qc-incoming"],
-  "/purchase-orders": ["/purchase-orders", "/receivings", "/payments", "/ppic"],
+  "/items": [
+    "/items",
+    "/material-issues",
+    "/stock-opname",
+    "/materials",
+    "/inci",
+    "/qc-incoming",
+  ],
+  "/purchase-orders": [
+    "/purchase-orders",
+    "/receivings",
+    "/purchase-returns",
+    "/payments",
+    "/ppic",
+  ],
   "/products": [
     "/products",
     "/services",
@@ -71,11 +88,13 @@ export const HUBS: Record<string, string[]> = {
     "/document-signing",
     "/features",
     "/qc-parameters",
+    "/activity-logs",
   ],
 };
 
 export const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/items", label: "Materials & Stock", icon: Boxes },
   { href: "/purchase-orders", label: "Purchasing", icon: ClipboardList },
   { href: "/suppliers", label: "Suppliers", icon: Briefcase },
@@ -100,6 +119,8 @@ export const MODULE_TITLE: Record<string, string> = {
 export const SUBMENUS: Record<string, SubItem[]> = {
   "/items": [
     { href: "/items", label: "Stock Items", icon: Boxes },
+    { href: "/material-issues", label: "Material Issue", icon: PackageMinus },
+    { href: "/stock-opname", label: "Stock Opname", icon: ClipboardCheck },
     { href: "/qc-incoming", label: "QC Incoming", icon: ShieldCheck, needs: ["qc"] },
     { href: "/materials", label: "Materials", icon: FlaskConical },
     { href: "/inci", label: "INCI Names", icon: BookText },
@@ -107,6 +128,7 @@ export const SUBMENUS: Record<string, SubItem[]> = {
   "/purchase-orders": [
     { href: "/purchase-orders", label: "Purchase Order", icon: ClipboardList },
     { href: "/receivings", label: "Receiving", icon: PackageCheck },
+    { href: "/purchase-returns", label: "Purchase Return", icon: Undo2 },
     { href: "/payments", label: "Payments", icon: Banknote },
     { href: "/ppic", label: "PPIC", icon: CalendarRange },
   ],
@@ -115,7 +137,7 @@ export const SUBMENUS: Record<string, SubItem[]> = {
     { href: "/services", label: "Services", icon: Wrench },
     { href: "/production", label: "Production", icon: LayoutPanelLeft },
     { href: "/finished-goods", label: "Finished Goods", icon: PackageOpen },
-    { href: "/qc-finished", label: "QC Produk", icon: ShieldCheck, needs: ["qa", "qc"] },
+    { href: "/qc-finished", label: "QC Finished", icon: ShieldCheck, needs: ["qa", "qc"] },
     { href: "/qa-release", label: "QA Release", icon: BadgeCheck, needs: ["qa"] },
   ],
   "/clients": [
@@ -128,10 +150,11 @@ export const SUBMENUS: Record<string, SubItem[]> = {
   "/settings": [
     { href: "/settings", label: "Company", icon: IdCard },
     { href: "/document-signing", label: "Doc Signing", icon: PenLine },
-    { href: "/qc-parameters", label: "Parameter QC", icon: ClipboardCheck, needs: ["qc"] },
+    { href: "/qc-parameters", label: "QC Parameters", icon: ClipboardCheck, needs: ["qc"] },
     { href: "/features", label: "Features", icon: Zap },
-    { href: "/data-migration", label: "Data Migrasi", icon: DatabaseZap },
+    { href: "/data-migration", label: "Data Migration", icon: DatabaseZap },
     { href: "/users", label: "Users", icon: Users },
+    { href: "/activity-logs", label: "Activity Log", icon: ScrollText },
   ],
 };
 

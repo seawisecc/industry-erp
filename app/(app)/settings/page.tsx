@@ -23,7 +23,7 @@ export default async function SettingsPage() {
 
   return (
     <SettingsShell>
-      <div className="max-w-3xl">
+      <div className="max-w-5xl">
         <h2 className="font-display text-lg font-semibold text-ink mb-4">
           Company Profile · {org?.nama}
         </h2>

@@ -228,7 +228,7 @@ export default function QcSheetForm({
 
         {rows.length === 0 ? (
           <p className="px-6 pb-5 text-muted text-[13px]">
-            Belum ada parameter aktif. Atur dulu di Settings → Parameter Uji QC.
+            Belum ada parameter aktif. Atur dulu di Settings → QC Parameters.
           </p>
         ) : (
           <div className="overflow-x-auto">

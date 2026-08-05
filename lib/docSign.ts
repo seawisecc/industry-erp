@@ -9,6 +9,7 @@
 export const DOC_TYPES = [
   { key: "po", label: "Purchase Order" },
   { key: "receiving", label: "Penerimaan Barang" },
+  { key: "purchase-return", label: "Retur Pembelian" },
   { key: "production", label: "Produksi" },
   { key: "invoice", label: "Invoice Penjualan" },
   { key: "qc", label: "Lembar Pengujian QC" },

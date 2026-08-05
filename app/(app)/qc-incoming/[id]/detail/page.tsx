@@ -85,7 +85,7 @@ export default async function QcDetailPage({
   ];
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <Link
         href="/qc-incoming"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"
@@ -95,7 +95,7 @@ export default async function QcDetailPage({
 
       <div className="flex items-center gap-3 mb-1 flex-wrap">
         <h1 className="font-display text-2xl font-semibold text-ink">
-          Detail Pengujian
+          Test Result Detail
         </h1>
         <span
           className={`inline-flex px-2.5 py-0.5 rounded-full text-[12px] font-medium ${

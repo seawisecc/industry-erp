@@ -87,6 +87,21 @@ const CARDS: ImportCardConfig[] = [
     templateSample: ["Brightening Serum", "GlowLab", "Skincare", "100"],
     previewCols: ["nama_produk", "brand", "kategori"],
   },
+  {
+    kind: "services",
+    title: "Services",
+    desc: "Impor daftar jasa (maklon, uji, notifikasi) yang bisa ditagihkan di Invoice.",
+    requiredCols: ["nama_jasa"],
+    optionalCols: ["keterangan", "biaya", "aktif"],
+    note: "Kode SRV-XXXX dibuat otomatis. Biaya diisi angka tanpa titik pemisah ribuan. Kolom aktif: Aktif / Nonaktif, dikosongkan berarti Aktif. Nama jasa yang sudah terdaftar ditolak, jangan dobel.",
+    templateSample: [
+      "Jasa Formulasi",
+      "Pengembangan formula sampai stabil, 3 kali revisi",
+      "5000000",
+      "Aktif",
+    ],
+    previewCols: ["nama_jasa", "biaya", "aktif"],
+  },
 ];
 
 export default function DataMigrationPage() {
@@ -107,14 +122,14 @@ export default function DataMigrationPage() {
 
         <ExportCard />
 
-        {/* ===== Kartu Adjustment Stok ===== */}
+        {/* ===== Kartu Stock Adjustment ===== */}
         <div className="glass rounded-2xl p-5 flex flex-col gap-3 h-full">
           <div className="bg-amber-100 text-amber-500 rounded-xl p-2.5 self-start">
             <SlidersHorizontal size={18} />
           </div>
           <div>
             <h2 className="font-display text-[15px] font-semibold text-ink">
-              Adjustment Stok
+              Stock Adjustment
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
               Input stok awal &amp; stock opname, seluruh item tampil dalam satu
@@ -148,7 +163,7 @@ export default function DataMigrationPage() {
         </div>
         <p className="text-[12.5px] text-muted leading-relaxed">
           1) <b>Supplier</b> → 2) <b>INCI Master</b> → 3) <b>Material</b> → 4){" "}
-          <b>Item Stok Bahan</b> → 5) <b>Adjustment Stok</b> (isi stok awal +
+          <b>Item Stok Bahan</b> → 5) <b>Stock Adjustment</b> (isi stok awal +
           harga). Simpan file sebagai <b>CSV UTF-8</b>; header harus sama persis
           dengan template. Delimiter koma maupun titik-koma (Excel Indonesia)
           sama-sama dikenali.

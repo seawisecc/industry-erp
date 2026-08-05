@@ -14,6 +14,11 @@ const CARDS: SettingsCard[] = [
     subtitle: "Penerimaan barang dari PO",
   },
   {
+    href: "/purchase-returns",
+    title: "Purchase Return",
+    subtitle: "Kembalikan barang & potong tagihan supplier",
+  },
+  {
     href: "/payments",
     title: "Payments",
     subtitle: "Faktur, jatuh tempo, pelunasan",

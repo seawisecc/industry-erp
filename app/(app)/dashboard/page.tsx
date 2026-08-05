@@ -17,6 +17,7 @@ import {
 import BarChart, { BarGroup } from "@/components/charts/BarChart";
 import { localDateStr, localMonthKey, addDaysStr } from "@/lib/dates";
 import HBarList from "@/components/charts/HBarList";
+import { sisaHutang } from "@/lib/purchaseReturn";
 import type { ExecutionData } from "@/app/(app)/production/actions";
 
 function formatRupiah(n: number) {
@@ -54,6 +55,7 @@ export default async function DashboardPage() {
     purchase6Res,
     yieldRes,
     topRes,
+    topJasaRes,
     arRes,
     paysRes,
     cashOutRes,
@@ -74,7 +76,7 @@ export default async function DashboardPage() {
       .gte("tanggal_terima", monthStart),
     supabase
       .from("receivings")
-      .select("total_invoice, jatuh_tempo")
+      .select("total_invoice, total_retur, jatuh_tempo")
       .eq("organization_id", organizationId)
       .eq("status_bayar", "Belum Lunas"),
     supabase
@@ -96,10 +98,19 @@ export default async function DashboardPage() {
       .eq("status", "Selesai")
       .order("created_at", { ascending: false })
       .limit(8),
+    // Top produk: baris JASA punya product_id null, kalau tidak disaring
+    // namanya kosong dan grafiknya menampilkan satu batang tanpa nama.
+    // Jasa dihitung terpisah di kartu Top Layanan Jasa.
     supabase
       .from("sales_invoice_items")
       .select("qty, products(nama_produk)")
-      .eq("organization_id", organizationId),
+      .eq("organization_id", organizationId)
+      .not("product_id", "is", null),
+    supabase
+      .from("sales_invoice_items")
+      .select("qty, services(nama_jasa)")
+      .eq("organization_id", organizationId)
+      .not("service_id", "is", null),
     // Piutang: invoice penjualan belum lunas
     supabase
       .from("sales_invoices")
@@ -157,11 +168,19 @@ export default async function DashboardPage() {
   );
 
   // 5. Hutang belum lunas + yang lewat jatuh tempo
-  const hutang = (hutangRes.data || []) as {
+  // Hutang dihitung setelah dipotong retur ke supplier — faktur yang
+  // barangnya sudah dikembalikan tidak lagi wajib dibayar penuh.
+  const hutang = ((hutangRes.data || []) as {
     total_invoice: number;
+    total_retur: number | null;
     jatuh_tempo: string | null;
-  }[];
-  const totalHutang = hutang.reduce((s, h) => s + Number(h.total_invoice), 0);
+  }[])
+    .map((h) => ({
+      ...h,
+      sisa: sisaHutang(Number(h.total_invoice), Number(h.total_retur || 0)),
+    }))
+    .filter((h) => h.sisa > 0.5);
+  const totalHutang = hutang.reduce((s, h) => s + h.sisa, 0);
   const fakturTerlambat = hutang.filter(
     (h) => h.jatuh_tempo !== null && h.jatuh_tempo < todayStr
   ).length;
@@ -241,16 +260,32 @@ export default async function DashboardPage() {
       ],
     }));
 
-  // ===== 8. Top 5 produk terjual =====
+  // ===== 8. Top 5 produk terjual & top layanan jasa =====
+  //
+  // Barisnya sudah disaring di query (product_id / service_id tidak null),
+  // jadi relasi yang kosong di sini artinya masternya benar-benar sudah
+  // dihapus. Ditandai jelas, bukan dijadikan "-" yang tak bermakna.
   const topMap = new Map<string, number>();
   for (const t of (topRes.data || []) as unknown as {
     qty: number;
     products: { nama_produk: string } | null;
   }[]) {
-    const nama = t.products?.nama_produk || "-";
+    const nama = t.products?.nama_produk || "(produk dihapus)";
     topMap.set(nama, (topMap.get(nama) || 0) + Number(t.qty));
   }
   const topProducts = Array.from(topMap, ([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
+  const topJasaMap = new Map<string, number>();
+  for (const t of (topJasaRes.data || []) as unknown as {
+    qty: number;
+    services: { nama_jasa: string } | null;
+  }[]) {
+    const nama = t.services?.nama_jasa || "(jasa dihapus)";
+    topJasaMap.set(nama, (topJasaMap.get(nama) || 0) + Number(t.qty));
+  }
+  const topJasa = Array.from(topJasaMap, ([label, value]) => ({ label, value }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 5);
 
@@ -550,6 +585,19 @@ export default async function DashboardPage() {
             formatValue={(n) => n.toLocaleString("id-ID")}
           />
         </div>
+
+        {/* Top jasa, hanya bila memang ada penjualan jasa */}
+        {topJasa.length > 0 && (
+          <div className="glass rounded-2xl p-5">
+            <h2 className="font-display text-[15px] font-semibold text-ink mb-4">
+              Top 5 Layanan Jasa
+            </h2>
+            <HBarList
+              data={topJasa}
+              formatValue={(n) => n.toLocaleString("id-ID")}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -21,7 +21,7 @@
    ikut ke kartu, tidak ada dua markup yang harus dijaga sinkron.
    ============================================================ */
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 /**
  * Peran kolom. Menentukan posisinya di kartu HP; di tabel desktop
@@ -68,6 +68,34 @@ const ALIGN = {
   center: "text-center",
 } as const;
 
+/**
+ * Pengelompokan baris dengan baris pemisah, mis. "Fase A · 3 bahan".
+ *
+ * Baris TIDAK diurutkan ulang di sini — yang berurutan dengan `key`
+ * sama digabung jadi satu kelompok. Urutannya tetap tanggung jawab
+ * pemanggil, supaya urutan di layar sama dengan urutan yang dipakai
+ * di tempat lain (mis. `lib/formulaOrder.ts`).
+ */
+export type GroupBy<T> = {
+  key: (row: T) => string;
+  /** isi baris pemisah; teks polos sudah cukup */
+  header: (group: { key: string; rows: T[] }) => ReactNode;
+};
+
+type Grup<T> = { key: string; rows: T[] };
+
+function bagiKelompok<T>(rows: T[], groupBy?: GroupBy<T>): Grup<T>[] {
+  if (!groupBy) return [{ key: "", rows }];
+  const out: Grup<T>[] = [];
+  for (const row of rows) {
+    const key = groupBy.key(row);
+    const last = out[out.length - 1];
+    if (last && last.key === key) last.rows.push(row);
+    else out.push({ key, rows: [row] });
+  }
+  return out;
+}
+
 export default function DataTable<T>({
   rows,
   columns,
@@ -82,6 +110,7 @@ export default function DataTable<T>({
   expandable = true,
   chrome = "panel",
   onRowClick,
+  groupBy,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -134,8 +163,14 @@ export default function DataTable<T>({
    * cuma memperluas area sentuhnya.
    */
   onRowClick?: (row: T) => void;
+  /**
+   * Sisipkan baris pemisah di antara kelompok baris yang berurutan.
+   * Di HP jadi judul kecil di atas tiap kelompok kartu.
+   */
+  groupBy?: GroupBy<T>;
 }) {
   const kosong = rows.length === 0;
+  const kelompok = bagiKelompok(rows, groupBy);
 
   const titleCol = columns.find((c) => c.role === "title");
   const subtitleCol = columns.find((c) => c.role === "subtitle");
@@ -193,31 +228,59 @@ export default function DataTable<T>({
                 </td>
               </tr>
             ) : (
-              rows.map((row, idx) => (
-                <tr
-                  key={rowKey(row, idx)}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={[
-                    "group/row border-b border-line last:border-0 hover:bg-white/40 transition-colors",
-                    onRowClick ? "cursor-pointer" : "",
-                    rowClassName?.(row) ?? "",
-                  ].join(" ")}
-                >
-                  {columns.map((c, i) => (
-                    <td
-                      key={c.key}
-                      className={[
-                        "px-4 py-3",
-                        ALIGN[c.align ?? "left"],
-                        sticky && i === 0 ? "sticky-col" : "",
-                        c.className ?? "",
-                      ].join(" ")}
-                    >
-                      {c.cell(row)}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              kelompok.map((g, gi) => {
+                // Nomor baris global, supaya rowKey tetap menerima index
+                // yang sama seperti tanpa pengelompokan.
+                const offset = kelompok
+                  .slice(0, gi)
+                  .reduce((s, x) => s + x.rows.length, 0);
+                return (
+                  <Fragment key={`g-${gi}-${g.key}`}>
+                    {groupBy && (
+                      <tr className="border-b border-line">
+                        <td
+                          colSpan={columns.length}
+                          className="px-4 py-1.5 bg-botanical-100/50 text-[11.5px] font-semibold uppercase tracking-wide text-botanical-700"
+                        >
+                          {/* Menempel di tepi kiri supaya labelnya tetap
+                              terbaca waktu tabel digeser ke samping. */}
+                          <span className="sticky left-4 inline-block">
+                            {groupBy.header(g)}
+                          </span>
+                        </td>
+                      </tr>
+                    )}
+                    {g.rows.map((row, i) => {
+                      const idx = offset + i;
+                      return (
+                        <tr
+                          key={rowKey(row, idx)}
+                          onClick={onRowClick ? () => onRowClick(row) : undefined}
+                          className={[
+                            "group/row border-b border-line last:border-0 hover:bg-white/40 transition-colors",
+                            onRowClick ? "cursor-pointer" : "",
+                            rowClassName?.(row) ?? "",
+                          ].join(" ")}
+                        >
+                          {columns.map((c, ci) => (
+                            <td
+                              key={c.key}
+                              className={[
+                                "px-4 py-3",
+                                ALIGN[c.align ?? "left"],
+                                sticky && ci === 0 ? "sticky-col" : "",
+                                c.className ?? "",
+                              ].join(" ")}
+                            >
+                              {c.cell(row)}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
           {footer && !kosong && (
@@ -237,92 +300,109 @@ export default function DataTable<T>({
             {empty}
           </div>
         ) : (
-          rows.map((row, idx) => (
-            <article
-              key={rowKey(row, idx)}
-              onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={[
-                "px-3.5 py-3",
-                chrome === "panel"
-                  ? "glass rounded-2xl"
-                  : "border border-line rounded-xl bg-white/40",
-                onRowClick ? "cursor-pointer" : "",
-                rowClassName?.(row) ?? "",
-              ].join(" ")}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  {titleCol && (
-                    <div className="font-medium text-[14px] text-ink leading-snug">
-                      {cardOf(titleCol, row)}
-                    </div>
-                  )}
-                  {subtitleCol && (
-                    <div className="text-[12px] text-muted mt-0.5">
-                      {cardOf(subtitleCol, row)}
-                    </div>
-                  )}
-                </div>
-                {badgeCols.length > 0 && (
-                  <div className="flex flex-wrap justify-end gap-1 shrink-0">
-                    {badgeCols.map((c) => (
-                      <span key={c.key}>{cardOf(c, row)}</span>
-                    ))}
+          kelompok.map((g, gi) => {
+            const offset = kelompok
+              .slice(0, gi)
+              .reduce((s, x) => s + x.rows.length, 0);
+            return (
+              <Fragment key={`g-${gi}-${g.key}`}>
+                {groupBy && (
+                  <div className="text-[11.5px] font-semibold uppercase tracking-wide text-botanical-700 px-1 pt-2 first:pt-0">
+                    {groupBy.header(g)}
                   </div>
                 )}
-              </div>
-
-              {factCols.length > 0 && (
-                <dl className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5">
-                  {factCols.map((c) => (
-                    <div key={c.key} className="min-w-0">
-                      <dt className="text-[10.5px] uppercase tracking-wide text-muted">
-                        {c.cardLabel ?? c.header}
-                      </dt>
-                      <dd className="text-[13px] text-ink mt-px">
-                        {cardOf(c, row)}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-
-              {secondaryCols.length > 0 && (
-                <details className="mt-2 group/det">
-                  <summary className="list-none cursor-pointer select-none inline-flex items-center gap-1 text-[12px] font-medium text-botanical-700 py-1">
-                    <span
-                      aria-hidden="true"
-                      className="transition-transform group-open/det:rotate-90"
+                {g.rows.map((row, i) => {
+                  const idx = offset + i;
+                  return (
+                    <article
+                      key={rowKey(row, idx)}
+                      onClick={onRowClick ? () => onRowClick(row) : undefined}
+                      className={[
+                        "px-3.5 py-3",
+                        chrome === "panel"
+                          ? "glass rounded-2xl"
+                          : "border border-line rounded-xl bg-white/40",
+                        onRowClick ? "cursor-pointer" : "",
+                        rowClassName?.(row) ?? "",
+                      ].join(" ")}
                     >
-                      ▸
-                    </span>
-                    Detail selengkapnya
-                  </summary>
-                  <dl className="mt-1.5 flex flex-col gap-1.5 border-t border-line pt-2">
-                    {secondaryCols.map((c) => (
-                      <div
-                        key={c.key}
-                        className="flex items-baseline justify-between gap-3"
-                      >
-                        <dt className="text-[11.5px] text-muted shrink-0">
-                          {c.cardLabel ?? c.header}
-                        </dt>
-                        <dd className="text-[12.5px] text-ink text-right min-w-0">
-                          {cardOf(c, row)}
-                        </dd>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          {titleCol && (
+                            <div className="font-medium text-[14px] text-ink leading-snug">
+                              {cardOf(titleCol, row)}
+                            </div>
+                          )}
+                          {subtitleCol && (
+                            <div className="text-[12px] text-muted mt-0.5">
+                              {cardOf(subtitleCol, row)}
+                            </div>
+                          )}
+                        </div>
+                        {badgeCols.length > 0 && (
+                          <div className="flex flex-wrap justify-end gap-1 shrink-0">
+                            {badgeCols.map((c) => (
+                              <span key={c.key}>{cardOf(c, row)}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </dl>
-                </details>
-              )}
-
-              {actionCol && (
-                <div className="mt-1.5 pt-1.5 border-t border-line flex justify-end">
-                  {cardOf(actionCol, row)}
-                </div>
-              )}
-            </article>
-          ))
+        
+                      {factCols.length > 0 && (
+                        <dl className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5">
+                          {factCols.map((c) => (
+                            <div key={c.key} className="min-w-0">
+                              <dt className="text-[10.5px] uppercase tracking-wide text-muted">
+                                {c.cardLabel ?? c.header}
+                              </dt>
+                              <dd className="text-[13px] text-ink mt-px">
+                                {cardOf(c, row)}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+        
+                      {secondaryCols.length > 0 && (
+                        <details className="mt-2 group/det">
+                          <summary className="list-none cursor-pointer select-none inline-flex items-center gap-1 text-[12px] font-medium text-botanical-700 py-1">
+                            <span
+                              aria-hidden="true"
+                              className="transition-transform group-open/det:rotate-90"
+                            >
+                              ▸
+                            </span>
+                            Detail selengkapnya
+                          </summary>
+                          <dl className="mt-1.5 flex flex-col gap-1.5 border-t border-line pt-2">
+                            {secondaryCols.map((c) => (
+                              <div
+                                key={c.key}
+                                className="flex items-baseline justify-between gap-3"
+                              >
+                                <dt className="text-[11.5px] text-muted shrink-0">
+                                  {c.cardLabel ?? c.header}
+                                </dt>
+                                <dd className="text-[12.5px] text-ink text-right min-w-0">
+                                  {cardOf(c, row)}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </details>
+                      )}
+        
+                      {actionCol && (
+                        <div className="mt-1.5 pt-1.5 border-t border-line flex justify-end">
+                          {cardOf(actionCol, row)}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </Fragment>
+            );
+          })
         )}
       </div>
 

@@ -6,6 +6,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { createInvoice } from "./actions";
 import { computeTotals } from "@/lib/invoiceMath";
 import ClientPicker from "@/components/ClientPicker";
+import ProductPicker from "@/components/ProductPicker";
+import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -19,7 +21,15 @@ export type ProductVariantOpt = {
   service_id: string | null; // terisi bila baris ini layanan jasa
 };
 
-type Row = { key: string; qty: string; harga: string };
+/**
+ * `hargaManual` menandai baris yang harganya sudah diketik sendiri oleh
+ * user. Waktu client diganti, harga baris lain di-isi ulang dengan harga
+ * client baru — tapi yang manual TIDAK boleh ikut tertimpa, karena itu
+ * angka yang sengaja dinegosiasikan untuk transaksi ini.
+ */
+type Row = { key: string; qty: string; harga: string; hargaManual: boolean };
+
+const BARIS_KOSONG: Row = { key: "", qty: "", harga: "", hargaManual: false };
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
@@ -31,10 +41,12 @@ function formatRupiah(n: number) {
 export default function InvoiceForm({
   clients,
   options,
+  clientPrices,
   mode,
 }: {
   clients: ClientOpt[];
   options: ProductVariantOpt[];
+  clientPrices: ClientPriceMap;
   mode: "invoice" | "pos";
 }) {
   const router = useRouter();
@@ -50,11 +62,47 @@ export default function InvoiceForm({
   const [taxPercent, setTaxPercent] = useState("11");
   const [top, setTop] = useState(isPos ? "0" : "");
   const [catatan, setCatatan] = useState("");
-  const [rows, setRows] = useState<Row[]>([{ key: "", qty: "", harga: "" }]);
+  const [rows, setRows] = useState<Row[]>([{ ...BARIS_KOSONG }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const optOf = (key: string) => options.find((o) => o.key === key);
+
+  /** Harga khusus client kalau ada, kalau tidak harga master produk. */
+  function hargaUntuk(key: string, cid: string): number | null {
+    const o = optOf(key);
+    if (!o) return null;
+    // Jasa tidak punya harga per client, tarifnya dari master Services
+    if (cid && !o.service_id) {
+      const khusus = clientPrices[clientPriceKey(cid, o.product_id, o.varian)];
+      if (khusus != null) return khusus;
+    }
+    return o.harga_jual;
+  }
+
+  const punyaHargaKhusus = (key: string) => {
+    const o = optOf(key);
+    if (!o || !clientId || o.service_id) return false;
+    return clientPrices[clientPriceKey(clientId, o.product_id, o.varian)] != null;
+  };
+
+  /**
+   * Ganti client: harga baris yang belum disentuh user diisi ulang dengan
+   * harga client baru. Dikerjakan di handler, BUKAN useEffect — mengubah
+   * state sebagai reaksi atas state lain di effect melanggar
+   * react-hooks/set-state-in-effect dan menambah satu render setelah
+   * layar terlanjur dilukis.
+   */
+  function gantiClient(id: string) {
+    setClientId(id);
+    setRows((rs) =>
+      rs.map((r) => {
+        if (!r.key || r.hargaManual) return r;
+        const h = hargaUntuk(r.key, id);
+        return h != null ? { ...r, harga: String(h) } : r;
+      })
+    );
+  }
 
   const calcItems = rows
     .filter((r) => r.key)
@@ -130,7 +178,7 @@ export default function InvoiceForm({
             <ClientPicker
               clients={clients}
               value={clientId}
-              onChange={setClientId}
+              onChange={gantiClient}
               placeholder="Ketik nama client..."
               allowEmpty={isPos}
               emptyLabel="Walk-in (tanpa client)"
@@ -200,7 +248,7 @@ export default function InvoiceForm({
           </h2>
           <button
             type="button"
-            onClick={() => setRows((rs) => [...rs, { key: "", qty: "", harga: "" }])}
+            onClick={() => setRows((rs) => [...rs, { ...BARIS_KOSONG }])}
             className="flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline"
           >
             <Plus size={14} /> Tambah Baris
@@ -216,29 +264,23 @@ export default function InvoiceForm({
               className="flex flex-col gap-1 rounded-xl border border-line/70 bg-white/40 p-3 sm:border-0 sm:bg-transparent sm:p-0"
             >
               <div className="grid grid-cols-2 sm:grid-cols-[1fr_100px_150px_120px_32px] gap-2 items-center">
-                <select
-                  value={row.key}
-                  onChange={(e) => {
-                    const opt = optOf(e.target.value);
-                    // Prefill harga jual dari master produk (tetap bisa diubah)
-                    updateRow(idx, {
-                      key: e.target.value,
-                      harga:
-                        opt?.harga_jual != null ? String(opt.harga_jual) : row.harga,
-                    });
-                  }}
-                  className={`${inputCls} col-span-2 sm:col-span-1`}
-                >
-                  <option value="">Pilih produk & varian</option>
-                  {options.map((opt) => (
-                    <option key={opt.key} value={opt.key}>
-                      {opt.label}
-                      {opt.service_id
-                        ? ""
-                        : ` · stok ${opt.available.toLocaleString("id-ID")}`}
-                    </option>
-                  ))}
-                </select>
+                <div className="col-span-2 sm:col-span-1">
+                  <ProductPicker
+                    options={options}
+                    value={row.key}
+                    onChange={(key) => {
+                      // Prefill harga: harga khusus client kalau ada,
+                      // kalau tidak harga master. Tetap bisa diubah.
+                      const h = hargaUntuk(key, clientId);
+                      updateRow(idx, {
+                        key,
+                        harga: h != null ? String(h) : row.harga,
+                        hargaManual: false,
+                      });
+                    }}
+                    placeholder="Ketik kode / nama produk..."
+                  />
+                </div>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -251,7 +293,9 @@ export default function InvoiceForm({
                   type="text"
                   inputMode="decimal"
                   value={row.harga}
-                  onChange={(e) => updateRow(idx, { harga: e.target.value })}
+                  onChange={(e) =>
+                    updateRow(idx, { harga: e.target.value, hargaManual: true })
+                  }
                   placeholder="Harga/pcs (Rp)"
                   className={inputCls}
                 />
@@ -269,7 +313,7 @@ export default function InvoiceForm({
                     setRows((rs) =>
                       rs.length > 1
                         ? rs.filter((_, i) => i !== idx)
-                        : [{ key: "", qty: "", harga: "" }]
+                        : [{ ...BARIS_KOSONG }]
                     )
                   }
                   className="text-muted hover:text-clay-600 p-2 justify-self-end"
@@ -277,6 +321,11 @@ export default function InvoiceForm({
                   <Trash2 size={15} />
                 </button>
               </div>
+              {punyaHargaKhusus(row.key) && !row.hargaManual && (
+                <p className="text-botanical-700 text-[11.5px]">
+                  Harga khusus client dipakai
+                </p>
+              )}
               {over && (
                 <p className="text-clay-600 text-[12px]">
                   Melebihi stok produk jadi ({o!.available.toLocaleString("id-ID")} pcs)

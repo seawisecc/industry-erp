@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Tags } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
@@ -60,6 +60,23 @@ export default async function ClientsPage({
 
   const list = (clients || []) as ClientRow[];
   const info = pageInfo(sp.page, count, list.length);
+
+  // Client mana yang punya harga khusus — cuma untuk client di halaman ini,
+  // bukan seluruh organisasi.
+  const jumlahHarga = new Map<string, number>();
+  if (list.length > 0) {
+    const { data: hargaRows } = await supabase
+      .from("client_prices")
+      .select("client_id")
+      .eq("organization_id", organizationId)
+      .in(
+        "client_id",
+        list.map((c) => c.id)
+      );
+    for (const h of (hargaRows || []) as { client_id: string }[]) {
+      jumlahHarga.set(h.client_id, (jumlahHarga.get(h.client_id) || 0) + 1);
+    }
+  }
 
   return (
     <SalesShell>
@@ -202,6 +219,16 @@ export default async function ClientsPage({
             align: "right",
             cell: (c) => (
               <RowActions>
+                <IconAction
+                  icon={Tags}
+                  label={
+                    jumlahHarga.get(c.id)
+                      ? `Harga khusus (${jumlahHarga.get(c.id)} produk)`
+                      : "Atur harga khusus"
+                  }
+                  href={`/clients/${c.id}/prices`}
+                  tone={jumlahHarga.get(c.id) ? "primary" : "default"}
+                />
                 <IconAction
                   icon={Pencil}
                   label="Edit client"

@@ -89,7 +89,7 @@ export default async function NewProductionPage() {
   );
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <Link
         href="/production"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"

@@ -78,7 +78,7 @@ export default async function ProductionDetailPage({
   const costPerUnit = totalPcs > 0 ? Number(batch.total_cost_bahan) / totalPcs : 0;
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <Link
         href="/production"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"

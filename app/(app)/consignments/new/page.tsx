@@ -6,10 +6,10 @@ import ConsignmentForm from "./ConsignmentForm";
 
 export default async function NewConsignmentPage() {
   const { organizationId } = await getEffectiveOrg();
-  const { clients, options } = await getSalesOptions(organizationId!);
+  const { clients, options, clientPrices } = await getSalesOptions(organizationId!);
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <Link
         href="/consignments"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"
@@ -25,7 +25,11 @@ export default async function NewConsignmentPage() {
         client.
       </p>
 
-      <ConsignmentForm clients={clients} options={options} />
+      <ConsignmentForm
+        clients={clients}
+        options={options}
+        clientPrices={clientPrices}
+      />
     </div>
   );
 }

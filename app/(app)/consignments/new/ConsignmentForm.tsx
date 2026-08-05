@@ -6,8 +6,17 @@ import { Plus, Trash2 } from "lucide-react";
 import { createConsignment } from "../actions";
 import type { ClientOpt, ProductVariantOpt } from "@/lib/salesOptions";
 import ClientPicker from "@/components/ClientPicker";
+import ProductPicker from "@/components/ProductPicker";
+import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
 
-type Row = { key: string; qty: string; harga: string };
+/**
+ * `hargaManual` menandai baris yang harganya sudah diketik user, supaya
+ * tidak ikut tertimpa waktu client (outlet) diganti. Lihat catatan yang
+ * sama di InvoiceForm.
+ */
+type Row = { key: string; qty: string; harga: string; hargaManual: boolean };
+
+const BARIS_KOSONG: Row = { key: "", qty: "", harga: "", hargaManual: false };
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
@@ -16,19 +25,49 @@ function parseNum(s: string) {
 export default function ConsignmentForm({
   clients,
   options,
+  clientPrices,
 }: {
   clients: ClientOpt[];
   options: ProductVariantOpt[];
+  clientPrices: ClientPriceMap;
 }) {
   const router = useRouter();
   const [clientId, setClientId] = useState("");
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [catatan, setCatatan] = useState("");
-  const [rows, setRows] = useState<Row[]>([{ key: "", qty: "", harga: "" }]);
+  const [rows, setRows] = useState<Row[]>([{ ...BARIS_KOSONG }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const optOf = (key: string) => options.find((o) => o.key === key);
+
+  /** Harga khusus outlet kalau ada, kalau tidak harga master produk. */
+  function hargaUntuk(key: string, cid: string): number | null {
+    const o = optOf(key);
+    if (!o) return null;
+    if (cid) {
+      const khusus = clientPrices[clientPriceKey(cid, o.product_id, o.varian)];
+      if (khusus != null) return khusus;
+    }
+    return o.harga_jual;
+  }
+
+  const punyaHargaKhusus = (key: string) => {
+    const o = optOf(key);
+    if (!o || !clientId) return false;
+    return clientPrices[clientPriceKey(clientId, o.product_id, o.varian)] != null;
+  };
+
+  function gantiClient(id: string) {
+    setClientId(id);
+    setRows((rs) =>
+      rs.map((r) => {
+        if (!r.key || r.hargaManual) return r;
+        const h = hargaUntuk(r.key, id);
+        return h != null ? { ...r, harga: String(h) } : r;
+      })
+    );
+  }
 
   function updateRow(idx: number, patch: Partial<Row>) {
     setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -84,7 +123,7 @@ export default function ConsignmentForm({
           <ClientPicker
             clients={clients}
             value={clientId}
-            onChange={setClientId}
+            onChange={gantiClient}
             placeholder="Ketik nama client..."
           />
         </div>
@@ -124,7 +163,7 @@ export default function ConsignmentForm({
           </div>
           <button
             type="button"
-            onClick={() => setRows((rs) => [...rs, { key: "", qty: "", harga: "" }])}
+            onClick={() => setRows((rs) => [...rs, { ...BARIS_KOSONG }])}
             className="flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline"
           >
             <Plus size={14} /> Tambah Baris
@@ -137,26 +176,21 @@ export default function ConsignmentForm({
           return (
             <div key={idx} className="flex flex-col gap-1">
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px_160px_32px] gap-2 items-center">
-                <select
+                <ProductPicker
+                  options={options}
                   value={row.key}
-                  onChange={(e) => {
-                    const opt = options.find((o) => o.key === e.target.value);
-                    // Prefill harga jual dari master produk (tetap bisa diubah)
+                  onChange={(key) => {
+                    // Prefill harga: harga khusus outlet kalau ada,
+                    // kalau tidak harga master. Tetap bisa diubah.
+                    const h = hargaUntuk(key, clientId);
                     updateRow(idx, {
-                      key: e.target.value,
-                      harga:
-                        opt?.harga_jual != null ? String(opt.harga_jual) : row.harga,
+                      key,
+                      harga: h != null ? String(h) : row.harga,
+                      hargaManual: false,
                     });
                   }}
-                  className={inputCls}
-                >
-                  <option value="">Pilih produk & varian</option>
-                  {options.map((opt) => (
-                    <option key={opt.key} value={opt.key}>
-                      {opt.label} · stok {opt.available.toLocaleString("id-ID")}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Ketik kode / nama produk..."
+                />
                 <input
                   type="text"
                   inputMode="decimal"
@@ -169,7 +203,9 @@ export default function ConsignmentForm({
                   type="text"
                   inputMode="decimal"
                   value={row.harga}
-                  onChange={(e) => updateRow(idx, { harga: e.target.value })}
+                  onChange={(e) =>
+                    updateRow(idx, { harga: e.target.value, hargaManual: true })
+                  }
                   placeholder="Harga jual/pcs"
                   className={inputCls}
                 />
@@ -179,7 +215,7 @@ export default function ConsignmentForm({
                     setRows((rs) =>
                       rs.length > 1
                         ? rs.filter((_, i) => i !== idx)
-                        : [{ key: "", qty: "", harga: "" }]
+                        : [{ ...BARIS_KOSONG }]
                     )
                   }
                   className="text-muted hover:text-clay-600 p-2"
@@ -187,6 +223,11 @@ export default function ConsignmentForm({
                   <Trash2 size={15} />
                 </button>
               </div>
+              {punyaHargaKhusus(row.key) && !row.hargaManual && (
+                <p className="text-botanical-700 text-[11.5px]">
+                  Harga khusus outlet dipakai
+                </p>
+              )}
               {over && (
                 <p className="text-clay-600 text-[12px]">
                   Melebihi stok tersedia ({o!.available.toLocaleString("id-ID")} pcs)

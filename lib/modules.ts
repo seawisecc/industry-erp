@@ -4,20 +4,23 @@
 export const MODULES = [
   { key: "dashboard", label: "Dashboard" },
   { key: "items", label: "Stock Items" },
+  { key: "material-issues", label: "Material Issue" },
+  { key: "stock-opname", label: "Stock Opname" },
   { key: "materials", label: "Materials" },
   { key: "inci", label: "INCI Names" },
   { key: "qc-incoming", label: "QC Incoming" },
-  { key: "qc-parameters", label: "Parameter Uji QC" },
+  { key: "qc-parameters", label: "QC Parameters" },
   { key: "purchase-orders", label: "Purchase Orders" },
   { key: "receivings", label: "Receiving" },
+  { key: "purchase-returns", label: "Purchase Return" },
   { key: "payments", label: "Payments (Purchasing)" },
   { key: "ppic", label: "PPIC Planner" },
   { key: "suppliers", label: "Suppliers" },
   { key: "products", label: "Products" },
-  { key: "services", label: "Services (Jasa)" },
+  { key: "services", label: "Services" },
   { key: "production", label: "Production" },
   { key: "finished-goods", label: "Finished Goods" },
-  { key: "qc-finished", label: "QC Produk Jadi" },
+  { key: "qc-finished", label: "QC Finished Goods" },
   { key: "qa-release", label: "QA Release" },
   { key: "clients", label: "Clients" },
   { key: "consignments", label: "Consignment" },
@@ -26,6 +29,7 @@ export const MODULES = [
   { key: "sales-payments", label: "Sales Payments" },
   { key: "reports", label: "Reports" },
   { key: "data-migration", label: "Data Migration & Adjustment" },
+  { key: "activity-logs", label: "Activity Log" },
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number]["key"];
@@ -43,13 +47,15 @@ export function canAccessModule(p: AccessProfile, moduleKey: string): boolean {
   if (moduleKey === "companies") return p.isSuperAdmin;
   // Admin & Super Admin selalu akses semua, termasuk Pengguna & Pengaturan
   if (p.isSuperAdmin || p.role === "Admin") return true;
-  // Menu Pengguna & Pengaturan khusus Admin
+  // Menu Pengguna & Pengaturan khusus Admin. Log aktivitas ikut di sini:
+  // isinya memuat perubahan hak akses dan seluruh dokumen keuangan.
   if (
     moduleKey === "users" ||
     moduleKey === "settings" ||
     moduleKey === "document-signing" ||
     moduleKey === "features" ||
-    moduleKey === "qc-parameters"
+    moduleKey === "qc-parameters" ||
+    moduleKey === "activity-logs"
   )
     return false;
   // Rute di luar registry (mis. halaman lain) dibiarkan lewat

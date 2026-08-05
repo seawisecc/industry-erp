@@ -115,6 +115,20 @@ export async function cancelReceiving(
       .single();
     if (!rcv) throw new Error("Penerimaan tidak ditemukan");
 
+    // Retur pembelian menunjuk ke faktur ini lewat foreign key, dan
+    // barangnya sudah dikembalikan ke supplier. Tanpa guard ini yang muncul
+    // cuma error FK mentah dari database, atau pesan "sudah terpakai/keluar"
+    // yang menyesatkan — padahal yang terjadi barangnya diretur.
+    const { count: returCount } = await supabase
+      .from("purchase_returns")
+      .select("id", { count: "exact", head: true })
+      .eq("receiving_id", id)
+      .eq("organization_id", organizationId);
+    if ((returCount ?? 0) > 0)
+      throw new Error(
+        "Faktur ini sudah punya retur pembelian. Batalkan dulu dokumen returnya, baru penerimaan ini bisa dibatalkan."
+      );
+
     const { data: batches } = await supabase
       .from("purchase_batches")
       .select("id, item_id, qty_masuk, qty_sisa, qty_karantina")

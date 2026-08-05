@@ -99,7 +99,7 @@ export default async function QcFinishedPage({
     <ProdukShell>
       <div>
         <h2 className="font-display text-lg font-semibold text-ink">
-          QC Produk Jadi
+          QC Finished Goods
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
           {belum} batch menunggu pengujian, hasil uji dikirim ke QA sebagai

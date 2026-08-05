@@ -15,6 +15,16 @@ const CARDS: SettingsCard[] = [
     subtitle: "Karantina & release barang masuk",
   },
   {
+    href: "/material-issues",
+    title: "Material Issue",
+    subtitle: "Bahan keluar di luar produksi: R&D, cleaning, sampel",
+  },
+  {
+    href: "/stock-opname",
+    title: "Stock Opname",
+    subtitle: "Hitung fisik gudang, selisih jadi adjustment",
+  },
+  {
     href: "/materials",
     title: "Materials",
     subtitle: "Master material, komposisi INCI, supplier",

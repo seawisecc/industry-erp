@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, Calculator } from "lucide-react";
 import InciPanel, { InciEntry } from "./InciPanel";
 import DataTable from "@/components/DataTable";
+import { urutkanFormula, kelompokkanFase } from "@/lib/formulaOrder";
 
 type ProductRaw = {
   id: string;
@@ -125,44 +126,25 @@ export default async function ProductDetailPage({
   });
 
   // ===== Formula (untuk ditampilkan) =====
-  const formulaRows = product.product_formulas
-    .map((f) => {
+  // Urutannya dari lib/formulaOrder — sama persis dengan layar
+  // penimbangan di eksekusi produksi dan Batch Record yang dicetak.
+  const formulaRows = urutkanFormula(
+    product.product_formulas.map((f) => {
       const it = itemMap.get(f.item_id);
       return {
         kode: it?.kode || "-",
         nama: it?.nama || "(item terhapus)",
         satuan: it?.satuan || "",
         fase: f.fase || "",
-        pct: Number(f.percentage),
+        percentage: Number(f.percentage),
         qtyPerBatch: (Number(f.percentage) / 100) * batchKg,
       };
     })
-    // Urut per fase (A, B, C...), lalu dalam tiap fase dari % terbesar.
-    // Bahan tanpa fase ditaruh paling akhir.
-    .sort((a, b) => {
-      const fa = a.fase.trim().toUpperCase();
-      const fb = b.fase.trim().toUpperCase();
-      if (fa !== fb) {
-        if (!fa) return 1;
-        if (!fb) return -1;
-        return fa.localeCompare(fb);
-      }
-      return b.pct - a.pct;
-    });
-  const totalPct = formulaRows.reduce((s, r) => s + r.pct, 0);
+  );
+  const totalPct = formulaRows.reduce((s, r) => s + r.percentage, 0);
 
   // Kelompokkan untuk baris pemisah fase + subtotal per fase
-  const faseGroups: { fase: string; rows: typeof formulaRows; total: number }[] = [];
-  for (const r of formulaRows) {
-    const key = r.fase.trim().toUpperCase() || "-";
-    const last = faseGroups[faseGroups.length - 1];
-    if (last && last.fase === key) {
-      last.rows.push(r);
-      last.total += r.pct;
-    } else {
-      faseGroups.push({ fase: key, rows: [r], total: r.pct });
-    }
-  }
+  const faseGroups = kelompokkanFase(formulaRows);
 
   const stepRows = (product.product_process_steps || []).sort(
     (a, b) => a.urutan - b.urutan
@@ -217,7 +199,7 @@ export default async function ProductDetailPage({
   })).sort((a, b) => b.pct - a.pct);
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <Link
         href="/products"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"
@@ -283,7 +265,7 @@ export default async function ProductDetailPage({
                         colSpan={batchKg > 0 ? 3 : 3}
                         className="px-3 py-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-botanical-700"
                       >
-                        {g.fase === "-" ? "Tanpa Fase" : `Fase ${g.fase}`}
+                        {g.label}
                         <span className="font-normal text-muted normal-case tracking-normal">
                           {" "}
                           · {g.rows.length} bahan
@@ -318,7 +300,10 @@ export default async function ProductDetailPage({
                           {r.fase || "-"}
                         </td>
                         <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                          {r.pct.toLocaleString("id-ID", { maximumFractionDigits: 3 })}%
+                          {r.percentage.toLocaleString("id-ID", {
+                            maximumFractionDigits: 3,
+                          })}
+                          %
                         </td>
                         {batchKg > 0 && (
                           <td className="px-3 py-2.5 text-right whitespace-nowrap">

@@ -13,6 +13,7 @@ import {
   type SearchParams,
 } from "@/lib/pagination";
 import { localDateStr } from "@/lib/dates";
+import { sisaHutang } from "@/lib/purchaseReturn";
 
 type InvoiceRow = {
   id: string;
@@ -20,6 +21,7 @@ type InvoiceRow = {
   tanggal_terima: string;
   supplier_nama: string | null;
   total_invoice: number;
+  total_retur: number | null;
   top_days: number | null;
   jatuh_tempo: string | null;
   status_bayar: string;
@@ -66,7 +68,7 @@ export default async function PaymentsPage({
   let query = supabase
     .from("receivings")
     .select(
-      "id, no_invoice, tanggal_terima, supplier_nama, total_invoice, top_days, jatuh_tempo, status_bayar, tanggal_bayar, purchase_orders(no_po)",
+      "id, no_invoice, tanggal_terima, supplier_nama, total_invoice, total_retur, top_days, jatuh_tempo, status_bayar, tanggal_bayar, purchase_orders(no_po)",
       { count: "exact" }
     )
     .eq("organization_id", organizationId);
@@ -99,14 +101,22 @@ export default async function PaymentsPage({
   // halaman yang sedang tampil.
   const { data: unpaid } = await supabase
     .from("receivings")
-    .select("total_invoice, jatuh_tempo")
+    .select("total_invoice, total_retur, jatuh_tempo")
     .eq("organization_id", organizationId)
     .eq("status_bayar", "Belum Lunas");
-  const belumLunas = (unpaid || []) as {
+  // Retur ke supplier memotong tagihan, jadi hutangnya sisa setelah retur.
+  // Faktur yang seluruh barangnya dikembalikan tidak dihitung lagi.
+  const belumLunas = ((unpaid || []) as {
     total_invoice: number;
+    total_retur: number | null;
     jatuh_tempo: string | null;
-  }[];
-  const totalHutang = belumLunas.reduce((s, i) => s + Number(i.total_invoice), 0);
+  }[])
+    .map((i) => ({
+      ...i,
+      sisa: sisaHutang(Number(i.total_invoice), Number(i.total_retur || 0)),
+    }))
+    .filter((i) => i.sisa > 0.5);
+  const totalHutang = belumLunas.reduce((s, i) => s + i.sisa, 0);
   const terlambat = belumLunas.filter(
     (i) => i.jatuh_tempo !== null && i.jatuh_tempo < todayStr
   ).length;
@@ -286,6 +296,32 @@ export default async function PaymentsPage({
             align: "right",
             className: "whitespace-nowrap",
             cell: (inv) => formatRupiah(Number(inv.total_invoice)),
+          },
+          {
+            key: "retur",
+            header: "Retur",
+            role: "secondary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (inv) =>
+              Number(inv.total_retur || 0) > 0 ? (
+                <span className="text-clay-600 font-medium">
+                  − {formatRupiah(Number(inv.total_retur))}
+                </span>
+              ) : (
+                <span className="text-muted">-</span>
+              ),
+          },
+          {
+            key: "sisa",
+            header: "Sisa Bayar",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap font-semibold",
+            cell: (inv) =>
+              formatRupiah(
+                sisaHutang(Number(inv.total_invoice), Number(inv.total_retur || 0))
+              ),
           },
           {
             key: "status",

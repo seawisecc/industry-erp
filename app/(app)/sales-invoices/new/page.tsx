@@ -6,10 +6,12 @@ import InvoiceForm from "../InvoiceForm";
 
 export default async function NewInvoicePage() {
   const { organizationId } = await getEffectiveOrg();
-  const { clients, options } = await getSalesOptions(organizationId!, { includeServices: true });
+  const { clients, options, clientPrices } = await getSalesOptions(organizationId!, {
+    includeServices: true,
+  });
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <Link
         href="/sales-invoices"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"
@@ -25,7 +27,12 @@ export default async function NewInvoicePage() {
         stok produk jadi.
       </p>
 
-      <InvoiceForm clients={clients} options={options} mode="invoice" />
+      <InvoiceForm
+        clients={clients}
+        options={options}
+        clientPrices={clientPrices}
+        mode="invoice"
+      />
     </div>
   );
 }

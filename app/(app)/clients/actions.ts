@@ -132,3 +132,43 @@ export async function updateClientData(
     return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
   }
 }
+
+/**
+ * Ganti seluruh daftar harga khusus satu client.
+ *
+ * Hapus lalu sisip ulang dikerjakan di dalam save_client_prices_tx, bukan
+ * dua panggilan dari sini: gagal di antara keduanya berarti client
+ * kehilangan seluruh harga khususnya dan diam-diam kembali ke harga
+ * master, dan tidak ada yang akan sadar sampai tagihannya salah.
+ */
+export async function saveClientPrices(
+  clientId: string,
+  items: { product_id: string; varian: string | null; harga: number }[]
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { organizationId } = await getEffectiveOrg();
+    if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
+    if (!clientId) throw new Error("Client tidak dikenal");
+
+    const bersih = items.filter((i) => i.product_id && i.harga >= 0);
+
+    const { error } = await supabase.rpc("save_client_prices_tx", {
+      p_organization_id: organizationId,
+      p_client_id: clientId,
+      p_items: bersih,
+    });
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/clients");
+    revalidatePath("/sales-invoices");
+    revalidatePath("/pos");
+    revalidatePath("/consignments");
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Gagal menyimpan harga khusus",
+    };
+  }
+}

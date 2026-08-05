@@ -32,7 +32,7 @@ export default async function QcParametersPage() {
     <SettingsShell>
       <div>
         <h2 className="font-display text-lg font-semibold text-ink">
-          Parameter Uji QC
+          QC Parameters
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
           Master parameter pemeriksaan per kategori, bahan baku, bahan kemas,

@@ -10,7 +10,8 @@ export type ImportKind =
   | "materials"
   | "items"
   | "clients"
-  | "products";
+  | "products"
+  | "services";
 
 const CLIENT_KATEGORI = [
   "Brand Owner",
@@ -33,6 +34,17 @@ function clean(v: string | undefined): string | null {
 function parseNum(v: string | undefined): number {
   if (!v) return 0;
   return parseFloat(v.replace(",", ".")) || 0;
+}
+
+/**
+ * Kolom status di CSV. Kosong dianggap aktif — orang yang mengetik
+ * daftar jasa baru jarang mengisi kolom ini, dan default "nonaktif"
+ * membuat datanya tidak muncul di Invoice tanpa sebab yang jelas.
+ */
+function parseAktif(v: string | undefined): boolean {
+  const t = v?.trim().toLowerCase();
+  if (!t) return true;
+  return !["0", "false", "nonaktif", "non aktif", "tidak", "no", "n"].includes(t);
 }
 
 export async function runImport(
@@ -254,6 +266,83 @@ export async function runImport(
       return { ok: true, count: valid.length };
     }
 
+    // ================= LAYANAN JASA =================
+    if (kind === "services") {
+      const valid = rows.filter((r) => clean(r.nama_jasa));
+      if (valid.length === 0)
+        throw new Error("Tidak ada baris dengan nama_jasa terisi");
+
+      // Duplikat DI DALAM file (ambil kemunculan pertama), sekaligus
+      // kumpulkan namanya untuk dicocokkan dengan yang sudah terdaftar.
+      const seen = new Set<string>();
+      const dobelDiFile = new Set<string>();
+      const unique = valid.filter((r) => {
+        const key = clean(r.nama_jasa)!.toLowerCase();
+        if (seen.has(key)) {
+          dobelDiFile.add(clean(r.nama_jasa)!);
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+      if (dobelDiFile.size > 0) {
+        throw new Error(
+          `Nama jasa dobel di dalam file: ${Array.from(dobelDiFile).join(", ")}. Sisakan satu baris per jasa.`
+        );
+      }
+
+      // Cegah dobel dengan yang sudah ada, aturan sama dengan form Services
+      const { data: existing } = await supabase
+        .from("services")
+        .select("nama_jasa")
+        .eq("organization_id", organizationId);
+      const sudahAda = new Set(
+        ((existing || []) as { nama_jasa: string }[]).map((s) =>
+          s.nama_jasa.trim().toLowerCase()
+        )
+      );
+      const bentrok = unique
+        .map((r) => clean(r.nama_jasa)!)
+        .filter((n) => sudahAda.has(n.toLowerCase()));
+      if (bentrok.length > 0) {
+        throw new Error(
+          `Jasa ini sudah terdaftar: ${bentrok.join(", ")}. Hapus barisnya dari file, atau ubah lewat menu Services.`
+        );
+      }
+
+      const negatif = unique.filter((r) => parseNum(r.biaya) < 0);
+      if (negatif.length > 0) {
+        throw new Error("Kolom biaya tidak boleh negatif");
+      }
+
+      // Kode SRV-XXXX berurutan melanjutkan yang sudah ada, pola sama
+      // dengan nextServiceKode di app/(app)/services/actions.ts
+      const { data: lastRow } = await supabase
+        .from("services")
+        .select("kode")
+        .eq("organization_id", organizationId)
+        .like("kode", "SRV-%")
+        .order("kode", { ascending: false })
+        .limit(1);
+      const last = lastRow?.[0]?.kode as string | undefined;
+      let seq = last ? parseInt(last.slice(4)) || 0 : 0;
+
+      const { error } = await supabase.from("services").insert(
+        unique.map((r) => ({
+          kode: "SRV-" + String(++seq).padStart(4, "0"),
+          nama_jasa: clean(r.nama_jasa)!,
+          keterangan: clean(r.keterangan),
+          biaya: parseNum(r.biaya),
+          aktif: parseAktif(r.aktif),
+          organization_id: organizationId,
+        }))
+      );
+      if (error) throw new Error(error.message);
+
+      revalidatePath("/services");
+      return { ok: true, count: unique.length };
+    }
+
     throw new Error("Jenis import tidak dikenal");
   } catch (err) {
     return {
@@ -395,6 +484,20 @@ const EXPORT_SPEC: Record<ImportKind, ExportSpec> = {
       batch_size_kg: cell(r.batch_size_kg),
     }),
   },
+  services: {
+    table: "services",
+    select: "id, nama_jasa, keterangan, biaya, aktif",
+    orderBy: "kode",
+    // Kode SRV-XXXX tidak ikut, sama seperti clients & products: kodenya
+    // dibuat ulang saat import supaya file hasil export bisa dipakai di
+    // organisasi lain tanpa bentrok penomoran.
+    map: (r) => ({
+      nama_jasa: cell(r.nama_jasa),
+      keterangan: cell(r.keterangan),
+      biaya: cell(r.biaya),
+      aktif: r.aktif ? "Aktif" : "Nonaktif",
+    }),
+  },
 };
 
 /**
@@ -448,6 +551,8 @@ const BACKUP_TABLES = [
   "po_items",
   "receivings",
   "purchase_batches",
+  "purchase_returns",
+  "purchase_return_items",
   "products",
   "product_formulas",
   "product_variants",
@@ -458,7 +563,13 @@ const BACKUP_TABLES = [
   "production_components",
   "stock_adjustments",
   "stock_adjustment_items",
+  "stock_opnames",
+  "stock_opname_items",
+  "material_issues",
+  "material_issue_items",
   "clients",
+  "client_prices",
+  "services",
   "organization_settings",
 ];
 

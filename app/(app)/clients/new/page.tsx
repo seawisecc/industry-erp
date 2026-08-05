@@ -4,7 +4,7 @@ import ClientForm from "../ClientForm";
 
 export default function NewClientPage() {
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-4xl">
       <Link
         href="/clients"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"

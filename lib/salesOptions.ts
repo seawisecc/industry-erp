@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getFinishedStock } from "@/lib/salesStock";
+import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -13,6 +14,8 @@ export type ProductVariantOpt = {
   service_id: string | null; // terisi bila baris ini layanan jasa
 };
 
+
+
 /**
  * Opsi client aktif + produk-varian dengan stok tersedia, dipakai Invoice,
  * POS, Konsinyasi. includeServices: sertakan layanan jasa (Invoice & POS saja -
@@ -24,8 +27,13 @@ export async function getSalesOptions(
 ) {
   const supabase = await createClient();
 
-  const [{ data: clients }, { data: products }, { data: variants }, stock] =
-    await Promise.all([
+  const [
+    { data: clients },
+    { data: products },
+    { data: variants },
+    stock,
+    { data: hargaKhusus },
+  ] = await Promise.all([
       supabase
         .from("clients")
         .select("id, kode, company_brand")
@@ -42,6 +50,15 @@ export async function getSalesOptions(
         .select("product_id, nama_varian, harga_jual")
         .eq("organization_id", organizationId),
       getFinishedStock(organizationId),
+      // Seluruh harga khusus organisasi ditarik sekali di sini, bukan
+      // per client lewat server action. Datanya kecil (satu baris per
+      // kesepakatan harga, bukan per transaksi) dan dengan begini
+      // penggantian client di form langsung memakai harganya tanpa
+      // round-trip dan tanpa state loading yang bisa balapan.
+      supabase
+        .from("client_prices")
+        .select("client_id, product_id, varian, harga")
+        .eq("organization_id", organizationId),
     ]);
 
   // Harga jual per (produk|varian) dari master produk
@@ -104,5 +121,17 @@ export async function getSalesOptions(
     }
   }
 
-  return { clients: (clients || []) as ClientOpt[], options };
+  const clientPrices: ClientPriceMap = {};
+  for (const h of (hargaKhusus || []) as {
+    client_id: string;
+    product_id: string;
+    varian: string | null;
+    harga: number;
+  }[]) {
+    clientPrices[clientPriceKey(h.client_id, h.product_id, h.varian)] = Number(
+      h.harga
+    );
+  }
+
+  return { clients: (clients || []) as ClientOpt[], options, clientPrices };
 }

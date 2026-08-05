@@ -89,7 +89,7 @@ export default async function EditPOPage({
     );
     const ppnValue = (subtotal * Number(po.ppn_percent)) / 100;
     return (
-      <div className="max-w-3xl">
+      <div className="max-w-5xl">
         <Link
           href="/purchase-orders"
           className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"
@@ -269,7 +269,7 @@ export default async function EditPOPage({
   itemOptions.sort((a, b) => a.kode.localeCompare(b.kode));
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <Link
         href="/purchase-orders"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"

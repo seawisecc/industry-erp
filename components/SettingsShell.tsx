@@ -16,7 +16,7 @@ const CARDS: SettingsCard[] = [
   },
   {
     href: "/qc-parameters",
-    title: "Parameter Uji QC",
+    title: "QC Parameters",
     subtitle: "Spesifikasi & daftar parameter pemeriksaan",
   },
   {
@@ -33,6 +33,11 @@ const CARDS: SettingsCard[] = [
     href: "/users",
     title: "Users",
     subtitle: "Akses pengguna, anggota tim",
+  },
+  {
+    href: "/activity-logs",
+    title: "Activity Log",
+    subtitle: "Jejak audit: siapa mengubah apa, kapan",
   },
 ];
 

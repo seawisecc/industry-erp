@@ -13,6 +13,7 @@ import {
   Boxes,
   Contact,
   Package,
+  ConciergeBell,
   LucideIcon,
 } from "lucide-react";
 import { runImport, exportCsvData, ImportKind } from "./actions";
@@ -26,6 +27,7 @@ const ICONS: Record<ImportKind, LucideIcon> = {
   items: Boxes,
   clients: Contact,
   products: Package,
+  services: ConciergeBell,
 };
 
 type CsvRow = Record<string, string | undefined>;

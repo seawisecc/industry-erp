@@ -48,7 +48,7 @@ export default async function StockAdjustmentPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">
-            Adjustment Stok
+            Stock Adjustment
           </h1>
           <p className="text-muted text-sm mt-1">
             {list.length} riwayat, untuk stock opname &amp; input stok awal

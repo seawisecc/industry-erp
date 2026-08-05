@@ -24,7 +24,9 @@ function formatRupiah(n: number) {
 export default async function PosPage() {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
-  const { clients, options } = await getSalesOptions(organizationId!, { includeServices: true });
+  const { clients, options, clientPrices } = await getSalesOptions(organizationId!, {
+    includeServices: true,
+  });
 
   const todayStr = localDateStr();
   const { data: todaySales } = await supabase
@@ -49,7 +51,12 @@ export default async function PosPage() {
       </div>
 
       <div className="mt-4">
-        <InvoiceForm clients={clients} options={options} mode="pos" />
+        <InvoiceForm
+          clients={clients}
+          options={options}
+          clientPrices={clientPrices}
+          mode="pos"
+        />
       </div>
 
       {/* ===== Penjualan hari ini ===== */}

@@ -33,7 +33,7 @@ export default async function FromMaterialPage() {
   }));
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <Link
         href="/items"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"

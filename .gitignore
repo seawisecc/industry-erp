@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Brief kerja lokal, bukan bagian aplikasi
+PROMPT-PEMBENAHAN.md

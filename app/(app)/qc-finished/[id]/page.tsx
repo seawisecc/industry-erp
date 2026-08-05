@@ -111,12 +111,12 @@ export default async function QaSheetPage({
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <Link
         href="/qc-finished"
         className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink"
       >
-        <ArrowLeft size={15} /> Kembali ke QC Produk Jadi
+        <ArrowLeft size={15} /> Kembali ke QC Finished Goods
       </Link>
 
       <h1 className="font-display text-2xl font-semibold text-ink mb-1">
