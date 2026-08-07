@@ -10,8 +10,14 @@ export default function OpnameNewForm({
 }: {
   /** Tanggal kalender zona operasional, dihitung di server (lib/dates.ts) */
   hariIni: string;
-  /** jumlah item aktif per kategori, untuk memperkirakan cakupan */
-  jumlah: { semua: number; bahan: number; kemasan: number };
+  /** jumlah baris aktif per golongan, untuk memperkirakan cakupan */
+  jumlah: {
+    semua: number;
+    bahan: number;
+    kemasan: number;
+    /** kombinasi produk × varian yang akan masuk lembar hitung */
+    produkJadi: number;
+  };
 }) {
   const router = useRouter();
   const [tanggal, setTanggal] = useState(hariIni);
@@ -25,7 +31,9 @@ export default function OpnameNewForm({
       ? jumlah.bahan
       : kategori === "Kemasan"
         ? jumlah.kemasan
-        : jumlah.semua;
+        : kategori === "Produk Jadi"
+          ? jumlah.produkJadi
+          : jumlah.semua;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -77,9 +85,10 @@ export default function OpnameNewForm({
             onChange={(e) => setKategori(e.target.value)}
             className={inputCls}
           >
-            <option value="">Semua item</option>
+            <option value="">Semua golongan</option>
             <option value="Bahan Baku">Bahan Baku saja</option>
             <option value="Kemasan">Kemasan saja</option>
+            <option value="Produk Jadi">Produk Jadi saja</option>
           </select>
         </div>
         <div>
@@ -96,10 +105,17 @@ export default function OpnameNewForm({
       </div>
 
       <div className="glass rounded-2xl px-5 py-4 text-[12.5px] leading-relaxed">
-        <b>{cakupan.toLocaleString("id-ID")} item aktif</b> akan masuk lembar
+        <b>{cakupan.toLocaleString("id-ID")} baris</b> akan masuk lembar
         hitung. Stok sistemnya dipotret saat opname dibuka, dan lembar
         cetaknya sengaja <b>tidak memuat angka itu</b> supaya penghitungan
         fisiknya jujur.
+        {(kategori === "" || kategori === "Produk Jadi") && (
+          <>
+            {" "}
+            Produk jadi dihitung per kombinasi produk dan varian, dan
+            selisihnya dicatat sebagai koreksi stok produk jadi.
+          </>
+        )}
       </div>
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}
@@ -116,7 +132,7 @@ export default function OpnameNewForm({
       </button>
       {cakupan === 0 && (
         <p className="text-muted text-[12px] text-center -mt-3">
-          Tidak ada item aktif pada cakupan ini.
+          Tidak ada baris aktif pada cakupan ini.
         </p>
       )}
     </form>

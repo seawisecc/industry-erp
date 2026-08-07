@@ -81,8 +81,10 @@ di-track di repo):
 | `create_production` | Potong bahan FEFO + hitung HPP real + insert batch |
 | `cancel_production` | Kembalikan bahan ke batch asal, hapus batch |
 | `create_stock_adjustment` | Stok awal & opname, tambah batch / potong FEFO |
-| `get_finished_stock` | Agregat stok produk jadi per produk+varian |
-| `fg_available` | Sisa stok jual satu produk+varian |
+
+`get_finished_stock` dan `fg_available` dulu ada di sini juga. Sejak
+`20260810_finished_goods_opname` keduanya di-track di repo dan isinya
+cuma membungkus `fg_stock_calc`.
 
 Ditambahkan di `supabase/migrations/20260803_transactional_rpcs.sql` (12):
 
@@ -117,6 +119,12 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `save_opname_count_tx` | Simpan progres hitung fisik, boleh berkali-kali |
 | | `finish_stock_opname_tx` | Tutup opname, selisih → `create_stock_adjustment` |
 | | `cancel_stock_opname_tx` | Hapus opname yang belum ditutup |
+| `20260810_finished_goods_opname` | `fg_stock_calc` | **Satu-satunya** rumus stok produk jadi. Filter produk/varian opsional, jadi dipakai agregat layar maupun penjaga per-baris |
+| | `get_finished_stock` | Pembungkus tanpa filter, untuk layar & form penjualan |
+| | `fg_available` | Pembungkus berfilter, untuk penjaga anti-oversell |
+| | `create_stock_opname_tx` | Diperluas: cakupan `Produk Jadi` dan null (semua golongan) |
+| | `finish_stock_opname_tx` | Diperluas: selisih bahan → adjustment, selisih produk jadi → `finished_goods_adjustments` |
+| | `save_opname_count_tx` | Dicocokkan lewat id baris opname, bukan `item_id` |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -153,6 +161,34 @@ Aturan turunannya untuk laporan: **Stock Movement menjumlahkan
 `qty_dari_karantina + qty_dari_sisa`, BUKAN `qty`.** Memakai `qty` akan
 menghitung barang yang sama dua kali — sekali lewat pemusnahan QC, sekali
 lewat retur.
+
+## Stok produk jadi tidak disimpan, dihitung — dan rumusnya cuma satu
+
+Bahan punya baris `purchase_batches` yang bisa dinaikkan atau diturunkan.
+Produk jadi tidak punya apa pun seperti itu: angkanya selalu hasil hitung
+
+```
+available = produksi - konsinyasi - terjual langsung + koreksi
+```
+
+Karena itu **`create_stock_adjustment` tidak bisa dipakai untuk mengoreksi
+produk jadi.** Selisih opname produk jadi ditulis sebagai baris
+`finished_goods_adjustments` (`qty_delta`, boleh negatif), yaitu komponen
+keempat rumus di atas.
+
+Rumus itu dulu ditulis tiga kali: `get_finished_stock` untuk layar,
+`fg_available` untuk penjaga anti-oversell, dan salinan TypeScript di
+`lib/salesStock.ts`. Tiga salinan berarti tiga kesempatan untuk lupa
+menambahkan komponen baru, dan **yang terlupa menghasilkan bug terburuk
+yang mungkin terjadi di sini: angka di layar berbeda dengan angka yang
+dipakai sistem saat menolak penjualan.** Sekarang di sisi database cuma
+ada `fg_stock_calc`; dua fungsi lainnya membungkusnya. Salinan TypeScript
+tetap ada karena dipakai kalau RPC belum terpasang, dan wajib ikut diubah
+setiap rumusnya bergerak.
+
+Konsekuensinya kalau menambah jalur keluar-masuk produk jadi yang baru:
+tambahkan sebagai `union all` di `fg_stock_calc`, lalu cerminkan di
+fallback `lib/salesStock.ts`. Jangan menambahkan penyesuaian di pemanggil.
 
 # Audit trail ditulis trigger, bukan aplikasi
 
@@ -211,6 +247,17 @@ lalu Ubah), karena memang begitu yang terjadi di database.
 - **Expression index butuh fungsi `IMMUTABLE`.** `client_prices` unik atas
   `varian_key(varian)` — itu jalan karena `varian_key` dideklarasikan
   `immutable`. Fungsi baru yang dipakai di index harus sama.
+- **`pg_get_function_identity_arguments()` ikut menyertakan NAMA
+  parameter**, jadi hasilnya `p_org uuid, p_product uuid, p_varian text`,
+  bukan `uuid, uuid, text`. Untuk membandingkan daftar TIPE saja pakai
+  `oidvectortypes(p.proargtypes)`. Ini menghentikan migrasi
+  `20260810_finished_goods_opname` di percobaan pertama.
+- **`create or replace function` MENGEMBALIKAN atribut yang tidak
+  disebut ke nilai bawaan.** Mengganti isi fungsi `security definer`
+  tanpa menuliskan ulang `security definer`-nya diam-diam menjadikannya
+  invoker. Kalau mengganti fungsi yang definisinya tidak diketahui, baca
+  dulu `prosecdef` & `proconfig` dari `pg_proc` lalu pasang kembali.
+  Fungsi yang di-DROP dan dibuat ulang kehilangan keduanya juga.
 - **`substring(no from length(prefix)+1)::int` untuk penomoran, bukan
   regex digit-terakhir.** `'MI.202608001'` akan terbaca `202608001` kalau
   memakai `\d+$`.
@@ -440,3 +487,15 @@ layar yang menampilkan dua versi berdampingan.
 **`activity_logs` tumbuh cepat dari import CSV.** Satu baris log per item
 yang diimpor. Itu perilaku yang benar untuk audit trail; kalau tabelnya
 jadi berat, jawabannya kebijakan retensi, bukan mengurangi trigger.
+
+**Koreksi stok produk jadi cuma bisa lahir dari opname.**
+`finished_goods_adjustments` tidak punya layar buat/hapus sendiri, dan
+opname yang sudah ditutup tidak bisa dibatalkan. Jadi koreksi yang salah
+hanya bisa diluruskan lewat opname berikutnya, bukan dibatalkan. Itu
+cukup untuk sekarang dan aman untuk audit, tapi kalau nanti dibuat layar
+manual, pembatalannya harus ikut dipikirkan.
+
+**Satuan baris produk jadi di lembar opname di-hardcode `pcs`.** Produk
+jadi tidak menyimpan satuan jual per varian, jadi lembar hitung dan layar
+opname menuliskan `pcs`. Angkanya benar, labelnya yang bisa menyesatkan
+kalau ada produk yang dihitung dalam satuan lain.

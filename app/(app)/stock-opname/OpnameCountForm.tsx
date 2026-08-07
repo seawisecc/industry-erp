@@ -5,13 +5,22 @@ import { useRouter } from "next/navigation";
 import { Save, CheckCircle2 } from "lucide-react";
 import { saveOpnameCount, finishStockOpname } from "./actions";
 import DataTable from "@/components/DataTable";
+import { judulGolongan, type Golongan } from "./golongan";
+
+export type { Golongan };
 
 export type OpnameRow = {
-  item_id: string;
+  /**
+   * id baris stock_opname_items. Baris produk jadi tidak punya item_id,
+   * jadi inilah satu-satunya kunci yang berlaku untuk kedua jenis baris.
+   */
+  id: string;
+  golongan: Golongan;
   kode: string;
   nama: string;
+  /** varian produk jadi ("-" bila tanpa varian); null untuk baris bahan */
+  varian: string | null;
   satuan: string;
-  kategori: string;
   /** potret stok saat opname dibuka */
   qty_sistem: number;
   /** stok sistem SEKARANG, untuk mendeteksi mutasi selama penghitungan */
@@ -42,10 +51,10 @@ export default function OpnameCountForm({
 }) {
   const router = useRouter();
   const [fisik, setFisik] = useState<Record<string, string>>(() =>
-    Object.fromEntries(awal.map((r) => [r.item_id, toStr(r.qty_fisik)]))
+    Object.fromEntries(awal.map((r) => [r.id, toStr(r.qty_fisik)]))
   );
   const [catatan, setCatatan] = useState<Record<string, string>>(() =>
-    Object.fromEntries(awal.map((r) => [r.item_id, r.catatan || ""]))
+    Object.fromEntries(awal.map((r) => [r.id, r.catatan || ""]))
   );
   const [tanggalTutup, setTanggalTutup] = useState(hariIni);
   const [loading, setLoading] = useState(false);
@@ -54,22 +63,26 @@ export default function OpnameCountForm({
   const [sukses, setSukses] = useState("");
 
   const terisi = (id: string) => (fisik[id] ?? "").trim() !== "";
-  const jumlahTerisi = awal.filter((r) => terisi(r.item_id)).length;
+  const jumlahTerisi = awal.filter((r) => terisi(r.id)).length;
 
   /** Selisih terhadap POTRET saat opname dibuka — ini temuan opnamenya. */
   const selisihOf = (r: OpnameRow) =>
-    terisi(r.item_id) ? parseNum(fisik[r.item_id]) - r.qty_sistem : 0;
+    terisi(r.id) ? parseNum(fisik[r.id]) - r.qty_sistem : 0;
 
   /** Selisih terhadap stok SEKARANG — ini yang benar-benar akan disesuaikan. */
   const koreksiOf = (r: OpnameRow) =>
-    terisi(r.item_id) ? parseNum(fisik[r.item_id]) - r.stok_kini : 0;
+    terisi(r.id) ? parseNum(fisik[r.id]) - r.stok_kini : 0;
 
   const adaTemuan = awal.filter(
-    (r) => terisi(r.item_id) && Math.abs(selisihOf(r)) > 0.000001
+    (r) => terisi(r.id) && Math.abs(selisihOf(r)) > 0.000001
   );
   const akanDisesuaikan = awal.filter(
-    (r) => terisi(r.item_id) && Math.abs(koreksiOf(r)) > 0.000001
+    (r) => terisi(r.id) && Math.abs(koreksiOf(r)) > 0.000001
   );
+  const koreksiBahan = akanDisesuaikan.filter(
+    (r) => r.golongan !== "Produk Jadi"
+  ).length;
+  const koreksiProduk = akanDisesuaikan.length - koreksiBahan;
   // Item yang stoknya bergerak setelah opname dibuka: hasil hitung fisiknya
   // akan menimpa mutasi itu, jadi perlu diperiksa manual.
   const bergerak = awal.filter(
@@ -78,9 +91,9 @@ export default function OpnameCountForm({
 
   function payload() {
     return awal.map((r) => ({
-      item_id: r.item_id,
-      qty_fisik: terisi(r.item_id) ? parseNum(fisik[r.item_id]) : null,
-      catatan: (catatan[r.item_id] || "").trim() || null,
+      id: r.id,
+      qty_fisik: terisi(r.id) ? parseNum(fisik[r.id]) : null,
+      catatan: (catatan[r.id] || "").trim() || null,
     }));
   }
 
@@ -92,7 +105,7 @@ export default function OpnameCountForm({
     try {
       const res = await saveOpnameCount(opnameId, payload());
       if (res.ok) {
-        setSukses(`Progres tersimpan, ${jumlahTerisi} dari ${awal.length} item terhitung.`);
+        setSukses(`Progres tersimpan, ${jumlahTerisi} dari ${awal.length} baris terhitung.`);
         router.refresh();
       } else {
         setError(res.error || "Gagal menyimpan");
@@ -141,11 +154,11 @@ export default function OpnameCountForm({
     <div className="flex flex-col gap-5">
       {bergerak.length > 0 && (
         <div className="glass rounded-2xl px-5 py-4 border-amber-500/40 text-[12.5px] leading-relaxed">
-          <b>{bergerak.length} item stoknya bergerak</b> setelah opname dibuka
-          (ada penerimaan, produksi, atau penjualan di sela penghitungan).
-          Untuk item itu, hasil hitung fisik akan menimpa angka terbaru —
-          pastikan hitungannya diambil sesudah mutasi tersebut. Kolom{" "}
-          <b>Stok Kini</b> menandainya.
+          <b>{bergerak.length} baris stoknya bergerak</b> setelah opname dibuka
+          (ada penerimaan, produksi, penjualan, atau pengiriman konsinyasi di
+          sela penghitungan). Untuk baris itu, hasil hitung fisik akan menimpa
+          angka terbaru, jadi pastikan hitungannya diambil sesudah mutasi
+          tersebut. Kolom <b>Stok Kini</b> menandainya.
         </div>
       )}
 
@@ -156,7 +169,7 @@ export default function OpnameCountForm({
               Hasil Hitung Fisik
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              {jumlahTerisi} dari {awal.length} item terhitung ·{" "}
+              {jumlahTerisi} dari {awal.length} baris terhitung ·{" "}
               {adaTemuan.length} selisih terhadap potret awal
             </p>
           </div>
@@ -172,13 +185,24 @@ export default function OpnameCountForm({
 
         <DataTable
           rows={awal}
-          rowKey={(r) => r.item_id}
+          rowKey={(r) => r.id}
           minWidth={900}
           chrome="bare"
           expandable={false}
-          empty="Tidak ada item dalam cakupan opname ini."
+          empty="Tidak ada baris dalam cakupan opname ini."
+          // Baris sudah diurutkan per golongan di server, jadi kelompoknya
+          // pasti berurutan. groupBy hanya menyisipkan pemisahnya.
+          groupBy={{
+            key: (r) => r.golongan,
+            header: (g) =>
+              judulGolongan(
+                g.key,
+                g.rows.length,
+                g.rows.filter((r) => terisi(r.id)).length
+              ),
+          }}
           rowClassName={(r) =>
-            terisi(r.item_id) && Math.abs(selisihOf(r)) > 0.000001
+            terisi(r.id) && Math.abs(selisihOf(r)) > 0.000001
               ? "bg-clay-100/25"
               : ""
           }
@@ -191,7 +215,8 @@ export default function OpnameCountForm({
                 <>
                   <div className="font-medium">{r.nama}</div>
                   <div className="text-[11px] text-muted font-mono">
-                    {r.kode} · {r.kategori}
+                    {r.kode}
+                    {r.varian && r.varian !== "-" ? ` · ${r.varian}` : ""}
                   </div>
                 </>
               ),
@@ -199,7 +224,8 @@ export default function OpnameCountForm({
                 <>
                   <div>{r.nama}</div>
                   <div className="text-[11px] text-muted font-mono font-normal">
-                    {r.kode} · {r.kategori}
+                    {r.kode}
+                    {r.varian && r.varian !== "-" ? ` · ${r.varian}` : ""}
                   </div>
                 </>
               ),
@@ -238,11 +264,13 @@ export default function OpnameCountForm({
                 <input
                   type="text"
                   inputMode="decimal"
-                  aria-label={`Hitung fisik ${r.nama}`}
-                  value={fisik[r.item_id] ?? ""}
+                  aria-label={`Hitung fisik ${r.nama}${
+                    r.varian && r.varian !== "-" ? ` ${r.varian}` : ""
+                  }`}
+                  value={fisik[r.id] ?? ""}
                   onChange={(e) => {
                     const v = e.target.value;
-                    setFisik((s) => ({ ...s, [r.item_id]: v }));
+                    setFisik((s) => ({ ...s, [r.id]: v }));
                     setSukses("");
                   }}
                   placeholder="-"
@@ -256,8 +284,7 @@ export default function OpnameCountForm({
               role: "primary",
               align: "right",
               cell: (r) => {
-                if (!terisi(r.item_id))
-                  return <span className="text-muted">-</span>;
+                if (!terisi(r.id)) return <span className="text-muted">-</span>;
                 const d = selisihOf(r);
                 if (Math.abs(d) < 0.000001)
                   return <span className="text-muted">cocok</span>;
@@ -282,10 +309,10 @@ export default function OpnameCountForm({
                 <input
                   type="text"
                   aria-label={`Catatan ${r.nama}`}
-                  value={catatan[r.item_id] ?? ""}
+                  value={catatan[r.id] ?? ""}
                   onChange={(e) => {
                     const v = e.target.value;
-                    setCatatan((s) => ({ ...s, [r.item_id]: v }));
+                    setCatatan((s) => ({ ...s, [r.id]: v }));
                     setSukses("");
                   }}
                   placeholder="mis. rusak, tumpah"
@@ -301,12 +328,21 @@ export default function OpnameCountForm({
       <div className="glass rounded-2xl p-5 sm:p-6 flex flex-col gap-4">
         <div>
           <h2 className="font-display text-[15.5px] font-semibold text-ink">
-            Tutup Opname &amp; Buat Adjustment
+            Tutup Opname &amp; Buat Penyesuaian
           </h2>
           <p className="text-muted text-[12.5px] mt-0.5">
             {akanDisesuaikan.length === 0
-              ? "Tidak ada item yang perlu disesuaikan, opname akan ditutup tanpa membuat adjustment."
-              : `${akanDisesuaikan.length} item akan disesuaikan stoknya. Stok naik dicatat sebagai batch baru, stok turun dipotong FEFO.`}
+              ? "Tidak ada baris yang perlu disesuaikan, opname akan ditutup tanpa membuat penyesuaian."
+              : [
+                  koreksiBahan > 0
+                    ? `${koreksiBahan} baris bahan disesuaikan lewat adjustment stok (naik jadi batch baru, turun dipotong FEFO)`
+                    : null,
+                  koreksiProduk > 0
+                    ? `${koreksiProduk} baris produk jadi dicatat sebagai koreksi stok produk jadi`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(". ") + "."}
           </p>
         </div>
 
@@ -333,13 +369,13 @@ export default function OpnameCountForm({
                 <CheckCircle2 size={16} />
                 {jumlahTerisi === 0
                   ? "Isi hasil hitung dulu"
-                  : "Tutup Opname & Buat Adjustment"}
+                  : "Tutup Opname & Buat Penyesuaian"}
               </button>
             ) : (
               <div className="flex flex-col gap-2">
                 <p className="text-[12.5px] text-ink/75 leading-relaxed">
                   Sesudah ditutup, hasil hitung tidak bisa diubah lagi dan
-                  stok langsung menyesuaikan. Item yang belum dihitung
+                  stok langsung menyesuaikan. Baris yang belum dihitung
                   dibiarkan apa adanya.
                 </p>
                 <div className="flex gap-2">

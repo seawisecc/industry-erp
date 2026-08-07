@@ -23,6 +23,12 @@ import {
   ShieldCheck,
   ListChecks,
   BadgeCheck,
+  History,
+  ClipboardList,
+  Beaker,
+  Tags,
+  Undo2,
+  RotateCcw,
   ArrowRight,
   Mail,
   MessageCircle,
@@ -148,6 +154,11 @@ const FLOW = [
 
 const FEATURES = [
   {
+    icon: History,
+    title: "Audit trail otomatis",
+    desc: "Setiap perubahan dokumen tercatat siapa dan kapan, jadi saat audit tidak perlu mencari-cari. Catatannya dibuat sistem sendiri dan tidak bisa disunting siapa pun, termasuk admin.",
+  },
+  {
     icon: ClipboardCheck,
     title: "Purchasing dengan approval",
     desc: "Alur PO Dibuat → Disetujui → Dikirim → Diterima. Hak menyetujui bisa dibatasi per user, lengkap dengan cetak PO resmi.",
@@ -156,6 +167,11 @@ const FEATURES = [
     icon: PackageCheck,
     title: "Stok FEFO & Expiry Control",
     desc: "Produksi otomatis memakai lot dengan expiry terdekat. Radar expiry ≤ 60 hari, dengan opsi re-test atau pemusnahan yang ter-audit.",
+  },
+  {
+    icon: ClipboardList,
+    title: "Stock opname terjadwal",
+    desc: "Stok dipotret saat opname dibuka, dan lembar hitungnya dicetak tanpa angka sistem supaya hitungan fisiknya jujur. Cakupannya bahan baku, kemasan, dan produk jadi. Selisihnya langsung jadi penyesuaian yang terdokumentasi.",
   },
   {
     icon: FlaskConical,
@@ -168,9 +184,29 @@ const FEATURES = [
     desc: "Bukan estimasi, HPP dihitung dari timbangan real dan harga lot yang benar-benar terpakai, termasuk adjusting dan kemasan.",
   },
   {
+    icon: Beaker,
+    title: "Pemakaian bahan non-produksi",
+    desc: "Bahan untuk R&D, cleaning, atau sampel dicatat sebagai dokumen sendiri. Stok terpotong FEFO dan biayanya terhitung per lot, jadi tidak lagi hilang diam-diam dari gudang.",
+  },
+  {
     icon: Store,
     title: "Penjualan lengkap",
     desc: "Konsinyasi dengan stok di lokasi client, proforma & invoice pajak / non-pajak sesuai template resmi, plus POS untuk walk-in.",
+  },
+  {
+    icon: Tags,
+    title: "Harga jual khusus per client",
+    desc: "Kesepakatan harga tiap client tersimpan per produk dan varian, lalu terisi sendiri begitu client dipilih di invoice atau konsinyasi. Tidak ada lagi salah harga karena catatan tertinggal di kepala orang.",
+  },
+  {
+    icon: Undo2,
+    title: "Retur pembelian ke supplier",
+    desc: "Barang yang tidak sesuai dikembalikan lewat dokumen retur, stok dan hutang ke supplier berkurang sekaligus. Lot yang sudah ditolak QC tidak dipotong dua kali.",
+  },
+  {
+    icon: RotateCcw,
+    title: "Pembatalan ter-otorisasi",
+    desc: "PO, penerimaan, produksi, dan penjualan bisa dibatalkan oleh user yang berizin, dan stoknya kembali otomatis ke lot asalnya. Yang tidak berizin tidak bisa, dan setiap pembatalan tercatat.",
   },
   {
     icon: CalendarClock,
@@ -180,12 +216,12 @@ const FEATURES = [
   {
     icon: BarChart3,
     title: "Dashboard & laporan",
-    desc: "Grafik pembelian vs penjualan, yield produksi, dan produk terlaris. Empat laporan periode siap cetak dengan kop perusahaan.",
+    desc: "Grafik pembelian vs penjualan, yield produksi, dan produk terlaris. Laporan periode siap cetak dengan kop perusahaan, termasuk margin per produk dari HPP real.",
   },
   {
     icon: Users,
     title: "Hak akses per user",
-    desc: "Tentukan sendiri modul apa saja yang boleh diakses tiap karyawan, termasuk izin khusus seperti menyetujui PO atau membuat plan produksi.",
+    desc: "Tentukan sendiri modul apa saja yang boleh diakses tiap karyawan, termasuk izin khusus seperti menyetujui PO, membatalkan transaksi, atau membuat plan produksi.",
   },
   {
     icon: DatabaseBackup,
@@ -206,14 +242,14 @@ const INDUSTRI = [
     icon: FlaskConical,
     name: "QC",
     full: "Quality Control",
-    desc: "Barang datang masuk karantina, tidak bisa dipakai produksi sebelum lulus uji. Lembar pengujian digital untuk bahan baku, bahan kemas, IPC, dan produk jadi; spesifikasi tersimpan per bahan dan terisi otomatis di pengujian berikutnya.",
+    desc: "Barang datang masuk karantina, tidak bisa dipakai produksi sebelum lulus uji. Lembar pengujian digital untuk bahan baku, bahan kemas, IPC, dan produk jadi; spesifikasi tersimpan per bahan dan terisi otomatis di pengujian berikutnya. Lot yang ditolak langsung keluar dari stok dan bisa diteruskan jadi retur ke supplier.",
     chip: "LOT SC-0143 · Released QC",
   },
   {
     icon: BadgeCheck,
     name: "QA",
     full: "Quality Assurance",
-    desc: "Batch tidak bisa dijual sebelum diluluskan QA. Seluruh bukti, riwayat uji bahan, IPC, uji produk jadi, batch record, dalam satu layar, ditutup checklist pelulusan (izin edar, label, no. batch, expiry) dan Certificate of Analysis siap cetak.",
+    desc: "Batch tidak bisa dijual sebelum diluluskan QA. Seluruh bukti, riwayat uji bahan, IPC, uji produk jadi, batch record, dalam satu layar, ditutup checklist pelulusan (izin edar, label, no. batch, expiry) dan Certificate of Analysis siap cetak. Setiap keputusan QA masuk audit trail bersama nama pemutusnya.",
     chip: "BATCH BS-26-018 · Released + CoA",
   },
 ];
@@ -547,6 +583,7 @@ export default function KenapaPage() {
                   "Manufacturing Execution System (MES), checklist produksi digital & batch record 2 tahap",
                   "Quality Control (QC), karantina bahan + lembar pengujian digital",
                   "Quality Assurance (QA), pelulusan batch + Certificate of Analysis",
+                  "Riwayat versi formula tersimpan utuh setiap kali diubah",
                   "Training tambahan untuk tim QC & QA",
                 ].map((x) => (
                   <li key={x} className="flex gap-2.5">

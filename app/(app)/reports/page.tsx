@@ -20,7 +20,7 @@ const TYPES: { key: ReportType; label: string; desc: string }[] = [
   { key: "consignment", label: "Consignment", desc: "Shipped, sold, returned & remaining per outlet" },
   { key: "purchasing", label: "Purchasing", desc: "Purchase invoices per period" },
   { key: "production", label: "Production", desc: "Batches, COGS & yield" },
-  { key: "stock", label: "Stock Movement", desc: "Material stock movement" },
+  { key: "stock", label: "Stock Movement", desc: "Material stock movement & finished goods corrections" },
   { key: "margin", label: "Product Margin", desc: "Real COGS vs actual selling price per product" },
   { key: "finance", label: "Receivables & Payables", desc: "Open sales & purchase balances" },
 ];
@@ -685,6 +685,7 @@ export default async function ReportsPage({
       { data: adjRows },
       { data: issueRows },
       { data: returRows },
+      { data: fgAdjRows },
     ] = await Promise.all([
         supabase
           .from("items")
@@ -734,6 +735,20 @@ export default async function ReportsPage({
           .eq("organization_id", organizationId)
           .gte("purchase_returns.tanggal", from)
           .lte("purchase_returns.tanggal", to),
+        // Koreksi stok produk jadi dari opname. Tabel ini tidak menyentuh
+        // purchase_batches sama sekali, jadi tidak bisa digabung ke baris
+        // item di atas dan tampil sebagai bagian tersendiri. Kalau tidak
+        // ditampilkan di sini, ada penyesuaian stok yang tidak muncul di
+        // laporan mana pun.
+        supabase
+          .from("finished_goods_adjustments")
+          .select(
+            "id, tanggal, varian, qty_delta, alasan, products(kode, nama_produk), stock_opnames(no_opname)"
+          )
+          .eq("organization_id", organizationId)
+          .gte("tanggal", from)
+          .lte("tanggal", to)
+          .order("tanggal", { ascending: false }),
       ]);
 
     const masuk = new Map<string, number>();
@@ -791,6 +806,24 @@ export default async function ReportsPage({
     });
 
     const adaMutasi = rows.filter((r) => r.masuk > 0 || r.keluar > 0);
+
+    const koreksiFg = ((fgAdjRows || []) as unknown as {
+      id: string;
+      tanggal: string;
+      varian: string | null;
+      qty_delta: number;
+      alasan: string | null;
+      products: { kode: string | null; nama_produk: string } | null;
+      stock_opnames: { no_opname: string } | null;
+    }[]).map((r) => ({
+      id: r.id,
+      tanggal: r.tanggal,
+      kode: r.products?.kode || "-",
+      nama: r.products?.nama_produk || "(produk terhapus)",
+      varian: r.varian || "-",
+      qty_delta: Number(r.qty_delta),
+      sumber: r.stock_opnames?.no_opname || r.alasan || "Koreksi manual",
+    }));
 
     content = (
       <>
@@ -864,6 +897,87 @@ export default async function ReportsPage({
           Masuk = receiving + adjustment naik; Keluar = produksi + pemakaian di
           luar produksi + retur ke supplier + pemusnahan + adjustment turun.
         </p>
+
+        {koreksiFg.length > 0 && (
+          <div className="mt-7">
+            <h3 className="font-display text-[15px] font-semibold text-ink mb-1">
+              Koreksi Stok Produk Jadi
+            </h3>
+            <p className="text-[11.5px] text-muted mb-3">
+              Stok produk jadi tidak disimpan sebagai batch, jadi selisih
+              opname-nya dicatat terpisah dari tabel di atas.
+            </p>
+            <DataTable
+              rows={koreksiFg}
+              rowKey={(r) => r.id}
+              minWidth={720}
+              empty="Belum ada koreksi produk jadi pada periode ini."
+              columns={[
+                {
+                  key: "tanggal",
+                  header: "Tanggal",
+                  role: "subtitle",
+                  className: "whitespace-nowrap",
+                  cell: (r) => formatTanggal(r.tanggal),
+                },
+                {
+                  key: "produk",
+                  header: "Produk",
+                  role: "title",
+                  cell: (r) => (
+                    <>
+                      <div className="max-w-[220px] truncate">{r.nama}</div>
+                      <div className="text-[11px] text-muted font-mono">
+                        {r.kode}
+                      </div>
+                    </>
+                  ),
+                  cardCell: (r) => (
+                    <>
+                      <div>{r.nama}</div>
+                      <div className="text-[11px] text-muted font-mono font-normal">
+                        {r.kode}
+                      </div>
+                    </>
+                  ),
+                },
+                {
+                  key: "varian",
+                  header: "Varian",
+                  role: "badge",
+                  className: "whitespace-nowrap",
+                  cell: (r) => r.varian,
+                },
+                {
+                  key: "selisih",
+                  header: "Koreksi",
+                  role: "primary",
+                  align: "right",
+                  className: "whitespace-nowrap",
+                  cell: (r) => (
+                    <span
+                      className={`font-medium ${
+                        r.qty_delta > 0 ? "text-botanical-700" : "text-clay-600"
+                      }`}
+                    >
+                      {r.qty_delta > 0 ? "+" : "−"}
+                      {formatQty(Math.abs(r.qty_delta))}
+                    </span>
+                  ),
+                },
+                {
+                  key: "sumber",
+                  header: "Sumber",
+                  role: "secondary",
+                  cell: (r) => (
+                    <div className="max-w-[260px] truncate">{r.sumber}</div>
+                  ),
+                  cardCell: (r) => r.sumber,
+                },
+              ]}
+            />
+          </div>
+        )}
       </>
     );
   }

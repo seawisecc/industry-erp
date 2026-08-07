@@ -5,7 +5,13 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 
 export type OpnameCountInput = {
-  item_id: string;
+  /**
+   * id baris stock_opname_items, bukan item_id.
+   *
+   * Baris produk jadi tidak punya item_id sama sekali, jadi kuncinya harus
+   * baris opname itu sendiri supaya satu payload bisa memuat dua jenis baris.
+   */
+  id: string;
   /** null = belum dihitung; 0 = dihitung dan hasilnya memang kosong */
   qty_fisik: number | null;
   catatan: string | null;
@@ -95,6 +101,7 @@ export async function finishStockOpname(
 
     revalidatePath("/stock-opname");
     revalidatePath("/items");
+    revalidatePath("/finished-goods");
     revalidatePath("/reports");
     revalidatePath("/dashboard");
     revalidatePath("/data-migration/adjustment");

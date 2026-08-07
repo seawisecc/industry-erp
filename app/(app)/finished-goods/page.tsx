@@ -54,6 +54,7 @@ export default async function FinishedGoodsPage({
         produced: s.produced,
         consigned: s.consigned,
         sold: s.sold,
+        adjustment: s.adjustment,
         available: s.available,
       };
     })
@@ -76,7 +77,8 @@ export default async function FinishedGoodsPage({
       <div>
         <h2 className="font-display text-lg font-semibold text-ink">Finished Goods</h2>
         <p className="text-muted text-[12.5px] mt-0.5">
-          Stok produk jadi per varian, produksi, konsinyasi, terjual, tersedia
+          Stok produk jadi per varian: produksi, konsinyasi, terjual, koreksi
+          opname, tersedia
         </p>
       </div>
 
@@ -167,6 +169,27 @@ export default async function FinishedGoodsPage({
             cell: (r) => (
               <span className="text-clay-600">{r.sold.toLocaleString("id-ID")}</span>
             ),
+          },
+          {
+            key: "koreksi",
+            header: "Koreksi",
+            cardLabel: "Koreksi opname",
+            role: "secondary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) =>
+              r.adjustment === 0 ? (
+                <span className="text-muted">-</span>
+              ) : (
+                <span
+                  className={
+                    r.adjustment > 0 ? "text-botanical-700" : "text-clay-600"
+                  }
+                >
+                  {r.adjustment > 0 ? "+" : ""}
+                  {r.adjustment.toLocaleString("id-ID")}
+                </span>
+              ),
           },
           {
             key: "tersedia",

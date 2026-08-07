@@ -2,6 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
 import PrintButton from "../../po/[id]/PrintButton";
+import { varianKey } from "@/lib/clientPrice";
+import {
+  URUT_GOLONGAN,
+  type Golongan,
+} from "@/app/(app)/stock-opname/golongan";
 
 type OpnamePrint = {
   id: string;
@@ -13,8 +18,18 @@ type OpnamePrint = {
 };
 
 type ItemRaw = {
-  item_id: string;
+  item_id: string | null;
+  varian: string | null;
   items: { kode: string; nama: string; satuan: string; kategori: string } | null;
+  products: { kode: string | null; nama_produk: string } | null;
+};
+
+type SheetRow = {
+  golongan: Golongan;
+  kode: string;
+  nama: string;
+  varian: string;
+  satuan: string;
 };
 
 function formatTanggal(iso: string) {
@@ -60,20 +75,43 @@ export default async function PrintOpnameSheetPage({
   // diperbaiki. Perbandingannya dilakukan nanti di layar.
   const { data: rawItems } = await supabase
     .from("stock_opname_items")
-    .select("item_id, items(kode, nama, satuan, kategori)")
+    .select(
+      "item_id, varian, items(kode, nama, satuan, kategori), products(kode, nama_produk)"
+    )
     .eq("opname_id", id)
     .eq("organization_id", organizationId);
 
-  const rows = ((rawItems || []) as unknown as ItemRaw[])
-    .map((r) => ({
-      kode: r.items?.kode || "-",
-      nama: r.items?.nama || "(item terhapus)",
-      satuan: r.items?.satuan || "",
-      kategori: r.items?.kategori || "-",
-    }))
+  const rows: SheetRow[] = ((rawItems || []) as unknown as ItemRaw[])
+    .map((r): SheetRow =>
+      r.item_id
+        ? {
+            golongan: r.items?.kategori === "Kemasan" ? "Kemasan" : "Bahan Baku",
+            kode: r.items?.kode || "-",
+            nama: r.items?.nama || "(item terhapus)",
+            varian: "-",
+            satuan: r.items?.satuan || "",
+          }
+        : {
+            golongan: "Produk Jadi",
+            kode: r.products?.kode || "-",
+            nama: r.products?.nama_produk || "(produk terhapus)",
+            varian: varianKey(r.varian),
+            satuan: "pcs",
+          }
+    )
     .sort(
-      (a, b) => a.kategori.localeCompare(b.kategori) || a.kode.localeCompare(b.kode)
+      (a, b) =>
+        URUT_GOLONGAN[a.golongan] - URUT_GOLONGAN[b.golongan] ||
+        a.kode.localeCompare(b.kode) ||
+        a.nama.localeCompare(b.nama) ||
+        a.varian.localeCompare(b.varian)
     );
+
+  // Lembar hitung dipisah per golongan: penghitungnya berpindah gudang,
+  // dan satu daftar campur membuat orang bolak-balik antar rak.
+  const kelompok = (["Bahan Baku", "Kemasan", "Produk Jadi"] as Golongan[])
+    .map((g) => ({ golongan: g, rows: rows.filter((r) => r.golongan === g) }))
+    .filter((k) => k.rows.length > 0);
 
   const kontakLine = [
     settings?.no_telp ? `Telp: ${settings.no_telp}` : null,
@@ -116,7 +154,7 @@ export default async function PrintOpnameSheetPage({
               Tanggal: {formatTanggal(op.tanggal)}
             </div>
             <div className="text-[11.5px] text-neutral-600">
-              Cakupan: {op.kategori || "Semua item"}
+              Cakupan: {op.kategori || "Semua golongan"}
             </div>
           </div>
         </div>
@@ -150,41 +188,60 @@ export default async function PrintOpnameSheetPage({
           </div>
         )}
 
-        {/* ===== TABEL HITUNG ===== */}
+        {/* ===== TABEL HITUNG, satu bagian per golongan ===== */}
         <div className="text-[11px] uppercase tracking-wide text-neutral-500 mt-5 mb-1">
-          {rows.length} item · isi kolom Hasil Hitung dengan angka fisik di gudang
+          {rows.length} baris · isi kolom Hasil Hitung dengan angka fisik di
+          gudang
         </div>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="text-[10.5px] uppercase tracking-wide border-y-2 border-[#1a1a1a]">
-              <th className="py-2 pr-2 text-left w-[10mm]">No</th>
-              <th className="py-2 pr-2 text-left">Kode</th>
-              <th className="py-2 pr-2 text-left">Nama Item</th>
-              <th className="py-2 pr-2 text-left w-[22mm]">Kategori</th>
-              <th className="py-2 pr-2 text-left w-[14mm]">Satuan</th>
-              <th className="py-2 pr-2 text-center w-[28mm]">Hasil Hitung</th>
-              <th className="py-2 text-left w-[32mm]">Keterangan</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-b border-neutral-300">
-                <td className="py-2.5 pr-2 text-neutral-500">{i + 1}</td>
-                <td className="py-2.5 pr-2 font-mono text-[11px] whitespace-nowrap">
-                  {r.kode}
-                </td>
-                <td className="py-2.5 pr-2">{r.nama}</td>
-                <td className="py-2.5 pr-2 text-[11px] text-neutral-600">
-                  {r.kategori}
-                </td>
-                <td className="py-2.5 pr-2 text-[11px]">{r.satuan}</td>
-                {/* Kolom isian: sengaja kosong, tanpa angka sistem */}
-                <td className="py-2.5 pr-2 border-l border-neutral-300">&nbsp;</td>
-                <td className="py-2.5 border-l border-neutral-300">&nbsp;</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {kelompok.map((k) => (
+          <div key={k.golongan} className="mt-4 first:mt-0">
+            <div className="flex items-baseline justify-between border-b border-[#1a1a1a] pb-1 mb-0">
+              <div className="font-bold text-[13px] tracking-wide uppercase">
+                {k.golongan}
+              </div>
+              <div className="text-[10.5px] text-neutral-600">
+                {k.rows.length} baris
+              </div>
+            </div>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="text-[10.5px] uppercase tracking-wide border-b-2 border-[#1a1a1a]">
+                  <th className="py-2 pr-2 text-left w-[10mm]">No</th>
+                  <th className="py-2 pr-2 text-left">Kode</th>
+                  <th className="py-2 pr-2 text-left">
+                    {k.golongan === "Produk Jadi" ? "Nama Produk" : "Nama Item"}
+                  </th>
+                  <th className="py-2 pr-2 text-left w-[24mm]">
+                    {k.golongan === "Produk Jadi" ? "Varian" : "Golongan"}
+                  </th>
+                  <th className="py-2 pr-2 text-left w-[14mm]">Satuan</th>
+                  <th className="py-2 pr-2 text-center w-[28mm]">Hasil Hitung</th>
+                  <th className="py-2 text-left w-[32mm]">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {k.rows.map((r, i) => (
+                  <tr key={i} className="border-b border-neutral-300">
+                    <td className="py-2.5 pr-2 text-neutral-500">{i + 1}</td>
+                    <td className="py-2.5 pr-2 font-mono text-[11px] whitespace-nowrap">
+                      {r.kode}
+                    </td>
+                    <td className="py-2.5 pr-2">{r.nama}</td>
+                    <td className="py-2.5 pr-2 text-[11px] text-neutral-600">
+                      {k.golongan === "Produk Jadi" ? r.varian : k.golongan}
+                    </td>
+                    <td className="py-2.5 pr-2 text-[11px]">{r.satuan}</td>
+                    {/* Kolom isian: sengaja kosong, tanpa angka sistem */}
+                    <td className="py-2.5 pr-2 border-l border-neutral-300">
+                      &nbsp;
+                    </td>
+                    <td className="py-2.5 border-l border-neutral-300">&nbsp;</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
 
         {/* ===== TANDA TANGAN ===== */}
         <div className="mt-10 grid grid-cols-3 gap-6 text-center break-inside-avoid">

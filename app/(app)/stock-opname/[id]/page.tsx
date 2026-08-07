@@ -6,7 +6,10 @@ import { ArrowLeft, Printer } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import CancelTxButton from "@/components/CancelTxButton";
 import { localDateStr } from "@/lib/dates";
+import { getFinishedStock } from "@/lib/salesStock";
+import { varianKey } from "@/lib/clientPrice";
 import { cancelStockOpname } from "../actions";
+import { judulGolongan, URUT_GOLONGAN } from "../golongan";
 import OpnameCountForm, { type OpnameRow } from "../OpnameCountForm";
 
 type OpnameDetail = {
@@ -22,11 +25,15 @@ type OpnameDetail = {
 };
 
 type ItemRaw = {
-  item_id: string;
+  id: string;
+  item_id: string | null;
+  product_id: string | null;
+  varian: string | null;
   qty_sistem: number;
   qty_fisik: number | null;
   catatan: string | null;
   items: { kode: string; nama: string; satuan: string; kategori: string } | null;
+  products: { kode: string | null; nama_produk: string } | null;
 };
 
 function formatTanggal(iso: string | null) {
@@ -66,40 +73,82 @@ export default async function OpnameDetailPage({
   const { data: rawItems } = await supabase
     .from("stock_opname_items")
     .select(
-      "item_id, qty_sistem, qty_fisik, catatan, items(kode, nama, satuan, kategori)"
+      "id, item_id, product_id, varian, qty_sistem, qty_fisik, catatan, items(kode, nama, satuan, kategori), products(kode, nama_produk)"
     )
     .eq("opname_id", id)
     .eq("organization_id", organizationId);
 
   const itemList = (rawItems || []) as unknown as ItemRaw[];
+  const adaBahan = itemList.some((r) => r.item_id !== null);
+  const adaProduk = itemList.some((r) => r.product_id !== null);
 
   // Stok sistem SEKARANG, untuk mendeteksi mutasi yang terjadi setelah
   // opname dibuka. Perbandingannya dipakai di layar, bukan disimpan.
-  const stokKini = new Map<string, number>();
-  if (itemList.length > 0) {
+  //
+  // Dua sumber terpisah karena stoknya memang disimpan berbeda: bahan ada
+  // di purchase_batches, produk jadi dihitung dari mutasinya.
+  const stokBahan = new Map<string, number>();
+  if (adaBahan) {
     const { data: batches } = await supabase
       .from("purchase_batches")
       .select("item_id, qty_sisa")
       .eq("organization_id", organizationId)
       .gt("qty_sisa", 0);
     for (const b of (batches || []) as { item_id: string; qty_sisa: number }[]) {
-      stokKini.set(b.item_id, (stokKini.get(b.item_id) || 0) + Number(b.qty_sisa));
+      stokBahan.set(b.item_id, (stokBahan.get(b.item_id) || 0) + Number(b.qty_sisa));
     }
   }
+  const stokProduk = adaProduk
+    ? await getFinishedStock(organizationId!)
+    : new Map<string, { available: number }>();
 
   const rows: OpnameRow[] = itemList
-    .map((r) => ({
-      item_id: r.item_id,
-      kode: r.items?.kode || "-",
-      nama: r.items?.nama || "(item terhapus)",
-      satuan: r.items?.satuan || "",
-      kategori: r.items?.kategori || "-",
-      qty_sistem: Number(r.qty_sistem),
-      stok_kini: stokKini.get(r.item_id) || 0,
-      qty_fisik: r.qty_fisik == null ? null : Number(r.qty_fisik),
-      catatan: r.catatan,
-    }))
-    .sort((a, b) => a.kode.localeCompare(b.kode));
+    .map((r): OpnameRow => {
+      if (r.item_id) {
+        const kategori = r.items?.kategori;
+        return {
+          id: r.id,
+          golongan: kategori === "Kemasan" ? "Kemasan" : "Bahan Baku",
+          kode: r.items?.kode || "-",
+          nama: r.items?.nama || "(item terhapus)",
+          varian: null,
+          satuan: r.items?.satuan || "",
+          qty_sistem: Number(r.qty_sistem),
+          stok_kini: stokBahan.get(r.item_id) || 0,
+          qty_fisik: r.qty_fisik == null ? null : Number(r.qty_fisik),
+          catatan: r.catatan,
+        };
+      }
+      const vk = varianKey(r.varian);
+      return {
+        id: r.id,
+        golongan: "Produk Jadi",
+        kode: r.products?.kode || "-",
+        nama: r.products?.nama_produk || "(produk terhapus)",
+        varian: vk,
+        satuan: "pcs",
+        qty_sistem: Number(r.qty_sistem),
+        stok_kini: stokProduk.get(`${r.product_id}|${vk}`)?.available || 0,
+        qty_fisik: r.qty_fisik == null ? null : Number(r.qty_fisik),
+        catatan: r.catatan,
+      };
+    })
+    .sort(
+      (a, b) =>
+        URUT_GOLONGAN[a.golongan] - URUT_GOLONGAN[b.golongan] ||
+        a.kode.localeCompare(b.kode) ||
+        a.nama.localeCompare(b.nama) ||
+        (a.varian || "").localeCompare(b.varian || "")
+    );
+
+  // Koreksi produk jadi yang dihasilkan opname ini. Berbeda dari
+  // adjustment bahan: koreksi produk jadi tidak punya dokumen sendiri,
+  // jadi jumlahnya ditampilkan langsung di sini.
+  const { count: jumlahKoreksiFg } = await supabase
+    .from("finished_goods_adjustments")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("opname_id", id);
 
   const namaOleh = op.dibuat_oleh
     ? (
@@ -163,8 +212,8 @@ export default async function OpnameDetailPage({
         </div>
       </div>
       <p className="text-muted text-sm mb-6">
-        {formatTanggal(op.tanggal)} · cakupan {op.kategori || "semua item"} ·{" "}
-        {rows.length} item
+        {formatTanggal(op.tanggal)} · cakupan {op.kategori || "semua golongan"}{" "}
+        · {rows.length} baris
         {namaOleh ? ` · oleh ${namaOleh}` : ""}
         {op.tanggal_selesai
           ? ` · ditutup ${formatTanggal(op.tanggal_selesai)}`
@@ -189,7 +238,7 @@ export default async function OpnameDetailPage({
           <div className="glass rounded-2xl p-5 mb-5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">
             <div>
               <div className="text-[11px] uppercase tracking-wide text-muted mb-0.5">
-                Item Dihitung
+                Baris Dihitung
               </div>
               <div className="font-medium">
                 {terhitung.length} / {rows.length}
@@ -211,7 +260,7 @@ export default async function OpnameDetailPage({
             </div>
             <div>
               <div className="text-[11px] uppercase tracking-wide text-muted mb-0.5">
-                Adjustment
+                Penyesuaian
               </div>
               <div className="font-medium">
                 {op.adjustment_id ? (
@@ -219,20 +268,34 @@ export default async function OpnameDetailPage({
                     href={`/data-migration/adjustment/${op.adjustment_id}`}
                     className="text-botanical-700 hover:underline"
                   >
-                    Lihat penyesuaian
+                    Lihat penyesuaian bahan
                   </Link>
-                ) : (
+                ) : !jumlahKoreksiFg ? (
                   <span className="text-muted">tanpa penyesuaian</span>
-                )}
+                ) : null}
+                {jumlahKoreksiFg ? (
+                  <div className="text-[12px] text-muted font-normal">
+                    {jumlahKoreksiFg} koreksi produk jadi
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
 
           <DataTable
             rows={rows}
-            rowKey={(r) => r.item_id}
+            rowKey={(r) => r.id}
             minWidth={860}
-            empty="Tidak ada item pada opname ini."
+            empty="Tidak ada baris pada opname ini."
+            groupBy={{
+              key: (r) => r.golongan,
+              header: (g) =>
+                judulGolongan(
+                  g.key,
+                  g.rows.length,
+                  g.rows.filter((r) => r.qty_fisik !== null).length
+                ),
+            }}
             rowClassName={(r) =>
               r.qty_fisik !== null &&
               Math.abs(r.qty_fisik - r.qty_sistem) > 0.000001
@@ -248,7 +311,8 @@ export default async function OpnameDetailPage({
                   <>
                     <div className="font-medium">{r.nama}</div>
                     <div className="text-[11px] text-muted font-mono">
-                      {r.kode} · {r.kategori}
+                      {r.kode}
+                      {r.varian && r.varian !== "-" ? ` · ${r.varian}` : ""}
                     </div>
                   </>
                 ),
@@ -256,7 +320,8 @@ export default async function OpnameDetailPage({
                   <>
                     <div>{r.nama}</div>
                     <div className="text-[11px] text-muted font-mono font-normal">
-                      {r.kode} · {r.kategori}
+                      {r.kode}
+                      {r.varian && r.varian !== "-" ? ` · ${r.varian}` : ""}
                     </div>
                   </>
                 ),

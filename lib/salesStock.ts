@@ -8,6 +8,7 @@ export type FgStock = {
   produced: number;
   consigned: number; // terkirim konsinyasi (belum retur)
   sold: number; // terjual langsung (Direct/POS)
+  adjustment: number; // koreksi opname produk jadi, boleh negatif
   available: number;
 };
 
@@ -17,13 +18,19 @@ export function fgKey(productId: string, varian: string | null): FgKey {
 
 /**
  * Hitung stok produk jadi per produk+varian:
- * available = produced − (kirim konsinyasi − retur) − terjual Direct/POS.
+ * available = produced − (kirim konsinyasi − retur) − terjual Direct/POS
+ *             + koreksi opname produk jadi.
  * Penjualan dari konsinyasi TIDAK mengurangi lagi (barang sudah keluar saat kirim).
  *
  * Jalur utama: RPC get_finished_stock, agregasi dikerjakan database
  * (satu query, hasil sudah per produk+varian) sehingga tetap ringan
  * walau riwayat transaksi sudah puluhan ribu baris. Kalau RPC belum
  * terpasang, otomatis jatuh ke perhitungan lama di server.
+ *
+ * RUMUSNYA HARUS IDENTIK dengan fg_stock_calc() di Postgres, yang juga
+ * dipakai fg_available() saat menolak penjualan melebihi stok. Kalau
+ * salah satu komponen cuma ada di satu sisi, angka di layar berbeda
+ * dengan angka yang dipakai sistem untuk memvalidasi.
  */
 export async function getFinishedStock(
   organizationId: string
@@ -42,6 +49,7 @@ export async function getFinishedStock(
       produced: number;
       consigned: number;
       sold: number;
+      adjustment?: number | null;
       available: number;
     }[]) {
       const varian = r.varian || "-";
@@ -51,6 +59,7 @@ export async function getFinishedStock(
         produced: Number(r.produced),
         consigned: Number(r.consigned),
         sold: Number(r.sold),
+        adjustment: Number(r.adjustment ?? 0),
         available: Number(r.available),
       });
     }
@@ -58,7 +67,7 @@ export async function getFinishedStock(
   }
 
   // ---- Fallback: perhitungan di server (RPC belum terpasang) ----
-  const [outputsRes, consRes, salesRes] = await Promise.all([
+  const [outputsRes, consRes, salesRes, adjRes] = await Promise.all([
     supabase
       .from("production_outputs")
       .select("product_id, varian_ukuran, qty_hasil, production_batches!inner(qa_status)")
@@ -78,6 +87,13 @@ export async function getFinishedStock(
       .eq("organization_id", organizationId)
       .not("product_id", "is", null) // baris jasa tidak memengaruhi stok
       .in("sales_invoices.sumber", ["Direct", "POS"]),
+    // Koreksi opname produk jadi. Komponen keempat rumus; kalau dilewat,
+    // layar menampilkan stok yang sudah dikoreksi berbeda dari yang
+    // dipakai fg_available saat menolak penjualan.
+    supabase
+      .from("finished_goods_adjustments")
+      .select("product_id, varian, qty_delta")
+      .eq("organization_id", organizationId),
   ]);
 
   const map = new Map<FgKey, FgStock>();
@@ -90,6 +106,7 @@ export async function getFinishedStock(
         produced: 0,
         consigned: 0,
         sold: 0,
+        adjustment: 0,
         available: 0,
       });
     }
@@ -119,9 +136,16 @@ export async function getFinishedStock(
   }[]) {
     ensure(s.product_id, s.varian_ukuran).sold += Number(s.qty);
   }
+  for (const a of (adjRes.data || []) as {
+    product_id: string;
+    varian: string | null;
+    qty_delta: number;
+  }[]) {
+    ensure(a.product_id, a.varian).adjustment += Number(a.qty_delta);
+  }
 
   for (const v of map.values()) {
-    v.available = v.produced - v.consigned - v.sold;
+    v.available = v.produced - v.consigned - v.sold + v.adjustment;
   }
   return map;
 }
