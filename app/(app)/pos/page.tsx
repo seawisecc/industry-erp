@@ -1,4 +1,4 @@
-import { Printer } from "lucide-react";
+import { Printer, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { getSalesOptions } from "@/lib/salesOptions";
@@ -105,10 +105,15 @@ export default async function PosPage() {
               cell: (r) => (
                 <RowActions>
                   <IconAction
-                    icon={Printer}
-                    label="Cetak faktur"
-                    href={`/print/invoice/${r.id}`}
+                    icon={Receipt}
+                    label="Cetak nota (struk 58 mm)"
+                    href={`/print/nota/${r.id}`}
                     tone="primary"
+                  />
+                  <IconAction
+                    icon={Printer}
+                    label="Cetak invoice (A4)"
+                    href={`/print/invoice/${r.id}`}
                   />
                 </RowActions>
               ),

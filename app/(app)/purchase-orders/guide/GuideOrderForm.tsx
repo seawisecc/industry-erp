@@ -342,6 +342,12 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
             ? `Buat ${perSupplier.size} PO (split per supplier)`
             : "Buat PO"}
       </button>
+      {adaMoqSalah && !loading && (
+        <p className="text-clay-600 text-[12px] text-center -mt-3">
+          Ada qty yang belum sesuai MOQ supplier, perbaiki baris bertanda merah
+          dulu.
+        </p>
+      )}
     </div>
   );
 }

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Trash2, CheckCircle2, Receipt, FileText } from "lucide-react";
 import { createInvoice } from "./actions";
 import { computeTotals } from "@/lib/invoiceMath";
 import ClientPicker from "@/components/ClientPicker";
@@ -30,6 +31,9 @@ export type ProductVariantOpt = {
 type Row = { key: string; qty: string; harga: string; hargaManual: boolean };
 
 const BARIS_KOSONG: Row = { key: "", qty: "", harga: "", hargaManual: false };
+
+/** Transaksi POS yang baru tersimpan, dipakai layar pilihan cetak. */
+type Selesai = { id: string; no: string | null; total: number };
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
@@ -65,6 +69,7 @@ export default function InvoiceForm({
   const [rows, setRows] = useState<Row[]>([{ ...BARIS_KOSONG }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selesai, setSelesai] = useState<Selesai | null>(null);
 
   const optOf = (key: string) => options.find((o) => o.key === key);
 
@@ -145,8 +150,20 @@ export default function InvoiceForm({
           }),
       });
       if (result.ok && result.invoiceId) {
-        router.push(`/print/invoice/${result.invoiceId}`);
-        router.refresh();
+        if (isPos) {
+          // Kasir yang memilih mau cetak nota 58 mm atau invoice A4,
+          // jadi jangan langsung dilempar ke salah satunya.
+          setSelesai({
+            id: result.invoiceId,
+            no: result.noInvoice ?? null,
+            total: totals.total,
+          });
+          setLoading(false);
+          router.refresh(); // stok & daftar penjualan hari ini ikut segar
+        } else {
+          router.push(`/print/invoice/${result.invoiceId}`);
+          router.refresh();
+        }
       } else {
         setError(result.error || "Gagal menyimpan");
         setLoading(false);
@@ -159,9 +176,80 @@ export default function InvoiceForm({
     }
   }
 
+  /** Bersihkan form untuk pembeli berikutnya, tanggal dibiarkan. */
+  function transaksiBaru() {
+    setSelesai(null);
+    setClientId("");
+    setNamaPembeli("");
+    setDiskon("0");
+    setPakaiTax(false);
+    setCatatan("");
+    setRows([{ ...BARIS_KOSONG }]);
+    setError("");
+  }
+
   const inputCls =
     "w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700";
   const labelCls = "block text-[12.5px] font-medium text-muted mb-1.5";
+
+  // ===== Transaksi POS selesai: pilih mau cetak apa =====
+  if (selesai) {
+    const cetakCls =
+      "flex flex-col items-center justify-center gap-1.5 rounded-xl px-4 py-5 text-[13.5px] font-medium transition-colors";
+    return (
+      <div className="glass rounded-2xl p-6 sm:p-8 flex flex-col items-center gap-5 text-center">
+        <div>
+          <CheckCircle2 size={40} className="text-botanical-700 mx-auto" />
+          <h2 className="font-display text-[17px] font-semibold text-ink mt-2">
+            Transaksi Selesai
+          </h2>
+          <p className="text-muted text-[12.5px] mt-0.5">
+            Stok sudah terpotong dan pembayaran tercatat lunas.
+          </p>
+        </div>
+
+        <div>
+          <div className="font-mono text-[12.5px] text-muted">
+            {selesai.no || "-"}
+          </div>
+          <div className="font-display text-2xl font-semibold text-ink">
+            {formatRupiah(selesai.total)}
+          </div>
+        </div>
+
+        <div className="w-full sm:max-w-md grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Link
+            href={`/print/nota/${selesai.id}`}
+            className={`${cetakCls} bg-botanical-700 text-white hover:bg-botanical-800 shadow-sm`}
+          >
+            <Receipt size={20} />
+            Cetak Nota
+            <span className="text-[11.5px] font-normal opacity-80">
+              struk kasir 58 mm
+            </span>
+          </Link>
+          <Link
+            href={`/print/invoice/${selesai.id}`}
+            className={`${cetakCls} bg-white/70 border border-line text-ink hover:bg-white`}
+          >
+            <FileText size={20} />
+            Cetak Invoice
+            <span className="text-[11.5px] font-normal text-muted">
+              faktur A4
+            </span>
+          </Link>
+        </div>
+
+        <button
+          type="button"
+          onClick={transaksiBaru}
+          className="text-botanical-700 text-[13px] font-medium hover:underline"
+        >
+          Lanjut Transaksi Baru
+        </button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">

@@ -335,6 +335,26 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
+/* ---------- Struk thermal 58 mm ----------
+   Kertasnya 58 mm, tapi lebar CETAK printer thermal 58 mm cuma 48 mm
+   (384 dot @203 dpi). Jadi struknya dikunci 48 mm, bukan 58 mm, kalau
+   tidak kolom kanannya terpotong di printer.
+   Di layar 48 mm cuma ~181 px dan tidak terbaca, jadi preview-nya
+   di-zoom. Zoom dimatikan saat print supaya ukuran fisiknya persis. */
+.struk-58 {
+  width: 48mm;
+}
+@media screen {
+  .struk-58 {
+    zoom: 1.8;
+  }
+}
+@media print {
+  .struk-58 {
+    zoom: 1;
+  }
+}
+
 /* ---------- Bar navigasi HP bisa di-swipe tanpa scrollbar ---------- */
 @utility no-scrollbar {
   -ms-overflow-style: none;

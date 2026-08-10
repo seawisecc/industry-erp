@@ -534,6 +534,12 @@ export default function ProductionForm({
       >
         {loading ? "Memproses & memotong stok..." : "Simpan Produksi"}
       </button>
+      {adaStokKurang && !loading && (
+        <p className="text-clay-600 text-[12px] text-center -mt-3">
+          Ada bahan yang stoknya tidak cukup, perbaiki baris bertanda merah
+          dulu.
+        </p>
+      )}
     </form>
   );
 }

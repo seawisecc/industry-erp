@@ -31,7 +31,12 @@ export type InvoiceInput = {
 
 export async function createInvoice(
   data: InvoiceInput
-): Promise<{ ok: boolean; error?: string; invoiceId?: string }> {
+): Promise<{
+  ok: boolean;
+  error?: string;
+  invoiceId?: string;
+  noInvoice?: string | null;
+}> {
   try {
     const supabase = await createClient();
     const { profile, organizationId } = await getEffectiveOrg();
@@ -105,10 +110,23 @@ export async function createInvoice(
       });
     }
 
+    // Nomornya dibuat di dalam RPC, jadi baru bisa dibaca sesudahnya.
+    // Dipakai POS untuk menampilkan nomor nota di layar konfirmasi.
+    const { data: nomor } = await supabase
+      .from("sales_invoices")
+      .select("no_invoice")
+      .eq("id", invoiceId as string)
+      .maybeSingle();
+
     revalidatePath("/sales-invoices");
     revalidatePath("/sales-payments");
     revalidatePath("/finished-goods");
-    return { ok: true, invoiceId: invoiceId as string };
+    revalidatePath("/pos");
+    return {
+      ok: true,
+      invoiceId: invoiceId as string,
+      noInvoice: nomor?.no_invoice ?? null,
+    };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Gagal" };
   }

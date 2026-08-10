@@ -64,6 +64,13 @@ export default function QcProdukForm({
 
   async function simpan(selesai: boolean) {
     if (loading) return;
+    // Syarat dicek di sini, bukan lewat tombol disabled: tombol mati tidak
+    // memunculkan tooltip di Chrome, jadi user cuma melihat klik yang tidak
+    // menghasilkan apa-apa.
+    if (selesai && terisi === 0) {
+      setError("Isi hasil uji minimal satu parameter sebelum dikirim ke QA.");
+      return;
+    }
     if (
       selesai &&
       !confirm(
@@ -340,8 +347,7 @@ export default function QcProdukForm({
           <button
             type="button"
             onClick={() => simpan(true)}
-            disabled={loading !== null || terisi === 0}
-            title={terisi === 0 ? "Isi hasil uji minimal satu parameter" : ""}
+            disabled={loading !== null}
             className="inline-flex items-center gap-1.5 h-10 px-5 rounded-lg bg-botanical-700 text-white text-[13px] font-medium hover:bg-botanical-800 transition-colors shadow-sm disabled:opacity-60"
           >
             {loading === "selesai" ? (

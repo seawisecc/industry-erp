@@ -7,7 +7,7 @@
    kesesuaian dokumen. Release baru terbuka setelah semua tercentang.
    ============================================================ */
 
-import { Fragment, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -133,12 +133,30 @@ export default function QaReviewForm({ info,
   const [openBahan, setOpenBahan] = useState<string | null>(null);
   const [loading, setLoading] = useState<null | "release" | "reject">(null);
   const [error, setError] = useState("");
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const checklistRef = useRef<HTMLDivElement>(null);
 
   const semuaTercentang = CHECKLIST_DEF.every((c) => checks[c.key]);
   const jumlahCentang = CHECKLIST_DEF.filter((c) => checks[c.key]).length;
 
   async function putuskan(status: "Released" | "Rejected") {
     if (loading) return;
+    // Syarat dicek di sini, bukan lewat tombol disabled: tombol mati tidak
+    // memunculkan tooltip di Chrome, jadi user cuma melihat klik yang tidak
+    // menghasilkan apa-apa.
+    if (status === "Rejected" && !note.trim()) {
+      setError("Catatan QA wajib diisi lebih dulu sebagai alasan reject.");
+      noteRef.current?.focus();
+      noteRef.current?.scrollIntoView({ block: "center" });
+      return;
+    }
+    if (status === "Released" && !semuaTercentang) {
+      setError(
+        "Seluruh poin checklist harus diverifikasi sebelum batch bisa diluluskan."
+      );
+      checklistRef.current?.scrollIntoView({ block: "center" });
+      return;
+    }
     if (
       !confirm(
         status === "Released"
@@ -333,7 +351,7 @@ export default function QaReviewForm({ info,
       </div>
 
       {/* ===== 4. Checklist pelulusan ===== */}
-      <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+      <div ref={checklistRef} className="glass rounded-2xl p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-display text-[15px] font-semibold text-ink">
             4. Checklist Pelulusan
@@ -381,8 +399,12 @@ export default function QaReviewForm({ info,
             </span>
           </label>
           <textarea
+            ref={noteRef}
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => {
+              setNote(e.target.value);
+              setError("");
+            }}
             rows={2}
             placeholder="mis. seluruh dokumen lengkap, batch memenuhi persyaratan pelulusan"
             className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
@@ -402,8 +424,7 @@ export default function QaReviewForm({ info,
           <button
             type="button"
             onClick={() => putuskan("Rejected")}
-            disabled={loading !== null || !note.trim()}
-            title={!note.trim() ? "Isi catatan QA dulu sebagai alasan reject" : ""}
+            disabled={loading !== null}
             className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-white border border-line text-clay-600 text-[13px] font-medium hover:bg-clay-100 transition-colors disabled:opacity-50"
           >
             {loading === "reject" ? (
@@ -417,10 +438,7 @@ export default function QaReviewForm({ info,
           <button
             type="button"
             onClick={() => putuskan("Released")}
-            disabled={loading !== null || !semuaTercentang}
-            title={
-              !semuaTercentang ? "Centang seluruh poin checklist dulu" : ""
-            }
+            disabled={loading !== null}
             className="inline-flex items-center gap-1.5 h-10 px-5 rounded-lg bg-botanical-700 text-white text-[13px] font-medium hover:bg-botanical-800 transition-colors shadow-sm disabled:opacity-50"
           >
             {loading === "release" ? (

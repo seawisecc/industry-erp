@@ -7,7 +7,7 @@
    Keputusan Release/Reject dilakukan dari halaman ini.
    ============================================================ */
 
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save, Check, X } from "lucide-react";
 import { saveQcSheet, decideQc, type QcHasilRow } from "../actions";
@@ -55,6 +55,7 @@ export default function QcSheetForm({
   );
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
 
   const terisi = rows.filter((r) => r.hasil.trim()).length;
 
@@ -84,6 +85,15 @@ export default function QcSheetForm({
   async function putuskan(status: "Released" | "Rejected") {
     if (loading) return;
     const label = status === "Released" ? "RELEASE" : "REJECT";
+    // Syarat dicek di sini, bukan lewat tombol disabled: tombol mati tidak
+    // memunculkan tooltip di Chrome, jadi user cuma melihat klik yang tidak
+    // menghasilkan apa-apa.
+    if (status === "Rejected" && !note.trim()) {
+      setError("Catatan QC wajib diisi lebih dulu sebagai alasan reject.");
+      noteRef.current?.focus();
+      noteRef.current?.scrollIntoView({ block: "center" });
+      return;
+    }
     if (
       !confirm(
         status === "Released"
@@ -312,10 +322,12 @@ export default function QcSheetForm({
             </span>
           </label>
           <textarea
+            ref={noteRef}
             value={note}
             onChange={(e) => {
               setNote(e.target.value);
               setSaved(false);
+              setError("");
             }}
             rows={2}
             placeholder="mis. COA sesuai, organoleptik OK / warna menyimpang dari standar"
@@ -351,8 +363,7 @@ export default function QcSheetForm({
           <button
             type="button"
             onClick={() => putuskan("Rejected")}
-            disabled={loading !== null || !note.trim()}
-            title={!note.trim() ? "Isi catatan QC dulu sebagai alasan reject" : ""}
+            disabled={loading !== null}
             className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-white border border-line text-clay-600 text-[13px] font-medium hover:bg-clay-100 transition-colors disabled:opacity-50"
           >
             {loading === "reject" ? (
