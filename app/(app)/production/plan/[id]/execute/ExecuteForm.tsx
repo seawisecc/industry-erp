@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, X, RotateCcw } from "lucide-react";
+import { Plus, Trash2, X, RotateCcw, Tags } from "lucide-react";
 import {
   saveExecution,
   ExecutionData,
@@ -10,6 +10,7 @@ import {
   IpcHasil,
 } from "../../../actions";
 import DataTable from "@/components/DataTable";
+import RowActions, { ActionTip, iconActionClass } from "@/components/RowActions";
 import { urutkanFormula, faseKey, faseLabel } from "@/lib/formulaOrder";
 
 /* ------------------------------------------------------------
@@ -156,6 +157,44 @@ export default function ExecuteForm({
   /** Jumlah bahan seharusnya untuk ukuran batch ini. */
   const teoritisOf = (f: (typeof plan.formulas)[number]) =>
     (f.percentage / 100) * plan.bulkKg;
+
+  /**
+   * Cetak label penimbangan untuk satu bahan yang baru selesai ditimbang.
+   *
+   * Dibuka di TAB BARU, dan itu bukan pilihan gaya: isi form ini
+   * (timbangan, jam MES, IPC) baru jadi dokumen saat tombol Simpan
+   * ditekan. Navigasi biasa akan meninggalkan halaman di tengah
+   * penimbangan — draft memang menyelamatkannya, tapi operator yang
+   * sedang berdiri di depan timbangan tidak boleh dipaksa mengandalkan
+   * itu hanya untuk mencetak selembar label.
+   *
+   * URL-nya dirakit saat DIKLIK, bukan saat render, karena memuat jam
+   * penimbangan: nilai yang berbeda antara render server dan klien
+   * akan dianggap bentrok hidrasi oleh React.
+   */
+  function cetakLabelTimbang(arg: {
+    bahan: string;
+    kode: string;
+    qty: string;
+    satuan: string;
+    fase: string;
+  }) {
+    const q = new URLSearchParams({
+      bahan: arg.bahan,
+      kode: arg.kode,
+      qty: arg.qty,
+      satuan: arg.satuan,
+      fase: arg.fase,
+      oleh: plan.operator,
+      produk: [plan.produkNama, plan.brand].filter(Boolean).join(" · "),
+      batch: plan.no_batch,
+      guna: `Produksi ruahan ${formatId(plan.bulkKg)} kg (${formatId(
+        plan.jumlah_batch
+      )} batch)`,
+      t: new Date().toISOString(),
+    });
+    window.open(`/print/label/penimbangan?${q}`, "_blank", "noopener");
+  }
 
   // ===== Bahan (formula): teoritis fixed, real editable =====
   const [bahanReal, setBahanReal] = useState<Record<string, string>>(() => {
@@ -752,6 +791,49 @@ export default function ExecuteForm({
                 );
               },
             },
+            {
+              key: "label",
+              header: "Label",
+              role: "actions",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (f) => {
+                const it = itemOf(f.item_id);
+                const qty = bahanReal[f.item_id] || "";
+                // Label tanpa angka timbang tidak ada gunanya ditempel,
+                // jadi tombolnya mati sampai kolom sebelahnya terisi.
+                const belumDitimbang = parseNum(qty) <= 0;
+                return (
+                  <RowActions>
+                    <ActionTip
+                      label={
+                        belumDitimbang
+                          ? "Isi hasil timbang dulu"
+                          : "Cetak label penimbangan"
+                      }
+                    >
+                      <button
+                        type="button"
+                        disabled={belumDitimbang}
+                        aria-label={`Cetak label penimbangan ${it?.nama ?? ""}`}
+                        onClick={() =>
+                          cetakLabelTimbang({
+                            bahan: it?.nama || "-",
+                            kode: it?.kode || "",
+                            qty,
+                            satuan: it?.satuan || "",
+                            fase: faseLabel(faseKey(f.fase)),
+                          })
+                        }
+                        className={iconActionClass("default", belumDitimbang)}
+                      >
+                        <Tags size={15} strokeWidth={2} />
+                      </button>
+                    </ActionTip>
+                  </RowActions>
+                );
+              },
+            },
           ]}
         />
       </div>
@@ -789,7 +871,7 @@ export default function ExecuteForm({
           return (
             <div
               key={idx}
-              className="grid grid-cols-1 sm:grid-cols-[1fr_140px_32px] gap-2 items-start"
+              className="grid grid-cols-1 sm:grid-cols-[1fr_140px_32px_32px] gap-2 items-start"
             >
               <div className="relative">
                 {row.item ? (
@@ -854,6 +936,26 @@ export default function ExecuteForm({
                 placeholder={row.item ? `Qty (${row.item.satuan})` : "Qty"}
                 className={inputCls}
               />
+              {/* Bahan adjusting juga ditimbang, jadi juga butuh label —
+                  fasenya "Adjusting" karena memang di luar formula. */}
+              <button
+                type="button"
+                disabled={!row.item || parseNum(row.qty) <= 0}
+                aria-label="Cetak label penimbangan bahan adjusting"
+                title="Cetak label penimbangan"
+                onClick={() =>
+                  cetakLabelTimbang({
+                    bahan: row.item?.nama || "-",
+                    kode: row.item?.kode || "",
+                    qty: row.qty,
+                    satuan: row.item?.satuan || "",
+                    fase: "Adjusting",
+                  })
+                }
+                className="text-muted hover:text-botanical-700 disabled:text-muted/40 disabled:hover:text-muted/40 p-2"
+              >
+                <Tags size={15} />
+              </button>
               <button
                 type="button"
                 onClick={() => setAdjustRows((rs) => rs.filter((_, i) => i !== idx))}

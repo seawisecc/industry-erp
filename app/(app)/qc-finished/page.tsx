@@ -13,7 +13,7 @@ import {
   parseListQuery,
   type SearchParams,
 } from "@/lib/pagination";
-import { ClipboardList, Printer, Eye } from "lucide-react";
+import { ClipboardList, Printer, Eye, Tags } from "lucide-react";
 
 type BatchRow = {
   id: string;
@@ -160,17 +160,24 @@ export default async function QcFinishedPage({
           },
           {
             key: "aksi",
-            header: "Lembar Uji",
+            header: "Aksi",
             role: "actions",
             align: "right",
             className: "whitespace-nowrap",
             cell: (b) => (
-              <Link
-                href={`/qc-finished/${b.id}`}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
-              >
-                <ClipboardList size={13} /> Uji Produk
-              </Link>
+              <RowActions>
+                <IconAction
+                  icon={Tags}
+                  label="Cetak label karantina"
+                  href={`/print/label/batch/${b.id}`}
+                />
+                <Link
+                  href={`/qc-finished/${b.id}`}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
+                >
+                  <ClipboardList size={13} /> Uji Produk
+                </Link>
+              </RowActions>
             ),
           },
         ]}
@@ -265,6 +272,11 @@ export default async function QcFinishedPage({
                   icon={Printer}
                   label="Cetak lembar uji produk"
                   href={`/print/qc-produk/${b.id}`}
+                />
+                <IconAction
+                  icon={Tags}
+                  label="Cetak label status batch"
+                  href={`/print/label/batch/${b.id}`}
                 />
               </RowActions>
             ),

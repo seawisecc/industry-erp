@@ -2,9 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, Tags } from "lucide-react";
 import CancelTxButton from "@/components/CancelTxButton";
 import DataTable from "@/components/DataTable";
+import { hitungEstimasiProduksi } from "@/lib/productionEstimate";
 import { cancelProduction } from "../actions";
 
 type BatchDetail = {
@@ -21,6 +22,7 @@ type BatchDetail = {
     products: { kode: string | null; nama_produk: string; brand: string | null } | null;
   }[];
   production_components: {
+    item_id: string;
     qty_terpakai: number;
     harga_per_unit: number;
     subtotal: number;
@@ -61,7 +63,7 @@ export default async function ProductionDetailPage({
     .select(
       `id, no_batch_produksi, tanggal_produksi, status, catatan, total_cost_bahan,
        production_outputs(qty_hasil, satuan, varian_ukuran, products(kode, nama_produk, brand)),
-       production_components(qty_terpakai, harga_per_unit, subtotal, items(kode, nama, satuan), purchase_batches(no_lot_supplier, exp_date, supplier_nama))`
+       production_components(item_id, qty_terpakai, harga_per_unit, subtotal, items(kode, nama, satuan), purchase_batches(no_lot_supplier, exp_date, supplier_nama))`
     )
     .eq("id", id)
     .eq("organization_id", organizationId)
@@ -76,6 +78,13 @@ export default async function ProductionDetailPage({
     0
   );
   const costPerUnit = totalPcs > 0 ? Number(batch.total_cost_bahan) / totalPcs : 0;
+
+  const estimasi = await hitungEstimasiProduksi(
+    organizationId!,
+    batch.id,
+    batch.production_components,
+    Number(batch.total_cost_bahan)
+  );
 
   return (
     <div className="max-w-5xl">
@@ -103,6 +112,12 @@ export default async function ProductionDetailPage({
             keterangan="Bahan yang terpakai akan dikembalikan ke stok dan hasil produksi dihapus. Hanya bisa bila produk jadinya belum terjual/terkirim."
             redirectTo="/production"
           />
+          <Link
+            href={`/print/label/batch/${batch.id}`}
+            className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+          >
+            <Tags size={14} /> Cetak Label
+          </Link>
           <Link
             href={`/print/production/${batch.id}`}
             className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
@@ -144,6 +159,88 @@ export default async function ProductionDetailPage({
           <div className="font-medium">{formatRupiah(costPerUnit)}</div>
         </div>
       </div>
+
+      {/* ===== Estimasi awal vs biaya real =====
+          Angka real sendirian tidak bisa dibaca: petugas tidak tahu
+          wajar atau membeludak. Pembandingnya biaya seandainya semua
+          persis rencana, dengan harga lot yang sama. */}
+      {estimasi && (
+        <div className="glass rounded-2xl p-6 mb-5">
+          <h2 className="font-display text-[15.5px] font-semibold text-ink">
+            Estimasi Awal vs Biaya Real
+          </h2>
+          <p className="text-muted text-[12.5px] mt-0.5 mb-4">
+            Estimasi dihitung dari takaran formula &amp; rencana kemasan, dihargai
+            dengan harga lot yang sama dipakai batch ini — jadi selisihnya murni
+            soal pemakaian, bukan pergerakan harga.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-[13.5px]">
+            <div>
+              <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">
+                Estimasi Awal
+              </div>
+              <div className="font-semibold text-[16px]">
+                {formatRupiah(estimasi.total)}
+              </div>
+              <div className="text-[11.5px] text-muted mt-0.5">
+                Bahan {formatRupiah(estimasi.bahan)} · Kemasan{" "}
+                {formatRupiah(estimasi.kemasan)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">
+                Biaya Real
+              </div>
+              <div className="font-semibold text-[16px]">
+                {formatRupiah(estimasi.real)}
+              </div>
+              <div className="text-[11.5px] text-muted mt-0.5">
+                Timbang nyata + adjusting + kemasan terpakai
+              </div>
+            </div>
+            <div>
+              <div className="text-[11.5px] text-muted uppercase tracking-wide mb-1">
+                Selisih
+              </div>
+              <div
+                className={`font-semibold text-[16px] ${
+                  estimasi.persen != null && Math.abs(estimasi.persen) < 1
+                    ? "text-ink"
+                    : estimasi.selisih > 0
+                      ? "text-clay-600"
+                      : "text-botanical-700"
+                }`}
+              >
+                {estimasi.selisih > 0 ? "+" : estimasi.selisih < 0 ? "−" : ""}
+                {formatRupiah(Math.abs(estimasi.selisih))}
+                {estimasi.persen != null && (
+                  <span className="text-[12.5px] font-normal">
+                    {" "}
+                    ({estimasi.persen > 0 ? "+" : ""}
+                    {estimasi.persen.toLocaleString("id-ID", {
+                      maximumFractionDigits: 1,
+                    })}
+                    %)
+                  </span>
+                )}
+              </div>
+              <div className="text-[11.5px] text-muted mt-0.5">
+                {estimasi.persen != null && Math.abs(estimasi.persen) < 1
+                  ? "Sesuai rencana"
+                  : estimasi.selisih > 0
+                    ? "Melebihi rencana"
+                    : "Lebih hemat dari rencana"}
+              </div>
+            </div>
+          </div>
+          {estimasi.tanpaHarga.length > 0 && (
+            <p className="text-[11.5px] text-clay-600 mt-4">
+              ⚠ Belum ada acuan harga untuk: {estimasi.tanpaHarga.join(", ")} —
+              estimasinya lebih rendah dari yang seharusnya.
+            </p>
+          )}
+        </div>
+      )}
 
       <h2 className="font-display text-[15.5px] font-semibold text-ink mb-2">
         Bahan Terpakai (Traceability Lot)

@@ -2,9 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, Tags } from "lucide-react";
 import CancelTxButton from "@/components/CancelTxButton";
 import DataTable from "@/components/DataTable";
+import RowActions, { IconAction } from "@/components/RowActions";
 import { cancelReceiving } from "../actions";
 
 type RcvDetail = {
@@ -24,6 +25,7 @@ type RcvDetail = {
 };
 
 type BatchRow = {
+  id: string;
   qty_masuk: number;
   harga_per_unit: number;
   no_lot_supplier: string | null;
@@ -69,13 +71,13 @@ export default async function ReceivingDetailPage({
   // Batch milik penerimaan ini (data lama tanpa receiving_id: fallback po+tanggal)
   let { data: batches } = await supabase
     .from("purchase_batches")
-    .select("qty_masuk, harga_per_unit, no_lot_supplier, exp_date, items(kode, nama, satuan)")
+    .select("id, qty_masuk, harga_per_unit, no_lot_supplier, exp_date, items(kode, nama, satuan)")
     .eq("receiving_id", id);
 
   if (!batches || batches.length === 0) {
     const fallback = await supabase
       .from("purchase_batches")
-      .select("qty_masuk, harga_per_unit, no_lot_supplier, exp_date, items(kode, nama, satuan)")
+      .select("id, qty_masuk, harga_per_unit, no_lot_supplier, exp_date, items(kode, nama, satuan)")
       .eq("po_id", rcv.po_id)
       .eq("tanggal_terima", rcv.tanggal_terima)
       .eq("organization_id", organizationId);
@@ -120,6 +122,12 @@ export default async function ReceivingDetailPage({
             redirectTo="/receivings"
           />
           <Link
+            href={`/print/label/receiving/${rcv.id}`}
+            className="flex items-center gap-1.5 bg-white/70 border border-line text-ink text-[13px] font-medium px-3.5 py-2 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+          >
+            <Tags size={15} /> Cetak Label
+          </Link>
+          <Link
             href={`/print/receiving/${rcv.id}`}
             className="flex items-center gap-1.5 bg-botanical-700 text-white text-[13px] font-medium px-3.5 py-2 rounded-lg hover:bg-botanical-800 transition-colors"
           >
@@ -162,8 +170,8 @@ export default async function ReceivingDetailPage({
 
       <DataTable
         rows={rows}
-        rowKey={(_r, i) => String(i)}
-        minWidth={640}
+        rowKey={(r, i) => r.id || String(i)}
+        minWidth={700}
         empty="Tidak ada item pada faktur ini."
         columns={[
           {
@@ -234,6 +242,22 @@ export default async function ReceivingDetailPage({
             className: "whitespace-nowrap",
             cell: (r) =>
               formatRupiah(Number(r.qty_masuk) * Number(r.harga_per_unit)),
+          },
+          {
+            key: "label",
+            header: "Label",
+            role: "actions",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (r) => (
+              <RowActions>
+                <IconAction
+                  icon={Tags}
+                  label="Cetak label lot ini"
+                  href={r.id ? `/print/label/lot/${r.id}` : undefined}
+                />
+              </RowActions>
+            ),
           },
         ]}
       />

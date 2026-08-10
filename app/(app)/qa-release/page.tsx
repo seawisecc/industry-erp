@@ -14,7 +14,7 @@ import {
   parseListQuery,
   type SearchParams,
 } from "@/lib/pagination";
-import { ClipboardList, Printer, FileText } from "lucide-react";
+import { ClipboardList, Printer, FileText, Tags } from "lucide-react";
 
 type BatchRow = {
   id: string;
@@ -177,17 +177,24 @@ export default async function QaReleasePage({
           },
           {
             key: "aksi",
-            header: "Pelulusan",
+            header: "Aksi",
             role: "actions",
             align: "right",
             className: "whitespace-nowrap",
             cell: (b) => (
-              <Link
-                href={`/qa-release/${b.id}`}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
-              >
-                <ClipboardList size={13} /> Tinjau &amp; Luluskan
-              </Link>
+              <RowActions>
+                <IconAction
+                  icon={Tags}
+                  label="Cetak label karantina"
+                  href={`/print/label/batch/${b.id}`}
+                />
+                <Link
+                  href={`/qa-release/${b.id}`}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
+                >
+                  <ClipboardList size={13} /> Tinjau &amp; Luluskan
+                </Link>
+              </RowActions>
             ),
           },
         ]}
@@ -293,6 +300,15 @@ export default async function QaReleasePage({
                   icon={Printer}
                   label="Cetak CoA"
                   href={`/print/qa/${b.id}`}
+                />
+                <IconAction
+                  icon={Tags}
+                  label={
+                    b.qa_status === "Released"
+                      ? "Cetak label release"
+                      : "Cetak label reject"
+                  }
+                  href={`/print/label/batch/${b.id}`}
                 />
               </RowActions>
             ),

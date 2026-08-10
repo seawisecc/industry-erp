@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, Tags } from "lucide-react";
 
 type QcHasil = {
   nama: string;
@@ -106,12 +106,20 @@ export default async function QcDetailPage({
         >
           {b.qc_status}
         </span>
-        <Link
-          href={`/print/qc/${b.id}`}
-          className="ml-auto inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors"
-        >
-          <Printer size={14} /> Cetak Lembar Uji
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <Link
+            href={`/print/label/lot/${b.id}`}
+            className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+          >
+            <Tags size={14} /> Cetak Label {lulus ? "Release" : "Reject"}
+          </Link>
+          <Link
+            href={`/print/qc/${b.id}`}
+            className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+          >
+            <Printer size={14} /> Cetak Lembar Uji
+          </Link>
+        </div>
       </div>
       <p className="text-muted text-sm mb-6">
         Diputuskan {formatTanggal(b.qc_tanggal)}

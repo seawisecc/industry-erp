@@ -41,4 +41,4 @@ yarn-error.log*
 next-env.d.ts
 
 # Brief kerja lokal, bukan bagian aplikasi
-PROMPT-PEMBENAHAN.md
+PROMPT-PEMBENAHAN*.md

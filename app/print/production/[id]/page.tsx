@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
 import { getDocSigners } from "@/lib/docSignServer";
 import { urutkanFormula } from "@/lib/formulaOrder";
+import { hitungEstimasiProduksi } from "@/lib/productionEstimate";
 import PrintButton from "../../po/[id]/PrintButton";
 
 type BatchPrint = {
@@ -171,6 +172,14 @@ export default async function PrintProductionPage({
   );
   const costPerUnit = totalPcs > 0 ? Number(batch.total_cost_bahan) / totalPcs : 0;
 
+  // Pembanding biaya real: berapa seharusnya kalau semua persis rencana
+  const estimasi = await hitungEstimasiProduksi(
+    organizationId!,
+    batch.id,
+    batch.production_components,
+    Number(batch.total_cost_bahan)
+  );
+
   // Kolom tanda tangan sesuai pengaturan Document Signing
   const signers = await getDocSigners(organizationId!, "production");
 
@@ -250,6 +259,11 @@ export default async function PrintProductionPage({
             <div className="text-[11.5px] text-neutral-600">
               Total bahan: {formatRupiah(Number(batch.total_cost_bahan))}
             </div>
+            {estimasi && (
+              <div className="text-[11.5px] text-neutral-600">
+                Estimasi awal: {formatRupiah(estimasi.total)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -307,12 +321,46 @@ export default async function PrintProductionPage({
           <tfoot>
             <tr className="border-t-2 border-[#1a1a1a]">
               <td colSpan={6} className="py-2 pr-2 text-right font-semibold">
-                Total Cost Bahan
+                Total Cost Bahan, Real
               </td>
               <td className="py-2 text-right font-bold whitespace-nowrap">
                 {formatRupiah(Number(batch.total_cost_bahan))}
               </td>
             </tr>
+            {/* Pembanding: biaya kalau semuanya persis rencana, dengan
+                harga lot yang sama. Tanpa baris ini angka real di atas
+                tidak bisa dinilai wajar atau tidak. */}
+            {estimasi && (
+              <>
+                <tr className="border-t border-neutral-300">
+                  <td colSpan={6} className="py-2 pr-2 text-right text-neutral-600">
+                    Estimasi Awal, sesuai formula &amp; rencana kemasan
+                  </td>
+                  <td className="py-2 text-right whitespace-nowrap text-neutral-600">
+                    {formatRupiah(estimasi.total)}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={6} className="py-2 pr-2 text-right font-semibold">
+                    Selisih terhadap Estimasi
+                  </td>
+                  <td className="py-2 text-right font-bold whitespace-nowrap">
+                    {estimasi.selisih > 0 ? "+" : estimasi.selisih < 0 ? "−" : ""}
+                    {formatRupiah(Math.abs(estimasi.selisih))}
+                    {estimasi.persen != null && (
+                      <span className="font-normal text-[11px] text-neutral-600">
+                        {" "}
+                        ({estimasi.persen > 0 ? "+" : ""}
+                        {estimasi.persen.toLocaleString("id-ID", {
+                          maximumFractionDigits: 1,
+                        })}
+                        %)
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              </>
+            )}
           </tfoot>
         </table>
 

@@ -14,7 +14,7 @@ import {
   type SearchParams,
 } from "@/lib/pagination";
 import Link from "next/link";
-import { ClipboardList, Printer, Eye } from "lucide-react";
+import { ClipboardList, Printer, Eye, Tags } from "lucide-react";
 
 type BatchRow = {
   id: string;
@@ -214,17 +214,24 @@ export default async function QcIncomingPage({
           },
           {
             key: "aksi",
-            header: "Lembar Uji",
+            header: "Aksi",
             role: "actions",
             align: "right",
             className: "whitespace-nowrap",
             cell: (b) => (
-              <Link
-                href={`/qc-incoming/${b.id}`}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
-              >
-                <ClipboardList size={13} /> Uji &amp; Putuskan
-              </Link>
+              <RowActions>
+                <IconAction
+                  icon={Tags}
+                  label="Cetak label karantina"
+                  href={`/print/label/lot/${b.id}`}
+                />
+                <Link
+                  href={`/qc-incoming/${b.id}`}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-botanical-700 text-white text-[12px] font-medium hover:bg-botanical-800 transition-colors"
+                >
+                  <ClipboardList size={13} /> Uji &amp; Putuskan
+                </Link>
+              </RowActions>
             ),
           },
         ]}
@@ -334,6 +341,15 @@ export default async function QcIncomingPage({
                   icon={Printer}
                   label="Cetak lembar QC"
                   href={`/print/qc/${l.id}`}
+                />
+                <IconAction
+                  icon={Tags}
+                  label={
+                    l.qc_status === "Released"
+                      ? "Cetak label release"
+                      : "Cetak label reject"
+                  }
+                  href={`/print/label/lot/${l.id}`}
                 />
               </RowActions>
             ),
