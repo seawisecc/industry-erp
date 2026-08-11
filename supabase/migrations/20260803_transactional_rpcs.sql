@@ -8,7 +8,7 @@
 --    SESUDAHNYA. Kalau pembuatan invoice gagal, stok sudah hilang
 --    tanpa dokumen apa pun dan tidak ada yang mengembalikan.
 --    Kebalikannya di reportConsignmentSale: invoice dibuat dulu,
---    qty_terjual di-update belakangan — gagal di tengah loop berarti
+--    qty_terjual di-update belakangan, gagal di tengah loop berarti
 --    barang bisa terjual dua kali.
 --
 -- 2) Lost update. Pola "baca qty di JS → tambah → tulis balik" pada
@@ -22,7 +22,7 @@
 -- dengan create_sales_invoice_tx / create_consignment_tx, yaitu
 -- hashtextextended(organization_id). Advisory lock bersifat re-entrant
 -- dalam satu transaksi, jadi fungsi ini aman memanggil
--- create_sales_invoice_tx di dalamnya — penomoran invoice tidak perlu
+-- create_sales_invoice_tx di dalamnya, penomoran invoice tidak perlu
 -- diduplikasi di sini.
 --
 -- Semua UPDATE qty ditulis sebagai `qty = qty + n` (bukan hasil hitung
@@ -173,7 +173,7 @@ begin
     end if;
 
     -- Potong stok dulu; kalau baris mana pun gagal, seluruh transaksi
-    -- di-rollback termasuk invoice — tidak ada lagi stok hilang tanpa dokumen.
+    -- di-rollback termasuk invoice, tidak ada lagi stok hilang tanpa dokumen.
     v_harga := consignment_take(
       p_organization_id, p_client_id, v_line.product_id,
       v_line.varian, v_line.qty, 'qty_terjual');
@@ -471,7 +471,7 @@ begin
   from jsonb_array_elements(p_items) x;
 
   -- Validasi sisa PO sambil mengunci barisnya. Qty dijumlahkan per baris PO
-  -- dulu — kalau satu po_item muncul dua kali, pengecekannya harus melihat
+  -- dulu, kalau satu po_item muncul dua kali, pengecekannya harus melihat
   -- total, bukan masing-masing.
   for v_it in
     select (x->>'po_item_id')::uuid as po_item_id,
@@ -556,7 +556,7 @@ begin
 
   -- Cast wajib. Literal telanjang (`set status = 'Selesai'`) otomatis
   -- dipaksa ke tipe kolom, tapi CASE yang seluruh cabangnya literal
-  -- tanpa tipe akan diselesaikan jadi `text` dulu — dan text→enum tidak
+  -- tanpa tipe akan diselesaikan jadi `text` dulu, dan text→enum tidak
   -- punya assignment cast, jadi Postgres menolak dengan
   -- "column status is of type po_status but expression is of type text".
   update purchase_orders
@@ -622,7 +622,7 @@ $$;
 
 
 -- ============================================================
--- Batalkan invoice/proforma: pembayaran, item, lalu header —
+-- Batalkan invoice/proforma: pembayaran, item, lalu header,
 -- sekali jalan, tidak bisa berhenti separuh.
 -- ============================================================
 create or replace function public.cancel_invoice_tx(
@@ -692,7 +692,7 @@ declare
   -- %TYPE, bukan nama tipe yang di-hardcode. Sama seperti status PO,
   -- CASE yang seluruh cabangnya literal jadi `text` dan ditolak kalau
   -- kolomnya enum. Lewat variabel bertipe kolom, assignment-nya pakai
-  -- konversi I/O plpgsql sehingga benar baik kolomnya text maupun enum —
+  -- konversi I/O plpgsql sehingga benar baik kolomnya text maupun enum,
   -- termasuk kalau nanti diubah jadi enum.
   v_status  sales_invoices.status_bayar%type;
 begin

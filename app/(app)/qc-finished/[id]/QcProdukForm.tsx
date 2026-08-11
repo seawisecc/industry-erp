@@ -62,7 +62,7 @@ export default function QcProdukForm({
   const bisaCetakSampel = !!jumlahSampel.trim() && !!tglSampling;
 
   /**
-   * Buka label "Sampel Telah Diambil" di TAB BARU — isian lembar ini
+   * Buka label "Sampel Telah Diambil" di TAB BARU, isian lembar ini
    * belum tentu tersimpan, dan tab baru menjaganya tetap hidup.
    */
   function cetakLabelSampel() {

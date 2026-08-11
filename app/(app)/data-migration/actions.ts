@@ -37,7 +37,7 @@ function parseNum(v: string | undefined): number {
 }
 
 /**
- * Kolom status di CSV. Kosong dianggap aktif — orang yang mengetik
+ * Kolom status di CSV. Kosong dianggap aktif, orang yang mengetik
  * daftar jasa baru jarang mengisi kolom ini, dan default "nonaktif"
  * membuat datanya tidak muncul di Invoice tanpa sebab yang jelas.
  */

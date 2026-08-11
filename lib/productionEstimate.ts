@@ -3,12 +3,12 @@
 
    Yang tercatat di `production_batches.total_cost_bahan` adalah biaya
    REAL: hasil timbang nyata dikali harga lot yang benar-benar
-   terpotong FEFO. Angka itu jujur tapi sendirian tidak bisa dibaca —
+   terpotong FEFO. Angka itu jujur tapi sendirian tidak bisa dibaca,
    petugas tidak tahu apakah Rp 4,2 juta itu wajar atau membeludak.
 
    Pembandingnya dihitung di sini: biaya SEANDAINYA semuanya berjalan
-   sesuai rencana — bahan persis takaran formula, kemasan persis
-   rencana pcs — dengan harga per unit yang SAMA dengan yang dipakai
+   sesuai rencana, bahan persis takaran formula, kemasan persis
+   rencana pcs, dengan harga per unit yang SAMA dengan yang dipakai
    batch itu.
 
    Harga sengaja disamakan, bukan dipakai harga rencana lama. Kalau
@@ -20,7 +20,7 @@
    Bahan adjusting TIDAK punya estimasi dan itu bukan kelalaian: menurut
    definisinya dia penambahan di luar formula selama proses. Biayanya
    masuk sisi real saja, jadi setiap kali adjusting dipakai, selisihnya
-   memang naik — dan itu justru informasi yang dicari.
+   memang naik, dan itu justru informasi yang dicari.
 
    Mengembalikan null untuk batch yang tidak punya plan/eksekusi
    (dibuat langsung lewat form produksi, atau data migrasi): tidak ada
@@ -79,7 +79,7 @@ export async function hitungEstimasiProduksi(
 
   // Harga per unit yang BENAR-BENAR dibayar batch ini. Satu bahan bisa
   // terpotong dari beberapa lot dengan harga berbeda, jadi rata-rata
-  // tertimbang — bukan harga lot pertama.
+  // tertimbang, bukan harga lot pertama.
   const harga = new Map<string, number>();
   const qtyTotal = new Map<string, number>();
   const subtotalTotal = new Map<string, number>();
@@ -126,7 +126,7 @@ export async function hitungEstimasiProduksi(
 
   // Bahan yang direncanakan tapi tidak sekali pun terpotong di batch ini
   // (mis. kemasan yang habis lalu diganti) tidak punya harga dari
-  // komponen — pakai harga pembelian terakhirnya.
+  // komponen, pakai harga pembelian terakhirnya.
   const perluHarga = [
     ...bahanTeoritis.map((b) => b.item_id),
     ...kemasanTeoritis.keys(),

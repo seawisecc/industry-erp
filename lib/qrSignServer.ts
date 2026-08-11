@@ -1,11 +1,11 @@
 /* ============================================================
-   QR Signature — sisi server: ringkasan dokumen, sidik, gambar QR.
+   QR Signature, sisi server: ringkasan dokumen, sidik, gambar QR.
 
    DUA aturan yang menentukan seluruh desain file ini.
 
    1. Sidik dokumen DIHITUNG ULANG, tidak pernah disimpan.
       Kalau disimpan, ia jadi salinan kedua yang bisa berbeda dari
-      dokumennya — dokumen diedit, sidik lama tertinggal, dan halaman
+      dokumennya, dokumen diedit, sidik lama tertinggal, dan halaman
       verifikasi tetap bilang "sah" untuk isi yang sudah berubah.
       Dihitung ulang dari kolom dokumennya sendiri, nomor atau tanggal
       yang berubah OTOMATIS menghasilkan sidik berbeda dan kertas lama
@@ -29,7 +29,7 @@ import { formatSidik, type VerifyKey } from "@/lib/qrSign";
  * Dari mana nomor & tanggal tiap jenis dokumen dibaca.
  *
  * `qc` menunjuk purchase_batches dan `qa` menunjuk production_batches
- * karena lembar uji & CoA memang dicetak dari baris itu — keduanya
+ * karena lembar uji & CoA memang dicetak dari baris itu, keduanya
  * tidak punya nomor dokumen sendiri, jadi identitasnya memakai nomor
  * lot / nomor batch yang tercetak di kepala dokumennya.
  */
@@ -119,7 +119,7 @@ export async function ambilRingkasan(
  *
  * DOC_SIGN_SECRET kalau ada; kalau tidak, service role key yang sudah
  * pasti tersedia di server. HMAC tidak membocorkan kuncinya, jadi
- * pemakaian ulang ini aman — tapi mengganti kunci berarti SEMUA sidik
+ * pemakaian ulang ini aman, tapi mengganti kunci berarti SEMUA sidik
  * yang sudah tercetak tidak akan cocok lagi. Jangan diganti tanpa
  * niat mencabut seluruh dokumen yang sudah beredar.
  */
@@ -150,7 +150,7 @@ export function sidikDokumen(d: RingkasanDokumen): string {
  *
  * Aplikasinya dilayani lewat beberapa domain sekaligus (ims.seawise.id
  * plus alias *.vercel.app). QR yang dicetak harus menunjuk ke domain
- * yang SEDANG dipakai orang yang mencetaknya — kalau di-hardcode ke
+ * yang SEDANG dipakai orang yang mencetaknya, kalau di-hardcode ke
  * satu domain, QR yang dicetak dari preview deployment akan mengarah
  * ke produksi dan menampilkan dokumen yang salah.
  */
@@ -167,7 +167,7 @@ export async function alamatDasar(): Promise<string> {
  *
  * SVG, bukan PNG data-URI: dokumennya dicetak, dan QR yang di-raster
  * pada 96 dpi lalu diperbesar printer akan berbayang di tepi modulnya
- * — pemindai jadi rewel persis di kondisi paling tidak enak, yaitu
+ *, pemindai jadi rewel persis di kondisi paling tidak enak, yaitu
  * hasil fotokopi. SVG tetap tajam berapa pun dpi printernya.
  *
  * Level koreksi M: cukup tahan noda & lipatan tanpa membuat modulnya

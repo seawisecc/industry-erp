@@ -34,7 +34,7 @@ export default function CancelTxButton({
   judul?: string;
   keterangan: string;
   redirectTo?: string;
-  /** "icon" dipakai di kolom aksi tabel — lihat components/RowActions.tsx */
+  /** "icon" dipakai di kolom aksi tabel, lihat components/RowActions.tsx */
   variant?: "button" | "link" | "icon";
 }) {
   const router = useRouter();

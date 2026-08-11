@@ -25,7 +25,7 @@ export type ProductVariantOpt = {
 /**
  * `hargaManual` menandai baris yang harganya sudah diketik sendiri oleh
  * user. Waktu client diganti, harga baris lain di-isi ulang dengan harga
- * client baru — tapi yang manual TIDAK boleh ikut tertimpa, karena itu
+ * client baru, tapi yang manual TIDAK boleh ikut tertimpa, karena itu
  * angka yang sengaja dinegosiasikan untuk transaksi ini.
  */
 type Row = { key: string; qty: string; harga: string; hargaManual: boolean };
@@ -93,7 +93,7 @@ export default function InvoiceForm({
 
   /**
    * Ganti client: harga baris yang belum disentuh user diisi ulang dengan
-   * harga client baru. Dikerjakan di handler, BUKAN useEffect — mengubah
+   * harga client baru. Dikerjakan di handler, BUKAN useEffect: mengubah
    * state sebagai reaksi atas state lain di effect melanggar
    * react-hooks/set-state-in-effect dan menambah satu render setelah
    * layar terlanjur dilukis.

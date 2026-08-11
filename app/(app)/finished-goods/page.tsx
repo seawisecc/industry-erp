@@ -41,7 +41,7 @@ export default async function FinishedGoodsPage({
   );
 
   // Sumbernya agregat (RPC get_finished_stock), bukan tabel mentah, jadi
-  // pencarian & halaman dikerjakan di sini — jumlah barisnya sudah dibatasi
+  // pencarian & halaman dikerjakan di sini, jumlah barisnya sudah dibatasi
   // oleh jumlah produk × varian, bukan jumlah transaksi.
   const semua = Array.from(stock.values())
     .map((s) => {

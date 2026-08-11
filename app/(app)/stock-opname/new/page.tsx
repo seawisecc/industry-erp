@@ -12,7 +12,7 @@ export default async function OpnameBaruPage() {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  // Satu opname berjalan pada satu waktu — RPC menolaknya juga, tapi lebih
+  // Satu opname berjalan pada satu waktu. RPC menolaknya juga, tapi lebih
   // baik user langsung dibawa ke opname yang belum selesai daripada mengisi
   // form yang pasti ditolak.
   const { data: berjalan } = await supabase

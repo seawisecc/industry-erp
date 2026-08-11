@@ -1,5 +1,5 @@
 /* ============================================================
-   Halaman verifikasi dokumen — PUBLIK, tanpa login.
+   Halaman verifikasi dokumen. PUBLIK, tanpa login.
 
    Yang ditampilkan dibatasi ketat dan daftarnya sengaja ditulis di
    sini supaya perluasannya harus disengaja: jenis dokumen, nomor,
@@ -8,7 +8,7 @@
 
    Yang TIDAK PERNAH ditampilkan: isi dokumennya. Tidak ada baris
    item, harga, hasil uji, supplier, atau client. Halaman ini dibuka
-   siapa pun yang memegang kertasnya — termasuk orang yang tidak
+   siapa pun yang memegang kertasnya, termasuk orang yang tidak
    seharusnya tahu berapa harga beli bahan.
 
    Dibaca dengan service role karena pemindainya memang tidak punya

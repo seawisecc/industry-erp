@@ -49,7 +49,7 @@ export default async function CompaniesPage({
   const sp = parseListQuery(await searchParams);
   const todayStr = localDateStr();
 
-  // Nama/email admin ada di tabel profiles — cari org-nya lewat situ.
+  // Nama/email admin ada di tabel profiles, cari org-nya lewat situ.
   let orgIdsByAdmin: string[] = [];
   if (sp.q) {
     const { data: ps } = await admin
@@ -96,7 +96,7 @@ export default async function CompaniesPage({
   const list = (orgs || []) as unknown as OrgRow[];
   const info = pageInfo(sp.page, count, list.length);
 
-  /** Belum diaktifkan / masa aktif lewat / aktif — dipakai untuk pil status. */
+  /** Belum diaktifkan / masa aktif lewat / aktif, dipakai untuk pil status. */
   const statusOrg = (o: OrgRow) => {
     if (!o.aktif)
       return { label: "Menunggu Aktivasi", cls: "bg-amber-100 text-amber-500" };
@@ -105,7 +105,7 @@ export default async function CompaniesPage({
     return { label: "Aktif", cls: "bg-botanical-100 text-botanical-700" };
   };
 
-  // Snapshot pemakaian penyimpanan. Dibaca apa adanya — hitungannya
+  // Snapshot pemakaian penyimpanan. Dibaca apa adanya, hitungannya
   // mahal dan sudah dijalankan terpisah (tombol Hitung Ulang / pg_cron).
   const { data: storageRows } = await admin
     .from("organization_storage")

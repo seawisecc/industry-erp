@@ -54,7 +54,7 @@ const EMAIL_LINK = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
    di dalam effect. matchMedia adalah external store yang sebenarnya:
    punya nilai sekarang + event kalau berubah, dan tidak ada di server.
    Membacanya di effect lalu setState memaksa satu render tambahan untuk
-   TIAP blok Reveal di halaman ini — dan halaman ini penuh Reveal. */
+   TIAP blok Reveal di halaman ini, dan halaman ini penuh Reveal. */
 const MQ_REDUCE = "(prefers-reduced-motion: reduce)";
 
 function reduceSubscribe(cb: () => void) {

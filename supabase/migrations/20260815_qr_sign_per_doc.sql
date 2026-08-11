@@ -14,7 +14,7 @@
 -- Kenapa menunjuk, bukan menyalin: nama & jabatan sudah ada di
 -- `slots` pada baris yang sama. Menyalinnya berarti dua tempat yang
 -- harus dijaga sinkron, dan yang pertama tidak sinkron adalah orang
--- yang berganti jabatan — QR akan mencetak jabatan lama sementara
+-- yang berganti jabatan. QR akan mencetak jabatan lama sementara
 -- kolom tanda tangan mencetak yang baru, di dokumen yang sama.
 -- ============================================================
 
@@ -36,7 +36,7 @@ comment on column doc_sign_settings.qr_sign is
 -- Isinya TIDAK dipindahkan otomatis: pengesah lama satu nama untuk
 -- semua dokumen, dan menebak dia mengisi slot yang mana di tiap
 -- dokumen justru bisa menerbitkan dokumen atas nama orang yang salah
--- — kesalahan yang persis ingin dihilangkan migrasi ini.
+--, kesalahan yang persis ingin dihilangkan migrasi ini.
 -- ============================================================
 comment on column organization_settings.qr_sign_aktif is
   'USANG sejak 20260815. QR Signature kini per jenis dokumen di doc_sign_settings.qr_sign. Tidak dibaca aplikasi lagi.';

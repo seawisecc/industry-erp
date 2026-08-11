@@ -3,7 +3,7 @@
 
    Judul labelnya TIDAK dikirim lewat query string, tapi diturunkan
    dari `qc_status` lot itu sendiri. Konsekuensinya: satu URL untuk
-   seluruh siklus — di gudang mencetak QUARANTINE, sesudah QC memutus
+   seluruh siklus, di gudang mencetak QUARANTINE, sesudah QC memutus
    URL yang sama mencetak RELEASE atau REJECT. Tidak ada jalan untuk
    mencetak "RELEASE" pada lot yang sebenarnya ditolak, dan itu justru
    yang bikin label ini boleh dipercaya.

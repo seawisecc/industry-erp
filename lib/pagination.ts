@@ -60,7 +60,7 @@ export function ilikeOr(columns: string[], q: string): string {
 
 /**
  * Sama seperti ilikeOr, tapi ikut menyertakan baris yang kolom
- * relasinya cocok — dipakai kalau nama client/supplier ada di tabel
+ * relasinya cocok, dipakai kalau nama client/supplier ada di tabel
  * lain. Pemanggil mencari id-nya dulu, lalu id itu digabung sebagai
  * `kolom.in.(...)`. Dengan cara ini baris tanpa relasi (mis. invoice
  * walk-in tanpa client) tetap ikut tercari, beda dengan !inner join

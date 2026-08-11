@@ -110,8 +110,8 @@ export default function DataMigrationPage() {
       <h2 className="font-display text-lg font-semibold text-ink">Data Migration</h2>
       <p className="text-muted text-[12.5px] mt-0.5">
         Satu pintu untuk onboarding &amp; update data massal: download template,
-        isi, upload. Tiap kartu juga bisa <b>Export CSV</b> — kolomnya sama
-        dengan template, jadi hasilnya bisa disunting di Excel lalu diupload
+        isi, upload. Tiap kartu juga bisa <b>Export CSV</b> dengan kolom yang sama
+        seperti template, jadi hasilnya bisa disunting di Excel lalu diupload
         balik.
       </p>
 

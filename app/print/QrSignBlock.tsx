@@ -5,7 +5,7 @@
    dokumen itu sendiri: PO disahkan COO, Batch Record diketahui Kepala
    QA, lembar uji oleh Kepala QC. Yang dipilih di pengaturan cuma
    SLOT-nya ("Disetujui oleh"), namanya ikut yang sudah terisi di slot
-   itu — jadi QR tidak mungkin menyebut nama yang berbeda dari kolom
+   itu, jadi QR tidak mungkin menyebut nama yang berbeda dari kolom
    tanda tangan dokumen yang sama.
 
    Komponennya memutuskan sendiri kapan menampilkan diri dan
@@ -15,7 +15,7 @@
    yang lupa lalu mencetak QR atas nama pengesah kosong.
 
    Nomor & tanggalnya juga TIDAK diterima sebagai prop, melainkan
-   dibaca lewat ambilRingkasan() — sumber yang sama persis dengan
+   dibaca lewat ambilRingkasan(), sumber yang sama persis dengan
    halaman verifikasi. Prop akan membuka peluang halaman cetak
    mengirim nomor yang sedikit berbeda, dan sidik yang beda satu
    karakter pun membuat dokumennya tampak palsu saat dipindai.
@@ -91,7 +91,7 @@ export default async function QrSignBlock({
           {/* Wajib ikut tercetak. Pengesahan yang mengaku lebih dari
               kemampuannya lebih berbahaya daripada tidak ada. */}
           <div className="mt-1 text-[9px] text-neutral-500 italic">
-            QR Signature Non-Certified — validasi internal, bukan tanda tangan
+            QR Signature Non-Certified, validasi internal. Bukan tanda tangan
             elektronik tersertifikasi.
           </div>
         </div>

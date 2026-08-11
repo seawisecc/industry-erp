@@ -12,7 +12,7 @@
 -- Karena itu TIDAK ADA tabel baru di sini. Sidik dokumennya dihitung
 -- ulang dari data dokumen aslinya setiap kali diperlukan (HMAC di
 -- sisi aplikasi), bukan disimpan. Kalau disimpan, ia akan jadi
--- salinan kedua yang bisa berbeda dari dokumennya — dan sidik yang
+-- salinan kedua yang bisa berbeda dari dokumennya, dan sidik yang
 -- bisa berbeda dari yang disidik tidak memvalidasi apa pun.
 -- ============================================================
 

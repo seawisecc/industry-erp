@@ -71,7 +71,7 @@ export function defaultSlots(legacy: LegacySettings): SignSlot[] {
 /* ============================================================
    QR Signature per jenis dokumen.
 
-   Menunjuk salah satu slot di atas, tidak menyalin namanya —
+   Menunjuk salah satu slot di atas, tidak menyalin namanya,
    lihat migrasi 20260815_qr_sign_per_doc.sql untuk alasannya.
    ============================================================ */
 
@@ -95,7 +95,7 @@ export function bacaQrDoc(v: unknown): QrSignDoc {
  * Slot yang benar-benar boleh mengesahkan lewat QR, atau null.
  *
  * Menolak slot yang dimatikan atau belum lengkap namanya. Kalau tidak,
- * dokumen bisa terbit dengan QR yang menunjuk pengesah kosong — tampak
+ * dokumen bisa terbit dengan QR yang menunjuk pengesah kosong, tampak
  * sah tanpa ada yang bertanggung jawab, dan itu lebih buruk daripada
  * dokumen tanpa QR sama sekali.
  *

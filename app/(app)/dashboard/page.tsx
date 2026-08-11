@@ -168,7 +168,7 @@ export default async function DashboardPage() {
   );
 
   // 5. Hutang belum lunas + yang lewat jatuh tempo
-  // Hutang dihitung setelah dipotong retur ke supplier — faktur yang
+  // Hutang dihitung setelah dipotong retur ke supplier, faktur yang
   // barangnya sudah dikembalikan tidak lagi wajib dibayar penuh.
   const hutang = ((hutangRes.data || []) as {
     total_invoice: number;

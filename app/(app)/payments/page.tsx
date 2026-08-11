@@ -81,7 +81,7 @@ export default async function PaymentsPage({
     query = query.eq("status_bayar", sp.filter("status"));
 
   // Urutan lama (belum lunas dulu, lalu jatuh tempo terdekat) dipindah ke
-  // database — kalau tetap di JS, urutannya cuma benar dalam satu halaman.
+  // database, kalau tetap di JS, urutannya cuma benar dalam satu halaman.
   // "Belum Lunas" < "Lunas" secara alfabet, jadi ascending sudah tepat.
   const { data: invoices, count } = await query
     .order("status_bayar", { ascending: true })
@@ -91,7 +91,7 @@ export default async function PaymentsPage({
   const list = (invoices || []) as unknown as InvoiceRow[];
   const info = pageInfo(sp.page, count, list.length);
 
-  /** Lewat jatuh tempo dan belum dibayar — barisnya diberi latar peringatan. */
+  /** Lewat jatuh tempo dan belum dibayar, barisnya diberi latar peringatan. */
   const overdueFaktur = (inv: InvoiceRow) =>
     inv.status_bayar !== "Lunas" &&
     inv.jatuh_tempo !== null &&

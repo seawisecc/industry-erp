@@ -1,5 +1,5 @@
 /* ============================================================
-   Pemakaian penyimpanan per organisasi — sisi baca.
+   Pemakaian penyimpanan per organisasi, sisi baca.
 
    File ini SENGAJA bersih dari import server (lihat bab "Batas
    server/klien di lib/" pada CLAUDE.md): kartu penyimpanan di
@@ -8,7 +8,7 @@
 
    Angkanya dibaca dari snapshot `organization_storage` yang diisi
    fungsi Postgres `refresh_org_storage()`. Cara pembagiannya per
-   tenant dijelaskan di migrasi 20260812_org_storage.sql — yang perlu
+   tenant dijelaskan di migrasi 20260812_org_storage.sql, yang perlu
    diingat di sisi aplikasi cuma satu: ini ESTIMASI proporsional,
    bukan hasil pengukuran byte per baris, dan wajib disebut begitu
    di layar karena angkanya dipakai untuk menagih.
@@ -34,7 +34,7 @@ export type PemakaianStorage = {
   /** Persentase kuota terpakai. Bisa melebihi 100. */
   persen: number;
   lewatKuota: boolean;
-  /** ≥ 80% kuota — layar mulai memberi peringatan halus. */
+  /** ≥ 80% kuota, layar mulai memberi peringatan halus. */
   mendekatiBatas: boolean;
 };
 
@@ -70,7 +70,7 @@ export function bacaPemakaian(
  * Ukuran yang enak dibaca orang.
  *
  * Basis 1024 (KiB/MiB/GiB) tapi ditulis KB/MB/GB, sama seperti yang
- * dipakai Supabase di dashboard-nya — kalau di sini pakai basis 1000
+ * dipakai Supabase di dashboard-nya, kalau di sini pakai basis 1000
  * sementara tagihan Supabase pakai 1024, dua angka yang seharusnya
  * sama akan terlihat berbeda ~7% dan tidak ada yang tahu mana benar.
  */
@@ -102,7 +102,7 @@ export function persenStr(p: number): string {
   return `${p.toLocaleString("id-ID", { maximumFractionDigits: 0 })}%`;
 }
 
-/** "dihitung 14/08/2026 09:32" — snapshot wajib menyebut kapan diambil. */
+/** "dihitung 14/08/2026 09:32", snapshot wajib menyebut kapan diambil. */
 export function waktuHitung(iso: string | null): string {
   if (!iso) return "belum pernah dihitung";
   return new Date(iso).toLocaleString("id-ID", {

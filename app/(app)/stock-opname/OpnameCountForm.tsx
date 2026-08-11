@@ -65,11 +65,11 @@ export default function OpnameCountForm({
   const terisi = (id: string) => (fisik[id] ?? "").trim() !== "";
   const jumlahTerisi = awal.filter((r) => terisi(r.id)).length;
 
-  /** Selisih terhadap POTRET saat opname dibuka — ini temuan opnamenya. */
+  /** Selisih terhadap POTRET saat opname dibuka, ini temuan opnamenya. */
   const selisihOf = (r: OpnameRow) =>
     terisi(r.id) ? parseNum(fisik[r.id]) - r.qty_sistem : 0;
 
-  /** Selisih terhadap stok SEKARANG — ini yang benar-benar akan disesuaikan. */
+  /** Selisih terhadap stok SEKARANG, ini yang benar-benar akan disesuaikan. */
   const koreksiOf = (r: OpnameRow) =>
     terisi(r.id) ? parseNum(fisik[r.id]) - r.stok_kini : 0;
 

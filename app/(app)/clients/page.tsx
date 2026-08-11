@@ -61,7 +61,7 @@ export default async function ClientsPage({
   const list = (clients || []) as ClientRow[];
   const info = pageInfo(sp.page, count, list.length);
 
-  // Client mana yang punya harga khusus — cuma untuk client di halaman ini,
+  // Client mana yang punya harga khusus, cuma untuk client di halaman ini,
   // bukan seluruh organisasi.
   const jumlahHarga = new Map<string, number>();
   if (list.length > 0) {

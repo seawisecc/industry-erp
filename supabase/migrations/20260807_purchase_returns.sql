@@ -15,7 +15,7 @@
 --
 --  - Batch yang DITOLAK QC stoknya SUDAH nol (decideQc menulis
 --    qty_sisa = 0, qty_karantina = 0, lalu mencatat batch_dispositions
---    'QC Reject'). Retur untuk batch ini TIDAK BOLEH memotong stok lagi —
+--    'QC Reject'). Retur untuk batch ini TIDAK BOLEH memotong stok lagi,
 --    kalau dipotong, satu barang yang sama keluar dua kali dari laporan.
 --    Yang berkurang hanya hutangnya.
 --  - Batch yang masih di karantina atau sudah di-release stoknya MASIH

@@ -8,7 +8,7 @@
 
    Daftar yang sama divalidasi di create_material_issue_tx
    (supabase/migrations/20260805_material_issues.sql). Kalau menambah
-   kategori, ubah DUA-DUANYA — RPC menolak nilai yang tidak dikenal.
+   kategori, ubah DUA-DUANYA. RPC menolak nilai yang tidak dikenal.
    ============================================================ */
 
 export const TUJUAN_PEMAKAIAN = [

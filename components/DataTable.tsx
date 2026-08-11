@@ -1,9 +1,9 @@
 /* ============================================================
-   Tabel daftar — satu definisi kolom, dua bentuk tampilan.
+   Tabel daftar, satu definisi kolom, dua bentuk tampilan.
 
    Masalah yang diselesaikan: tabel ERP ini punya 6-9 kolom. Di
    layar sempit ada dua jalan buruk yang sama-sama pernah dipakai
-   orang — memaksa semua kolom muat (font mengecil sampai tidak
+   orang, memaksa semua kolom muat (font mengecil sampai tidak
    terbaca) atau membiarkan scroll horizontal tanpa jangkar
    (user menggeser ke kolom 7, lupa sedang melihat baris siapa).
 
@@ -31,7 +31,7 @@ import { Fragment, type ReactNode } from "react";
  * - `subtitle`  baris kecil di bawah judul (biasanya kode/nomor)
  * - `badge`     pil status di kanan judul
  * - `primary`   angka penting, tampil sebagai grid fakta di muka kartu
- * - `secondary` default — sembunyi di balik "Detail selengkapnya"
+ * - `secondary` default, sembunyi di balik "Detail selengkapnya"
  * - `actions`   grup ikon, pindah ke kaki kartu
  */
 export type ColumnRole =
@@ -71,7 +71,7 @@ const ALIGN = {
 /**
  * Pengelompokan baris dengan baris pemisah, mis. "Fase A · 3 bahan".
  *
- * Baris TIDAK diurutkan ulang di sini — yang berurutan dengan `key`
+ * Baris TIDAK diurutkan ulang di sini, yang berurutan dengan `key`
  * sama digabung jadi satu kelompok. Urutannya tetap tanggung jawab
  * pemanggil, supaya urutan di layar sama dengan urutan yang dipakai
  * di tempat lain (mis. `lib/formulaOrder.ts`).
@@ -121,7 +121,7 @@ export default function DataTable<T>({
   minWidth?: number;
   rowClassName?: (row: T) => string;
   /**
-   * Baris ringkasan (<tfoot>). Isi sebagai <tr>…</tr> — di HP
+   * Baris ringkasan (<tfoot>). Isi sebagai <tr>…</tr>, di HP
    * dirender ulang sebagai kartu ringkasan lewat `footer.card`.
    */
   footer?: { row: ReactNode; card?: ReactNode };
@@ -138,7 +138,7 @@ export default function DataTable<T>({
    * container itu tidak pernah ter-scroll sendiri sehingga headernya
    * ikut hanyut bersama halaman.
    *
-   * `false` mengembalikan tinggi mengikuti isi — header jadi tidak
+   * `false` mengembalikan tinggi mengikuti isi, header jadi tidak
    * menempel lagi. Pakai untuk tabel pendek yang sudah pasti muat.
    */
   maxHeight?: string | false;
@@ -146,20 +146,20 @@ export default function DataTable<T>({
    * Sembunyikan kolom `secondary` di balik "Detail selengkapnya" (default).
    *
    * Matikan untuk tabel yang selnya berisi INPUT: field yang harus diisi
-   * tidak boleh bersembunyi di balik satu tap lagi — user tidak akan tahu
+   * tidak boleh bersembunyi di balik satu tap lagi, user tidak akan tahu
    * ada yang terlewat. Dengan `expandable={false}` semua kolom tampil
    * langsung di kartu.
    */
   expandable?: boolean;
   /**
    * "panel" (default) membungkus tabel dengan panel kaca sendiri.
-   * Pakai "bare" kalau tabelnya sudah berada di DALAM panel kaca —
+   * Pakai "bare" kalau tabelnya sudah berada di DALAM panel kaca,
    * kaca di atas kaca membuat tepinya menumpuk dan latarnya keruh.
    */
   chrome?: "panel" | "bare";
   /**
    * Klik di mana saja pada baris/kartu. Hanya boleh diisi dari client
-   * component. Kontrol asli (checkbox, input) tetap harus ada — ini
+   * component. Kontrol asli (checkbox, input) tetap harus ada, ini
    * cuma memperluas area sentuhnya.
    */
   onRowClick?: (row: T) => void;

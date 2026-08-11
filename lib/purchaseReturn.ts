@@ -3,7 +3,7 @@
 
    Daftar yang sama divalidasi di create_purchase_return_tx
    (supabase/migrations/20260807_purchase_returns.sql). Kalau menambah
-   alasan, ubah DUA-DUANYA — RPC menolak nilai yang tidak dikenal.
+   alasan, ubah DUA-DUANYA. RPC menolak nilai yang tidak dikenal.
    ============================================================ */
 
 export const ALASAN_RETUR = [

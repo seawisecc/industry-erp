@@ -6,7 +6,7 @@
 -- Harga di Invoice, POS, dan Konsinyasi selalu diambil dari master
 -- produk. Padahal reseller, brand owner, dan pembeli eceran hampir
 -- tidak pernah dapat harga yang sama. Yang terjadi sekarang: kasir
--- mengetik ulang harganya dari ingatan atau dari daftar di kertas —
+-- mengetik ulang harganya dari ingatan atau dari daftar di kertas,
 -- dan itu sumber selisih tagihan yang paling sering.
 --
 -- KUNCINYA (client, produk, VARIAN)

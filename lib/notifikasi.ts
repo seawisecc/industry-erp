@@ -4,7 +4,7 @@
    Sebelum ini setiap sinyal cuma kelihatan kalau orangnya kebetulan
    membuka halaman yang tepat: stok menipis di Stock Items, batch
    karantina di QC Incoming, invoice lewat tempo di Sales Payments.
-   Yang tidak dibuka, tidak ketahuan — dan yang paling mahal justru
+   Yang tidak dibuka, tidak ketahuan, dan yang paling mahal justru
    yang jarang dibuka.
 
    Aturan isi halaman ini: hanya yang bisa DITINDAK. Angka yang cuma
@@ -92,7 +92,7 @@ function hariLewat(iso: string, todayStr: string) {
 /**
  * Maksimal baris per kelompok di layar. Kartunya bertinggi tetap dan
  * daftarnya bergulung sendiri, jadi angka ini tidak lagi dibatasi oleh
- * ruang layar — cukup dibatasi supaya payload-nya tetap wajar.
+ * ruang layar, cukup dibatasi supaya payload-nya tetap wajar.
  */
 const CONTOH = 25;
 
@@ -115,7 +115,7 @@ export async function getNotifikasi(
   const bolehHutang = canAccessModule(akses, "payments");
   const perluHold = bolehQa || bolehQcProduk;
 
-  // Query yang tidak diizinkan tidak dijalankan sama sekali — bukan
+  // Query yang tidak diizinkan tidak dijalankan sama sekali, bukan
   // dijalankan lalu hasilnya dibuang.
   const [stokRes, expiryRes, poRes, qcRes, holdRes, arRes, arPayRes, apRes] =
     await Promise.all([

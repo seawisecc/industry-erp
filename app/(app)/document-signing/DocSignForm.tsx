@@ -208,7 +208,7 @@ export default function DocSignForm({
                     {SLOT_DEFS.map((def) => {
                       const s2 = data[doc.key].find((x) => x.key === def.key);
                       // Slot yang dimatikan atau belum lengkap tidak boleh
-                      // dipilih — QR yang menunjuk pengesah kosong membuat
+                      // dipilih. QR yang menunjuk pengesah kosong membuat
                       // dokumen tampak sah tanpa ada yang bertanggung jawab.
                       const bisa =
                         !!s2 && s2.aktif && !!s2.nama.trim() && !!s2.jabatan.trim();

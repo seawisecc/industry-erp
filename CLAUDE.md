@@ -33,14 +33,14 @@ perform pg_advisory_xact_lock(hashtextextended(p_organization_id::text, 0));
 Konsekuensinya, dan ini yang harus dijaga:
 
 - **Lock-nya re-entrant dalam satu transaksi.** Fungsi boleh memanggil
-  fungsi lain yang mengambil lock yang sama — mis. `report_outlet_sale_tx`
+  fungsi lain yang mengambil lock yang sama, mis. `report_outlet_sale_tx`
   memanggil `create_sales_invoice_tx`. Jangan duplikasi logika penomoran
   invoice, panggil saja fungsinya.
 - **Serialisasi per organisasi.** Dua request dari company yang sama
   antre; company berbeda jalan paralel.
 - **Semua UPDATE qty harus relatif**, `set qty = qty + n`, bukan nilai
   hasil hitung di TypeScript. Pola "baca di JS → tambah → tulis balik"
-  adalah sumber lost update dan sudah dihapus dari codebase — jangan
+  adalah sumber lost update dan sudah dihapus dari codebase. Jangan
   dimasukkan lagi.
 
 Konsekuensi praktis: **jangan menjahit urutan tulis multi-langkah di
@@ -49,7 +49,7 @@ gagal meninggalkan langkah pertama yang sudah terlanjur. Kalau sebuah alur
 menyentuh lebih dari satu tabel dan harus utuh, tulis RPC baru.
 
 Pesan `raise exception` dari SQL sampai ke `error.message` di client, lalu
-dikembalikan sebagai nilai lewat `ActionResult` (`lib/actionResult.ts`) —
+dikembalikan sebagai nilai lewat `ActionResult` (`lib/actionResult.ts`),
 jangan `throw` dari server action, pesannya disensor di build production.
 
 ## RLS: pakai fungsi helper, jangan tulis subquery sendiri
@@ -66,7 +66,7 @@ using (
 
 Menulis ulang `select organization_id from profiles where id = auth.uid()`
 inline memang jalan, tapi bikin policy tabel baru beda bentuk dengan
-puluhan tabel lain — dan itu yang harus disamakan manual sebelum skripnya
+puluhan tabel lain, dan itu yang harus disamakan manual sebelum skripnya
 bisa dipakai. Tabel baru: pakai ketiga helper itu sejak awal.
 
 ## Daftar RPC
@@ -90,7 +90,7 @@ Ditambahkan di `supabase/migrations/20260803_transactional_rpcs.sql` (12):
 
 | Fungsi | Guna |
 | --- | --- |
-| `varian_key` | Normalisasi varian — `null`, `""`, dan `-` dianggap sama. Harus konsisten dengan sisi TypeScript |
+| `varian_key` | Normalisasi varian: `null`, `""`, dan `-` dianggap sama. Harus konsisten dengan sisi TypeScript |
 | `consignment_take` | Distribusi FIFO qty laku/retur lintas pengiriman di satu outlet, baris dikunci `FOR UPDATE` |
 | `report_outlet_sale_tx` | Laku di outlet: potong stok **+** terbitkan Proforma, satu transaksi |
 | `retur_outlet_tx` | Retur di outlet, barang kembali ke stok produk jadi |
@@ -153,16 +153,16 @@ fisiknya masih ada di gudang menunggu dikirim balik.
 Konsekuensinya di retur pembelian: dokumen retur untuk lot yang ditolak QC
 **tidak boleh memotong stok lagi**, cuma mengurangi hutang. Karena itu tiap
 baris `purchase_return_items` menyimpan asal potongannya
-(`qty_dari_karantina` / `qty_dari_sisa`) — nol dua-duanya untuk lot yang
+(`qty_dari_karantina` / `qty_dari_sisa`), nol dua-duanya untuk lot yang
 sudah hangus. Itu juga yang membuat pembatalan retur bisa mengembalikan qty
 ke kolom yang persis benar.
 
 Aturan turunannya untuk laporan: **Stock Movement menjumlahkan
 `qty_dari_karantina + qty_dari_sisa`, BUKAN `qty`.** Memakai `qty` akan
-menghitung barang yang sama dua kali — sekali lewat pemusnahan QC, sekali
+menghitung barang yang sama dua kali: sekali lewat pemusnahan QC, sekali
 lewat retur.
 
-## Stok produk jadi tidak disimpan, dihitung — dan rumusnya cuma satu
+## Stok produk jadi tidak disimpan tapi dihitung, dan rumusnya cuma satu
 
 Bahan punya baris `purchase_batches` yang bisa dinaikkan atau diturunkan.
 Produk jadi tidak punya apa pun seperti itu: angkanya selalu hasil hitung
@@ -198,12 +198,12 @@ yang dipanggil dari server action. Dua alasan, dan dua-duanya menentukan:
 - Log yang ditulis dari TypeScript sesudah RPC berhasil adalah tulisan
   KEDUA di luar transaksi. Gagal di situ = dokumen ada, jejaknya tidak.
 - Helper harus *diingat* di tiap jalur kode baru. Yang lupa tidak ketahuan
-  sampai auditnya jalan. Trigger berlaku untuk semua jalur — server action,
+  sampai auditnya jalan. Trigger berlaku untuk semua jalur: server action,
   RPC, bahkan perubahan manual lewat SQL Editor.
 
 **Log-nya tidak bisa disunting siapa pun.** `activity_logs` cuma punya
 policy `select`; penulisan hanya lewat fungsi `SECURITY DEFINER`. Jangan
-menambahkan policy insert/update/delete "supaya gampang" — log yang bisa
+menambahkan policy insert/update/delete "supaya gampang". Log yang bisa
 diedit bukan audit trail.
 
 Tiga hal yang menjaga isinya tetap terbaca:
@@ -224,7 +224,7 @@ Tiga hal yang menjaga isinya tetap terbaca:
 `client_prices` disimpan dengan cara itu, jadi trigger per-baris
 menghasilkan 2N entri untuk satu kali simpan. Versi statement menghasilkan
 satu entri per pernyataan dan pada penyisipan ikut menyimpan SNAPSHOT
-hasil akhirnya — snapshot itulah yang bernilai untuk audit CPKB. Efek
+hasil akhirnya, snapshot itulah yang bernilai untuk audit CPKB. Efek
 sampingnya diterima: satu kali edit tampil sebagai sepasang entri (Hapus
 lalu Ubah), karena memang begitu yang terjadi di database.
 
@@ -237,7 +237,7 @@ lalu Ubah), karena memang begitu yang terjadi di database.
   untuk menemukan baris yang barusan kamu buat: dua transaksi bisa mulai
   hampir bersamaan lalu bergantian memegang advisory lock dengan urutan
   terbalik dari urutan `now()`-nya. Cari lewat penanda unik yang kamu tulis
-  sendiri — `finish_stock_opname_tx` mencocokkan `catatan` yang memuat
+  sendiri: `finish_stock_opname_tx` mencocokkan `catatan` yang memuat
   nomor opname.
 - **Foreign key di tabel audit bisa membatalkan operasi yang diauditnya.**
   `activity_logs.user_id` sengaja TANPA FK ke `profiles`: menghapus
@@ -245,7 +245,7 @@ lalu Ubah), karena memang begitu yang terjadi di database.
   pada penghapusan diri sendiri FK-nya gagal lalu MEMBATALKAN penghapusan.
   Nama & email di-snapshot, jadi tidak ada yang hilang.
 - **Expression index butuh fungsi `IMMUTABLE`.** `client_prices` unik atas
-  `varian_key(varian)` — itu jalan karena `varian_key` dideklarasikan
+  `varian_key(varian)`. Itu jalan karena `varian_key` dideklarasikan
   `immutable`. Fungsi baru yang dipakai di index harus sama.
 - **`pg_get_function_identity_arguments()` ikut menyertakan NAMA
   parameter**, jadi hasilnya `p_org uuid, p_product uuid, p_varian text`,
@@ -265,7 +265,7 @@ lalu Ubah), karena memang begitu yang terjadi di database.
 # Pola UI tabel
 
 Semua tabel daftar memakai `components/DataTable.tsx`. Jangan menulis
-`<table>` baru dari nol — kalau butuh sesuatu yang belum didukung,
+`<table>` baru dari nol. Kalau butuh sesuatu yang belum didukung,
 tambahkan prop di komponennya supaya seluruh aplikasi ikut.
 
 ## Satu definisi kolom, dua bentuk tampilan
@@ -285,17 +285,17 @@ yang menentukan posisinya di kartu:
 
 Prop yang ada karena kebutuhan nyata, bukan spekulasi:
 
-- `cardCell` — versi lain khusus kartu, saat sel tabelnya mengandung
+- `cardCell`: versi lain khusus kartu, saat sel tabelnya mengandung
   `truncate`/`max-w` yang tidak masuk akal di kartu.
-- `expandable={false}` — **wajib untuk tabel berisi input.** Field yang
+- `expandable={false}`: **wajib untuk tabel berisi input.** Field yang
   harus diisi tidak boleh sembunyi di balik satu tap lagi; user tidak
   akan tahu ada yang terlewat.
-- `chrome="bare"` — tabel yang sudah berada di dalam panel `.glass`.
+- `chrome="bare"`: tabel yang sudah berada di dalam panel `.glass`.
   Kaca di atas kaca membuat tepinya menumpuk.
-- `footer` — baris `<tfoot>`; di HP dirender ulang jadi kartu ringkasan.
-- `groupBy` — sisipkan baris pemisah antar kelompok baris yang berurutan
+- `footer`: baris `<tfoot>`; di HP dirender ulang jadi kartu ringkasan.
+- `groupBy`: sisipkan baris pemisah antar kelompok baris yang berurutan
   (mis. "Fase A · 3 bahan" di penimbangan produksi); di HP jadi judul kecil
-  di atas tiap kelompok kartu. **Barisnya tidak diurutkan ulang di sini** —
+  di atas tiap kelompok kartu. **Barisnya tidak diurutkan ulang di sini**:
   yang berurutan dengan kunci sama digabung, urutannya tetap tanggung jawab
   pemanggil.
 
@@ -306,15 +306,15 @@ melintang penuh. Yang itu cukup diberi `sticky-col` pada kolom pertamanya.
 
 **Jangan taruh combobox di dalam DataTable.** Pembungkusnya
 `overflow-auto`, jadi daftar saran yang muncul di bawah input akan
-terpotong. Baris form yang butuh ketik-cari pakai grid biasa — lihat
+terpotong. Baris form yang butuh ketik-cari pakai grid biasa. Lihat
 bagian Adjusting di `ExecuteForm` dan `MaterialIssueForm`.
 
 ## Sticky: tiga jebakan yang mahal kalau dilanggar
 
 **1. Sticky header butuh batas tinggi.** `top: 0` berjangkar ke scroll
 container terdekat, bukan ke layar. Pembungkus tabel punya
-`overflow-x-auto` — dan begitu satu sumbu bukan `visible`, sumbu satunya
-ikut jadi `auto` — jadi container itulah jangkarnya. Selama tingginya
+`overflow-x-auto` (dan begitu satu sumbu bukan `visible`, sumbu satunya
+ikut jadi `auto`), jadi container itulah jangkarnya. Selama tingginya
 mengikuti isi, dia tidak pernah ter-scroll sendiri dan headernya ikut
 hanyut bersama halaman. Karena itu `.dt-table` punya `maxHeight`
 (default `calc(100dvh - 6rem)`). Menyetel `maxHeight={false}` mematikan
@@ -322,7 +322,7 @@ sticky header, bukan cuma melonggarkan tinggi.
 
 **2. Latar sel sticky harus PEKAT, bukan `.glass` yang 0.55.** Sudah
 dicoba 0.94 + blur: sisa 6% tetap terbaca sebagai teks hantu yang ikut
-bergerak. Blur tidak menolong — `backdrop-filter` pada sel tabel tidak
+bergerak. Blur tidak menolong: `backdrop-filter` pada sel tabel tidak
 menghasilkan backdrop root di Chrome, dan Lightning CSS membuang properti
 tak berprefiksnya (`.glass` pun sebenarnya hanya jalan lewat
 `-webkit-`). Warnanya `#F7F5F1`, perkiraan panel `.glass` di atas latar
@@ -333,7 +333,7 @@ Tailwind menyetel `border-collapse: collapse`; di mode itu border sel jadi
 milik "border grid" tabel dan tidak ikut menempel bersama selnya, jadi
 garisnya putus begitu header digeser.
 
-Urutan z-index — sudut menempel di dua sumbu sekaligus, jadi harus paling
+Urutan z-index. Sudut menempel di dua sumbu sekaligus, jadi harus paling
 atas: sudut `4`, header & baris total `3`, kolom pertama `2`. Aturan
 sudutnya ditulis sebagai CSS biasa (bukan `@utility`) supaya tidak
 bergantung urutan emit Tailwind: aturan tanpa layer selalu menang atas
@@ -341,12 +341,12 @@ utility ber-layer.
 
 ## Aksi baris: ikon, bukan teks
 
-`components/RowActions.tsx`. `label` wajib — dipakai sekaligus sebagai
+`components/RowActions.tsx`. `label` wajib: dipakai sekaligus sebagai
 `aria-label` dan isi tooltip. Tooltip sengaja muncul di **kiri** tombol:
 pembungkus tabel `overflow-x-auto` membuat sumbu Y ikut `auto`, jadi
 tooltip di atas/bawah terpotong.
 
-Pengecualian: **CTA primer tetap teks** — "Uji & Putuskan", "Tinjau &
+Pengecualian: **CTA primer tetap teks** seperti "Uji & Putuskan", "Tinjau &
 Luluskan", "Bayar". Ikon telanjang untuk aksi utama menurunkan
 discoverability.
 
@@ -357,7 +357,7 @@ produk jadi punya satu baris per kombinasi produk × varian, jadi
 `<select>`-nya bisa ratusan baris. Keduanya membatasi jumlah saran yang
 dirender (30) supaya tetap ringan.
 
-`ProductPicker` menandai baris **jasa** dengan pil, bukan angka stok —
+`ProductPicker` menandai baris **jasa** dengan pil, bukan angka stok.
 jasa tidak punya stok dan "stok 0" di sebelahnya menyesatkan. Prop
 `showStock={false}` untuk layar yang ketersediaan barangnya tidak relevan
 (mis. menyusun daftar harga khusus client).
@@ -383,18 +383,41 @@ baru, ikuti kolom kanan:
 | Nilai data (status, kategori) | Indonesia | Dibuat, Lunas, Karantina, R&D |
 | Dokumen cetak | Indonesia | BUKTI PENERIMAAN BARANG |
 
-`subtitle` kartu navigasi tetap Indonesia walau `title`-nya Inggris — itu
+`subtitle` kartu navigasi tetap Indonesia walau `title`-nya Inggris. Itu
 kalimat penjelas, bukan nama menu.
 
 Nilai data ada di database dan divalidasi di SQL, jadi mengubah bahasanya
-butuh migrasi data — bukan sekadar ganti teks. Jangan diutak-atik.
+butuh migrasi data, bukan sekadar ganti teks. Jangan diutak-atik.
+
+## Jangan pakai tanda hubung panjang
+
+Em dash (`—`) dan en dash (`–`) **tidak dipakai di mana pun**: teks UI,
+dokumen cetak, komentar kode, migrasi SQL, maupun file `.md` ini.
+Alasannya bukan selera. Tanda itu jarang diketik orang Indonesia di
+keyboard biasa, jadi kehadirannya membuat tulisan terbaca sebagai hasil
+generator, dan itu merusak kepercayaan pada dokumen yang justru harus
+terlihat terbit dari perusahaan.
+
+Gantinya, pilih yang paling pas menurut fungsi kalimatnya:
+
+| Fungsi | Pakai | Contoh |
+| --- | --- | --- |
+| Judul lalu penjelasan | titik dua | `Tabel daftar: satu definisi kolom` |
+| Anak kalimat lanjutan | koma | `Stok dihitung, bukan disimpan` |
+| Kalimat baru | titik | `Angkanya snapshot. Layar wajib menyebut kapan diambil` |
+| Sisipan | kurung | `punya overflow-x-auto (dan itu membuat sumbu Y ikut auto), jadi ...` |
+| Pemisah antar nilai di UI | titik tengah `·` | `Kode · Supplier · Lot` |
+| Rentang angka | `s/d` atau `sampai` | `10 s/d 20 kg` |
+
+Tanda hubung biasa (`-`) tetap boleh untuk kata majemuk (`rata-rata`)
+dan sebagai penanda "kosong" di sel tabel.
 
 # State klien: tiga pola yang wajib diikuti
 
 ## Baca `localStorage` / `matchMedia` lewat `useSyncExternalStore`
 
 Nilainya tidak ada di server, jadi tidak bisa dipakai sebagai initial
-state biasa — server dan klien render beda dan hidrasinya bentrok.
+state biasa: server dan klien render beda dan hidrasinya bentrok.
 Membacanya di `useEffect` lalu `setState` memang benar hasilnya, tapi
 melanggar `react-hooks/set-state-in-effect` dan memaksa satu render
 tambahan sesudah layar terlanjur dilukis.
@@ -436,7 +459,7 @@ tidak ada yang ditulis.
 
 Mengganti client di `InvoiceForm` harus mengisi ulang harga baris yang
 belum disentuh user. Godaannya menaruh itu di `useEffect` yang mengawasi
-`clientId` — jangan. Sama seperti dua pola di atas: melanggar
+`clientId`. Jangan. Sama seperti dua pola di atas: melanggar
 `react-hooks/set-state-in-effect` dan menambah satu render sesudah layar
 terlanjur dilukis. Kerjakan di `onChange`-nya (`gantiClient`).
 
@@ -454,7 +477,7 @@ Karena itu `lib/clientPrice.ts` ada terpisah dari `lib/salesOptions.ts`:
 isinya cuma penghitung kunci dan tipe, tanpa import server, supaya
 `InvoiceForm` dan `ConsignmentForm` bisa memakainya. Kalau butuh helper
 kecil yang dipakai dua sisi, taruh di file sendiri yang bersih dari import
-server — jangan menambahkannya ke file yang sudah menyentuh database.
+server. Jangan menambahkannya ke file yang sudah menyentuh database.
 
 `import type { … }` dari file server tetap aman: tipe dihapus saat
 kompilasi.
@@ -469,15 +492,15 @@ menghapus kedipannya. Perbaikan sebenarnya: pindahkan preferensi ke cookie
 supaya server bisa merender lebar yang benar sejak awal. Belum dikerjakan.
 
 **Menu Notifications tidak punya badge jumlah.** Itu yang biasanya membuat
-notification center dipakai, tapi sidebar dirender di setiap halaman —
-badge berarti menjalankan tujuh query `lib/notifikasi.ts` di tiap navigasi.
+notification center dipakai, tapi sidebar dirender di setiap halaman.
+Badge berarti menjalankan tujuh query `lib/notifikasi.ts` di tiap navigasi.
 Perbaikan sebenarnya: hitungan yang di-cache (materialized view atau cache
 ber-TTL pendek), bukan query langsung. Belum dikerjakan.
 
 **Retur atas faktur yang sudah Lunas belum jadi piutang balik.** Secara
 akuntansi supplier jadi berhutang, tapi `receivings.total_retur` cuma
 mengurangi tagihan yang tersisa dan berhenti di nol. RPC menolak retur
-melebihi nilai faktur, jadi datanya tidak ngawur — klaimnya saja yang harus
+melebihi nilai faktur, jadi datanya tidak ngawur. Klaimnya saja yang harus
 diurus di luar sistem. Butuh modul nota kredit / saldo supplier.
 
 **Riwayat versi formula belum bisa dibandingkan.** Snapshot tiap kali

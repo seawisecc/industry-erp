@@ -83,14 +83,14 @@ export async function setCompanyActive(
 
    Satu action dipakai dua layar: Companies (super admin, melihat
    semua) dan Settings (client, melihat miliknya sendiri). Hitungannya
-   memang menghasilkan angka untuk SEMUA organisasi sekaligus —
+   memang menghasilkan angka untuk SEMUA organisasi sekaligus,
    biaya terbesarnya memindai tabelnya, dan satu pemindaian sudah
    cukup untuk semuanya.
 
    Karena itu client boleh memicunya juga: yang dia bayar sama saja
    dengan yang dibayar super admin, dan fungsi SQL-nya punya rem
    10 menit supaya tidak bisa dipakai menggempur database.
-   `paksa` hanya untuk super admin — dialah yang butuh angka detik
+   `paksa` hanya untuk super admin, dialah yang butuh angka detik
    ini juga saat sedang menagih.
    ============================================================ */
 export async function hitungUlangStorage(

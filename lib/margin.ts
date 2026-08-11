@@ -3,7 +3,7 @@
 
    DUA SUMBER, DUA RENTANG WAKTU YANG BERBEDA
 
-   Omzet diambil dari periode yang dipilih user. HPP TIDAK — dia
+   Omzet diambil dari periode yang dipilih user. HPP TIDAK, dia
    dihitung dari SELURUH riwayat produksi. Kalau basis biayanya ikut
    dipotong periode, produk yang terjual bulan ini tapi diproduksi
    bulan lalu akan kehilangan HPP-nya dan marginnya tampak 100%.
@@ -17,7 +17,7 @@
    menanggung biaya lebih besar.
 
    Kalau ada satu saja varian di batch itu yang nettonya belum diisi,
-   seluruh batch jatuh ke pembagian rata per pcs — mencampur bobot
+   seluruh batch jatuh ke pembagian rata per pcs, mencampur bobot
    netto dengan bobot 1 akan menghasilkan angka yang jauh lebih ngawur
    daripada sekadar membagi rata.
    ============================================================ */

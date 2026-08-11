@@ -37,7 +37,7 @@ export default async function ClientPricesPage({
       // justru sering dilakukan sebelum produksi pertama.
       // Produk NONAKTIF ikut ditarik. Kalau disaring, harga yang sudah
       // tersimpan untuk produk yang kemudian dinonaktifkan tidak punya
-      // pasangan option — barisnya jadi tidak bisa dibaca dan ikut hilang
+      // pasangan option, barisnya jadi tidak bisa dibaca dan ikut hilang
       // diam-diam waktu daftar disimpan ulang. Ditandai di labelnya saja.
       supabase
         .from("products")

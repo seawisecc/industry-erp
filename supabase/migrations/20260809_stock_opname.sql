@@ -17,7 +17,7 @@
 --
 -- Opname memotret stok sistem SAAT DOKUMEN DIBUAT (qty_sistem), lalu
 -- lembar hitungnya dicetak TANPA angka itu. Hasil hitung fisik diisi
--- belakangan, dan selisihnya dihitung terhadap potret tadi — bukan
+-- belakangan, dan selisihnya dihitung terhadap potret tadi, bukan
 -- terhadap stok yang mungkin sudah bergerak.
 --
 -- Penyesuaian akhirnya tetap lewat create_stock_adjustment yang sudah
@@ -66,7 +66,7 @@ create table if not exists public.stock_opname_items (
   -- inilah pembanding yang sah untuk hasil hitung fisik.
   qty_sistem      numeric not null default 0,
   -- null = belum dihitung. Beda dengan 0 yang berarti "dihitung, hasilnya
-  -- memang kosong" — dan itu justru selisih yang paling perlu ditindak.
+  -- memang kosong", dan itu justru selisih yang paling perlu ditindak.
   qty_fisik       numeric,
   catatan         text
 );
@@ -376,7 +376,7 @@ $$;
 -- 6. cancel_stock_opname_tx
 --
 -- Hanya untuk opname yang BELUM ditutup. Yang sudah menghasilkan
--- adjustment tidak dihapus dari sini — adjustment-nya sudah menggerakkan
+-- adjustment tidak dihapus dari sini, adjustment-nya sudah menggerakkan
 -- stok, dan membatalkannya urusan dokumen adjustment itu sendiri.
 -- ============================================================
 create or replace function public.cancel_stock_opname_tx(

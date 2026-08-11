@@ -118,7 +118,7 @@ export async function cancelReceiving(
     // Retur pembelian menunjuk ke faktur ini lewat foreign key, dan
     // barangnya sudah dikembalikan ke supplier. Tanpa guard ini yang muncul
     // cuma error FK mentah dari database, atau pesan "sudah terpakai/keluar"
-    // yang menyesatkan — padahal yang terjadi barangnya diretur.
+    // yang menyesatkan, padahal yang terjadi barangnya diretur.
     const { count: returCount } = await supabase
       .from("purchase_returns")
       .select("id", { count: "exact", head: true })

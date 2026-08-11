@@ -17,7 +17,7 @@
 --
 -- Trigger menutup dua-duanya. Log ditulis di transaksi yang SAMA dengan
 -- perubahannya (batal berarti batal dua-duanya), dan berlaku untuk semua
--- jalur — server action, RPC, bahkan perubahan manual lewat SQL Editor.
+-- jalur, server action, RPC, bahkan perubahan manual lewat SQL Editor.
 --
 -- KENAPA SECURITY DEFINER + TANPA POLICY TULIS
 --
@@ -104,7 +104,7 @@ create policy activity_logs_read on public.activity_logs
 --   TG_ARGV[1] kolom_nomor     kolom nomor dokumen, '' kalau tidak ada
 --   TG_ARGV[2] kolom_dipantau  daftar kolom dipisah koma; '' = semua.
 --                              Dipakai supaya UPDATE rutin tidak membanjiri
---                              log — mis. purchase_batches.qty_sisa berubah
+--                              log, mis. purchase_batches.qty_sisa berubah
 --                              tiap pemotongan FEFO, dan itu bukan keputusan
 --                              siapa-siapa.
 -- ============================================================

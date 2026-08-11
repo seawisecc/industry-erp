@@ -246,7 +246,7 @@ async function updatePOImpl(id: string, data: POInput) {
   await assertMoq(organizationId, data.items);
 
   // Header + ganti seluruh baris item dalam satu transaksi. Versi lama
-  // menghapus po_items lalu insert dari sini — insert yang gagal
+  // menghapus po_items lalu insert dari sini, insert yang gagal
   // meninggalkan PO tanpa satu pun item.
   const { error } = await supabase.rpc("update_po_tx", {
     p_organization_id: organizationId,

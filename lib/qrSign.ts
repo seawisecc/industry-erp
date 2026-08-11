@@ -1,5 +1,5 @@
 /* ============================================================
-   QR Signature (non-certified) — bagian yang boleh dipakai klien.
+   QR Signature (non-certified), bagian yang boleh dipakai klien.
 
    File ini bersih dari import server (lihat "Batas server/klien di
    lib/" pada CLAUDE.md), karena form pengaturannya "use client".
@@ -14,7 +14,7 @@
    Apa yang TIDAK dijanjikan: ini bukan tanda tangan elektronik
    tersertifikasi. Tidak ada PSrE, tidak ada sertifikat, tidak ada
    kunci privat milik perorangan. Kalimat "Non-Certified" wajib ikut
-   tercetak di dokumennya — pengesahan yang mengaku lebih dari
+   tercetak di dokumennya, pengesahan yang mengaku lebih dari
    kemampuannya lebih berbahaya daripada tidak ada pengesahan.
 
    Siapa pengesah tiap dokumen TIDAK ada di sini, melainkan di
@@ -30,7 +30,7 @@ import type { DocTypeKey } from "@/lib/docSign";
  * Lebih banyak daripada DocTypeKey karena "Lembar Uji Produk Jadi"
  * dicetak dari halaman sendiri walau berbagi pengaturan kolom tanda
  * tangan dengan lembar uji bahan. Kalau dia dipaksa memakai kunci
- * "qa", sidiknya akan sama persis dengan CoA batch yang sama — dua
+ * "qa", sidiknya akan sama persis dengan CoA batch yang sama, dua
  * dokumen berbeda dengan satu sidik, dan halaman verifikasi akan
  * menyebut lembar uji sebagai sertifikat analisa.
  */

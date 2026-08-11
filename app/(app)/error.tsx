@@ -31,7 +31,7 @@ export default function AppError({
       </h1>
       <p className="text-muted text-sm mb-5 leading-relaxed">
         Halaman ini gagal dimuat. Biasanya karena koneksi terputus atau
-        aplikasi baru saja diperbarui. Coba muat ulang dulu — datamu aman,
+        aplikasi baru saja diperbarui. Coba muat ulang dulu. Datamu aman,
         tidak ada yang tersimpan setengah jalan.
       </p>
 

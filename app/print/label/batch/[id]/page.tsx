@@ -5,13 +5,13 @@
    dengan yang dipakai stok jual: Hold = karantina (belum masuk stok),
    Released = boleh dijual, Rejected = tidak boleh keluar gudang.
    Jadi label yang menempel di palet selalu sama dengan apa yang
-   dipercayai sistem — tidak ada kemungkinan barang ber-label RELEASE
+   dipercayai sistem, tidak ada kemungkinan barang ber-label RELEASE
    tapi sistemnya masih menahan.
 
    Satu label PER VARIAN hasil, bukan satu per batch: tiap varian
    adalah tumpukan fisik sendiri dengan jumlah sendiri.
 
-   Kedaluwarsa dibiarkan kosong untuk ditulis tangan — produk jadi
+   Kedaluwarsa dibiarkan kosong untuk ditulis tangan, produk jadi
    belum menyimpan masa simpan di mana pun, dan mencetak "-" akan
    terbaca sebagai "tidak punya kedaluwarsa".
    ============================================================ */

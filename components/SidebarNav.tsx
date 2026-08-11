@@ -18,10 +18,10 @@ import { NAV, HUBS } from "@/lib/navConfig";
 type OrgOption = { id: string; nama: string; slug: string; aktif: boolean };
 
 /* ------------------------------------------------------------
-   Preferensi "sidebar diminimize" — disimpan di localStorage.
+   Preferensi "sidebar diminimize", disimpan di localStorage.
 
    localStorage tidak ada di server, jadi nilainya tidak bisa dipakai
-   sebagai initial state biasa — server render "lebar", klien render
+   sebagai initial state biasa, server render "lebar", klien render
    "sempit", hidrasinya bentrok. useSyncExternalStore dibuat persis
    untuk itu: React memakai getServerSnapshot saat render server &
    hidrasi, lalu berpindah ke getSnapshot tanpa dianggap bentrok.
@@ -29,7 +29,7 @@ type OrgOption = { id: string; nama: string; slug: string; aktif: boolean };
    Yang TIDAK hilang: sidebar tetap sekilas lebar dulu sebelum
    menyempit di muat pertama, karena server memang tidak punya cara
    tahu preferensinya. Menghilangkan itu berarti memindahkan preferensi
-   ke cookie supaya terbaca di server — perubahan tersendiri, belum
+   ke cookie supaya terbaca di server, perubahan tersendiri, belum
    dikerjakan di sini.
    ------------------------------------------------------------ */
 const COLLAPSE_KEY = "sidebar-collapsed";
@@ -54,7 +54,7 @@ function setCollapsedTersimpan(nilai: boolean) {
   try {
     localStorage.setItem(COLLAPSE_KEY, nilai ? "1" : "0");
   } catch {
-    // mode privasi / storage penuh — cukup abaikan, UI tetap jalan
+    // mode privasi / storage penuh, cukup abaikan, UI tetap jalan
   }
   for (const cb of collapsePendengar) cb();
 }

@@ -5,7 +5,7 @@
 --
 -- Bahan baku tidak selalu habis lewat produksi. Alkohol untuk
 -- sanitasi ruang, bahan untuk trial R&D, sampel yang dikirim ke
--- client — semuanya keluar dari gudang tanpa dokumen. Akibatnya
+-- client, semuanya keluar dari gudang tanpa dokumen. Akibatnya
 -- stok fisik dan stok sistem selisih, dan selisihnya baru ketahuan
 -- saat opname, tanpa jejak siapa memakai untuk apa.
 --

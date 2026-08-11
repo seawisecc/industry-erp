@@ -4,7 +4,7 @@
    Dipakai dua halaman: label satu lot (/print/label/lot/[id]) dan
    label seluruh lot satu penerimaan (/print/label/receiving/[id]).
    Keduanya harus menghasilkan label yang identik untuk lot yang
-   sama — makanya pemetaannya di sini, bukan disalin dua kali.
+   sama, makanya pemetaannya di sini, bukan disalin dua kali.
    ============================================================ */
 
 import { tanggalLabel, waktuCetak } from "./LabelKit";
@@ -45,7 +45,7 @@ export function lotLabelData(b: LotRaw, dicetak: string): StatusLabelData {
     masukLabel: "Tgl Penerimaan",
     masuk: tanggalLabel(b.tanggal_terima),
     catatan: b.qc_note,
-    // Kosong selama masih karantina — barisnya jadi ruang tanda tangan
+    // Kosong selama masih karantina, barisnya jadi ruang tanda tangan
     // petugas gudang, bukan "-".
     petugas: b.qc_oleh,
     jejak: `${b.no_lot_supplier ? `Lot ${b.no_lot_supplier} · ` : ""}Dicetak ${dicetak}`,

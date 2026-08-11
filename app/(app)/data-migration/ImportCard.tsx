@@ -94,7 +94,7 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
       if (result.rows.length === 0) {
         setWarning("Belum ada data untuk diexport.");
       } else {
-        // Kolomnya dikunci ke allCols — urutannya sama persis dengan
+        // Kolomnya dikunci ke allCols, urutannya sama persis dengan
         // template import, jadi file ini bisa langsung diupload balik.
         unduh(
           Papa.unparse(result.rows, { columns: allCols }),

@@ -1,7 +1,7 @@
 "use client";
 
 /* ============================================================
-   Pencarian & filter tabel — dikirim ke SERVER lewat URL.
+   Pencarian & filter tabel, dikirim ke SERVER lewat URL.
 
    Pengganti TableSearch yang lama (menyaring <tr> di browser).
    Bedanya penting: yang lama cuma bisa melihat baris yang kebetulan
@@ -118,7 +118,7 @@ export default function TableToolbar({
           ? adaFilter
             ? "Tidak ada yang cocok"
             : "0 baris"
-          : `${info.from.toLocaleString("id-ID")}–${info.to.toLocaleString(
+          : `${info.from.toLocaleString("id-ID")}, ${info.to.toLocaleString(
               "id-ID"
             )} dari ${info.total.toLocaleString("id-ID")}`}
       </span>

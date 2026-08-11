@@ -5,7 +5,7 @@
 
    Daftar produk jadi punya satu baris per kombinasi produk × varian,
    jadi <select> gulungnya bisa ratusan baris. Ketik sebagian kode,
-   nama produk, atau nama varian — daftar menyaring otomatis.
+   nama produk, atau nama varian, daftar menyaring otomatis.
 
    Dipakai di form Invoice, POS, dan Konsinyasi. Baris layanan jasa
    ditandai jelas karena jasa tidak punya stok, jadi angka "stok 0"

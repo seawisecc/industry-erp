@@ -495,7 +495,7 @@ export default function ProductForm({ items, product }: Props) {
 
         {steps.length === 0 && (
           <p className="text-muted text-[13px]">
-            Belum ada langkah. Contoh: &quot;Panaskan Fase A hingga 70–75°C&quot;,
+            Belum ada langkah. Contoh: &quot;Panaskan Fase A hingga 70, 75°C&quot;,
             &quot;Homogenkan 3000 rpm selama 15 menit&quot;.
           </p>
         )}

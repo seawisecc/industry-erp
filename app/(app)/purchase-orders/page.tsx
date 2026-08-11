@@ -68,7 +68,7 @@ export default async function PurchaseOrdersPage({
 
   const sp = parseListQuery(await searchParams);
 
-  // Nama supplier ada di tabel lain — cari id-nya dulu supaya PO tetap
+  // Nama supplier ada di tabel lain, cari id-nya dulu supaya PO tetap
   // bisa dicari lewat nama supplier, bukan cuma no. PO.
   let supplierIds: string[] = [];
   if (sp.q) {
@@ -102,7 +102,7 @@ export default async function PurchaseOrdersPage({
   const list = (pos || []) as unknown as PORow[];
   const info = pageInfo(sp.page, count, list.length);
 
-  /** Nilai PO termasuk PPN — subtotal baris item lalu ditambah pajak. */
+  /** Nilai PO termasuk PPN, subtotal baris item lalu ditambah pajak. */
   const totalPO = (po: PORow) => {
     const subtotal = po.po_items.reduce(
       (s, r) => s + Number(r.qty_pesan) * Number(r.harga_per_unit),

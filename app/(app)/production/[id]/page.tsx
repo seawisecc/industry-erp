@@ -171,8 +171,8 @@ export default async function ProductionDetailPage({
           </h2>
           <p className="text-muted text-[12.5px] mt-0.5 mb-4">
             Estimasi dihitung dari takaran formula &amp; rencana kemasan, dihargai
-            dengan harga lot yang sama dipakai batch ini — jadi selisihnya murni
-            soal pemakaian, bukan pergerakan harga.
+            dengan harga lot yang sama dipakai batch ini, jadi selisihnya murni soal
+            pemakaian dan bukan pergerakan harga.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-[13.5px]">
             <div>
@@ -235,7 +235,7 @@ export default async function ProductionDetailPage({
           </div>
           {estimasi.tanpaHarga.length > 0 && (
             <p className="text-[11.5px] text-clay-600 mt-4">
-              ⚠ Belum ada acuan harga untuk: {estimasi.tanpaHarga.join(", ")} —
+              ⚠ Belum ada acuan harga untuk: {estimasi.tanpaHarga.join(", ")}, jadi
               estimasinya lebih rendah dari yang seharusnya.
             </p>
           )}

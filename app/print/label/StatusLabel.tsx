@@ -1,7 +1,7 @@
 /* ============================================================
    Label status QC: QUARANTINE / RELEASE / REJECT.
 
-   Satu komponen untuk bahan baku, bahan kemas, DAN produk jadi —
+   Satu komponen untuk bahan baku, bahan kemas, DAN produk jadi,
    sama seperti formulir aslinya yang berjudul "Nama Bahan Baku /
    Produk Jadi". Yang membedakan cuma isi dua field: lawan bicaranya
    (supplier vs varian produk) dan tanggal masuknya (penerimaan vs
@@ -9,7 +9,7 @@
    dicabang di dalam.
 
    Kata statusnya tetap Inggris karena itu istilah baku CPKB yang
-   ditempel di karantina gudang — baris penjelas di bawahnya yang
+   ditempel di karantina gudang, baris penjelas di bawahnya yang
    berbahasa Indonesia.
    ============================================================ */
 
@@ -35,13 +35,13 @@ const JUDUL: Record<StatusKey, { kata: string; arti: string }> = {
  * Status kolom database → kata di label.
  *
  * Produk jadi memakai istilah "Hold" untuk karantina, bahan memakai
- * "Karantina" — dua-duanya berarti ditahan.
+ * "Karantina", dua-duanya berarti ditahan.
  *
  * NULL berarti TIDAK ditahan, bukan karantina: itu batch lama atau
  * organisasi yang modul QA/QC-nya mati, dan `fg_stock_calc` sudah
  * menghitungnya sebagai stok siap jual (`qa_status is null or
  * 'Released'`). Kalau di sini null dianggap karantina, barang yang
- * boleh dijual akan keluar dari printer ber-label QUARANTINE — persis
+ * boleh dijual akan keluar dari printer ber-label QUARANTINE, persis
  * jenis ketidakcocokan layar-vs-sistem yang paling mahal di gudang.
  */
 export function statusLabelKey(raw: string | null | undefined): StatusKey {
@@ -50,7 +50,7 @@ export function statusLabelKey(raw: string | null | undefined): StatusKey {
   return "Released";
 }
 
-/** Kata di pita label — dipakai juga sebagai teks tombol cetaknya. */
+/** Kata di pita label, dipakai juga sebagai teks tombol cetaknya. */
 export function statusKata(status: StatusKey) {
   return JUDUL[status].kata;
 }
@@ -68,7 +68,7 @@ export type StatusLabelData = {
   expDate: string | null;
   masukLabel: string;
   masuk: string | null;
-  /** Alasan penolakan — hanya dicetak pada label REJECT */
+  /** Alasan penolakan, hanya dicetak pada label REJECT */
   catatan: string | null;
   petugas: string | null;
   jejak: string;

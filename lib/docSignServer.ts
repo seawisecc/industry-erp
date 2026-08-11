@@ -62,7 +62,7 @@ export async function getDocSignConfig(
  * secara elektronik, tidak dua-duanya. Mencetak keduanya berarti
  * meminta orang yang sama mengesahkan hal yang sama dua kali, dan
  * meninggalkan ruang tanda tangan kosong di dokumen yang sebenarnya
- * sudah sah — auditor akan menganggapnya dokumen yang belum selesai.
+ * sudah sah, auditor akan menganggapnya dokumen yang belum selesai.
  *
  * Aturan itu ditegakkan DI SINI, bukan di tiap halaman cetak, supaya
  * halaman cetak berikutnya tidak perlu ingat memeriksanya.

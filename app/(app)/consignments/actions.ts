@@ -5,7 +5,7 @@
    (supabase/migrations/20260803_transactional_rpcs.sql).
 
    Sebelumnya alurnya dijahit di sini: potong stok lewat beberapa
-   UPDATE, lalu buat invoice — atau sebaliknya. Kalau langkah kedua
+   UPDATE, lalu buat invoice, atau sebaliknya. Kalau langkah kedua
    gagal, langkah pertama sudah terlanjur dan tidak ada yang
    membatalkannya. Sekarang cek stok, potong, dan penerbitan invoice
    terjadi dalam SATU transaksi di database: gagal di mana pun,

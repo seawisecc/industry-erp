@@ -18,7 +18,7 @@ import { urutkanFormula, faseKey, faseLabel } from "@/lib/formulaOrder";
 
    Form ini dipakai berjam-jam di lantai produksi: timestamp MES,
    hasil timbang, IPC, rekonsiliasi kemasan. Sebelum ada draft,
-   semuanya cuma ada di memori — tab ke-refresh, HP terkunci lalu
+   semuanya cuma ada di memori: tab ke-refresh, HP terkunci lalu
    browser dimatikan, atau kena auto-logout = hilang semua.
    Draft disimpan tiap ada perubahan, dan ditawarkan untuk
    dipulihkan (bukan langsung ditimpa) saat form dibuka lagi.
@@ -54,7 +54,7 @@ function readDraft(planId: string): Draft | null {
    Draft yang DITAWARKAN saat form dibuka.
 
    localStorage tidak ada di server, jadi tidak bisa dibaca sebagai
-   initial state biasa — hidrasinya akan bentrok (server tanpa banner,
+   initial state biasa, hidrasinya akan bentrok (server tanpa banner,
    klien dengan banner). useSyncExternalStore menyelesaikan itu:
    getServerSnapshot dipakai saat render server & hidrasi, lalu React
    berpindah ke getSnapshot tanpa dianggap bentrok.
@@ -62,7 +62,7 @@ function readDraft(planId: string): Draft | null {
    Syaratnya getSnapshot harus mengembalikan nilai yang SAMA PERSIS
    selama tidak ada perubahan. readDraft mem-parse JSON, jadi tiap
    panggilan menghasilkan objek baru dan React akan me-render tanpa
-   henti — makanya hasilnya di-cache per plan.
+   henti, makanya hasilnya di-cache per plan.
 
    Cache sengaja TIDAK dibatalkan oleh autosave: yang ditawarkan memang
    harus tetap versi saat form dibuka, bukan ketikan yang barusan
@@ -164,7 +164,7 @@ export default function ExecuteForm({
    * Dibuka di TAB BARU, dan itu bukan pilihan gaya: isi form ini
    * (timbangan, jam MES, IPC) baru jadi dokumen saat tombol Simpan
    * ditekan. Navigasi biasa akan meninggalkan halaman di tengah
-   * penimbangan — draft memang menyelamatkannya, tapi operator yang
+   * penimbangan, draft memang menyelamatkannya, tapi operator yang
    * sedang berdiri di depan timbangan tidak boleh dipaksa mengandalkan
    * itu hanya untuk mencetak selembar label.
    *
@@ -288,7 +288,7 @@ export default function ExecuteForm({
   }
 
   // ===== Draft otomatis =====
-  /** Sidik jari isi form saat pertama dirender — pembanding "sudah berubah?" */
+  /** Sidik jari isi form saat pertama dirender, pembanding "sudah berubah?" */
   const isiAwal = useRef<string | null>(null);
   const dirty = useRef(false);
   const submitted = useRef(false);
@@ -330,7 +330,7 @@ export default function ExecuteForm({
     // Perbandingan isi, BUKAN flag "sudah pernah jalan". Flag ref tidak
     // aman: React StrictMode (dev) menjalankan effect → cleanup → effect
     // lagi, dan pada putaran kedua flag-nya sudah terpakai sehingga form
-    // yang masih kosong ikut ditulis — menimpa draft asli user dengan
+    // yang masih kosong ikut ditulis, menimpa draft asli user dengan
     // nilai awal. Itu justru menghapus data yang mau diselamatkan.
     if (isiAwal.current === null) {
       isiAwal.current = sidikJari;
@@ -343,7 +343,7 @@ export default function ExecuteForm({
     try {
       localStorage.setItem(draftKey(plan.id), JSON.stringify(draft));
     } catch {
-      // storage penuh / mode privat — biarkan, form tetap jalan
+      // storage penuh / mode privat, biarkan, form tetap jalan
     }
   }, [
     plan.id,
@@ -480,7 +480,7 @@ export default function ExecuteForm({
 
       const result = await saveExecution(plan.id, data);
       if (result.ok) {
-        // Sudah aman di server — draft lokal tidak diperlukan lagi
+        // Sudah aman di server, draft lokal tidak diperlukan lagi
         submitted.current = true;
         try {
           localStorage.removeItem(draftKey(plan.id));
@@ -936,7 +936,7 @@ export default function ExecuteForm({
                 placeholder={row.item ? `Qty (${row.item.satuan})` : "Qty"}
                 className={inputCls}
               />
-              {/* Bahan adjusting juga ditimbang, jadi juga butuh label —
+              {/* Bahan adjusting juga ditimbang, jadi juga butuh label,
                   fasenya "Adjusting" karena memang di luar formula. */}
               <button
                 type="button"

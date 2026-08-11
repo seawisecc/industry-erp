@@ -1,5 +1,5 @@
 /* ============================================================
-   Label penimbangan bahan — ditempel di wadah hasil timbang.
+   Label penimbangan bahan, ditempel di wadah hasil timbang.
 
    Isinya datang dari QUERY STRING, bukan dari database, dan itu
    disengaja. Label ini dicetak di tengah penimbangan, saat angka
@@ -10,7 +10,7 @@
    benar ditimbang.
 
    Karena isinya tidak diverifikasi ke database, label ini tidak
-   pernah menjadi bukti apa pun — buktinya tetap `execution_data`
+   pernah menjadi bukti apa pun, buktinya tetap `execution_data`
    dan Batch Record. Label cuma penanda fisik di lantai produksi.
    ============================================================ */
 

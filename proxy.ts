@@ -27,11 +27,11 @@ export async function proxy(request: NextRequest) {
 
   // getUser() memverifikasi & ME-REFRESH token bila kedaluwarsa (cookie
   // diperbarui lewat setAll di atas). Sejak function pindah ke region
-  // Singapore, panggilan ini hanya ~5-15ms — aman untuk tiap request.
+  // Singapore, panggilan ini hanya ~5-15ms, aman untuk tiap request.
   const { data: { user } } = await supabase.auth.getUser();
 
   // Halaman publik: bisa diakses tanpa login.
-  // /verify ada di sini karena memang dipindai orang luar dari kertas —
+  // /verify ada di sini karena memang dipindai orang luar dari kertas,
   // isinya sengaja cuma identitas dokumen, tidak pernah isinya.
   const publicPaths = ["/login", "/kenapa", "/verify"];
   const isPublic = publicPaths.some((p) =>

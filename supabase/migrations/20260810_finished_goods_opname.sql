@@ -81,7 +81,7 @@ create policy finished_goods_adjustments_org on public.finished_goods_adjustment
 
 
 -- ============================================================
--- 2. fg_stock_calc — satu-satunya rumus stok produk jadi
+-- 2. fg_stock_calc, satu-satunya rumus stok produk jadi
 --
 -- p_product_id / p_varian null = seluruh produk. Dipakai keduanya:
 -- agregat layar memanggil tanpa filter, penjaga per-baris memanggil
@@ -168,12 +168,12 @@ $$;
 
 
 -- ============================================================
--- 3. get_finished_stock — pembungkus untuk layar & form penjualan
+-- 3. get_finished_stock, pembungkus untuk layar & form penjualan
 --
 -- Kolom `adjustment` baru, jadi fungsinya harus di-DROP dulu:
 -- create or replace tidak bisa mengubah bentuk hasil. Karena di-drop,
 -- atribut security definer / search_path-nya ikut hilang kalau tidak
--- disalin balik — makanya dibaca dulu sebelum dihapus.
+-- disalin balik, makanya dibaca dulu sebelum dihapus.
 -- ============================================================
 do $$
 declare
@@ -227,7 +227,7 @@ $$;
 
 
 -- ============================================================
--- 4. fg_available — penjaga anti-oversell
+-- 4. fg_available, penjaga anti-oversell
 --
 -- Fungsi ini dipanggil dari create_sales_invoice_tx dan
 -- create_consignment_tx, yang definisinya TIDAK di-track di repo ini.
@@ -373,7 +373,7 @@ create index if not exists stock_opname_items_org_product_idx
 
 
 -- ============================================================
--- 6. create_stock_opname_tx — cakupan bertambah 'Produk Jadi'
+-- 6. create_stock_opname_tx, cakupan bertambah 'Produk Jadi'
 -- ============================================================
 create or replace function public.create_stock_opname_tx(
   p_organization_id uuid,
@@ -510,7 +510,7 @@ $$;
 
 
 -- ============================================================
--- 7. save_opname_count_tx — dicocokkan lewat id baris opname
+-- 7. save_opname_count_tx, dicocokkan lewat id baris opname
 --
 -- Dulu dicocokkan lewat item_id. Baris produk jadi tidak punya item_id,
 -- jadi kuncinya pindah ke id baris opname itu sendiri. Bentuk lama
@@ -572,7 +572,7 @@ $$;
 
 
 -- ============================================================
--- 8. finish_stock_opname_tx — dua jenis penyesuaian sekaligus
+-- 8. finish_stock_opname_tx, dua jenis penyesuaian sekaligus
 --
 -- Baris bahan       -> create_stock_adjustment (batch & FEFO)
 -- Baris produk jadi -> finished_goods_adjustments (selisih, boleh negatif)

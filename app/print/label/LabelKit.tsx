@@ -10,7 +10,7 @@
    Bedanya cuma satu dan itu penting: label PUNYA blok hitam pekat
    (kepala status). Browser membuang latar belakang saat mencetak
    kecuali diminta eksplisit, jadi setiap blok hitam di sini wajib
-   memakai `blokHitam` — tanpa itu label REJECT keluar dari printer
+   memakai `blokHitam`, tanpa itu label REJECT keluar dari printer
    sebagai kotak putih kosong, dan itu label yang paling tidak boleh
    salah baca di gudang.
 
@@ -147,7 +147,7 @@ export function LabelHeader({
 
 /**
  * Kotak isi label. Garis atasnya sengaja dihilangkan karena sudah
- * dipegang oleh pita status di atasnya — dua garis 2px yang menempel
+ * dipegang oleh pita status di atasnya, dua garis 2px yang menempel
  * terbaca sebagai garis tebal yang tidak rata.
  */
 export function LabelBox({ children }: { children: ReactNode }) {
@@ -170,7 +170,7 @@ export function FieldPair({ children }: { children: ReactNode }) {
  *
  * Nilai yang tidak ada di sistem (mis. kedaluwarsa produk jadi, yang
  * memang belum disimpan di mana pun) TIDAK dicetak sebagai "-", tapi
- * jadi garis kosong untuk ditulis tangan — persis seperti formulir
+ * jadi garis kosong untuk ditulis tangan, persis seperti formulir
  * label yang selama ini dipakai. "-" akan terbaca sebagai "tidak ada
  * kedaluwarsa", dan itu salah.
  */

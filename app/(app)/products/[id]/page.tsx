@@ -126,7 +126,7 @@ export default async function ProductDetailPage({
   });
 
   // ===== Formula (untuk ditampilkan) =====
-  // Urutannya dari lib/formulaOrder — sama persis dengan layar
+  // Urutannya dari lib/formulaOrder, sama persis dengan layar
   // penimbangan di eksekusi produksi dan Batch Record yang dicetak.
   const formulaRows = urutkanFormula(
     product.product_formulas.map((f) => {

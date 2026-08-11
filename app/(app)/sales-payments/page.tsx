@@ -111,7 +111,7 @@ export default async function SalesPaymentsPage({
   const todayStr = localDateStr();
   const dibayarOf = (id: string) =>
     (paysByInv.get(id) || []).reduce((s, p) => s + Number(p.jumlah), 0);
-  /** Lewat jatuh tempo — barisnya diberi latar peringatan. */
+  /** Lewat jatuh tempo, barisnya diberi latar peringatan. */
   const overdueTagihan = (inv: InvRow) =>
     inv.jatuh_tempo !== null && inv.jatuh_tempo < todayStr;
 

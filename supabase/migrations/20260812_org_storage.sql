@@ -22,7 +22,7 @@
 --
 -- Angkanya SNAPSHOT, bukan hitung-saat-dibuka. Menghitungnya perlu
 -- satu agregat per tabel; menjalankan itu tiap kali halaman Companies
--- dibuka akan membuat halamannya lambat dan sia-sia — angka
+-- dibuka akan membuat halamannya lambat dan sia-sia, angka
 -- penyimpanan tidak berubah dalam hitungan detik.
 --
 -- Kalau nanti databasenya sudah terlalu besar untuk dihitung dalam
@@ -48,7 +48,7 @@ create table if not exists organization_storage (
 alter table organization_storage enable row level security;
 
 -- Baca saja. Penulisannya HANYA lewat refresh_org_storage()
--- yang security definer — sama seperti activity_logs, angka
+-- yang security definer, sama seperti activity_logs, angka
 -- tagihan tidak boleh bisa disunting dari client.
 drop policy if exists organization_storage_select on organization_storage;
 create policy organization_storage_select on organization_storage
@@ -61,7 +61,7 @@ create policy organization_storage_select on organization_storage
 -- Hitung ulang seluruh organisasi sekaligus.
 --
 -- Sekaligus, bukan per organisasi, karena biaya terbesarnya adalah
--- memindai tabelnya — dan satu pemindaian sudah menghasilkan angka
+-- memindai tabelnya, dan satu pemindaian sudah menghasilkan angka
 -- untuk SEMUA organisasi. Menghitung per organisasi berarti memindai
 -- tabel yang sama berulang kali.
 --

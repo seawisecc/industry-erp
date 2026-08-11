@@ -321,7 +321,7 @@ export async function cancelProduction(
     //
     // Batch Hold/Rejected dilewati: hasilnya memang sengaja TIDAK pernah
     // masuk stok jual (lihat getFinishedStock), jadi mustahil ada yang
-    // terjual — kalau tetap dibandingkan, pembatalan batch yang masih
+    // terjual, kalau tetap dibandingkan, pembatalan batch yang masih
     // menunggu QA selalu ditolak dengan alasan yang keliru.
     const belumMasukStokJual =
       batch.qa_status === "Hold" || batch.qa_status === "Rejected";

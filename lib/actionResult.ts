@@ -1,7 +1,7 @@
 /* ============================================================
    Hasil server action.
 
-   PENTING — jangan melempar Error dari server action untuk pesan
+   PENTING, jangan melempar Error dari server action untuk pesan
    yang perlu dibaca user. Di build production React MENGGANTI pesan
    Error yang dilempar dari server dengan teks generik:
 
@@ -21,7 +21,7 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 /**
  * Jalankan body server action dan ubah Error yang dilempar jadi
  * hasil yang aman dibaca client. Body-nya tetap boleh pakai
- * `throw new Error("...")` seperti biasa — validasi jadi tetap
+ * `throw new Error("...")` seperti biasa, validasi jadi tetap
  * rapi dan datar, tanpa perlu dibungkus try/catch satu per satu.
  */
 export async function toResult(

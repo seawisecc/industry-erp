@@ -96,7 +96,7 @@ export default async function ConsignmentsPage({
   };
 
   // Rekap outlet harus melihat SELURUH pengiriman yang masih aktif, bukan
-  // cuma halaman yang sedang tampil — jadi diambil terpisah dari tabel.
+  // cuma halaman yang sedang tampil, jadi diambil terpisah dari tabel.
   const { data: aktif } = await supabase
     .from("consignments")
     .select(kolom)

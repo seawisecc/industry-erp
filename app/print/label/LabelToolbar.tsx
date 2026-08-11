@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
  * Bar aksi di atas label. Hilang saat dicetak (`print:hidden`).
  *
  * Label sering dibuka di tab baru dari layar penimbangan yang isinya
- * belum tersimpan, jadi tombol kembali memakai router.back() — bukan
- * link ke daftar — supaya kalau tab-nya memang tab yang sama, user
+ * belum tersimpan, jadi tombol kembali memakai router.back(), bukan
+ * link ke daftar, supaya kalau tab-nya memang tab yang sama, user
  * pulang ke tempat dia berangkat.
  */
 export default function LabelToolbar({

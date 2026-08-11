@@ -16,7 +16,7 @@ export default function TopProgress() {
   //
   // Dibandingkan saat render, bukan lewat useEffect. Effect berjalan
   // sesudah browser melukis, jadi bar sempat terlihat sekejap di atas
-  // halaman yang sudah selesai dimuat — persis kebalikan dari gunanya.
+  // halaman yang sudah selesai dimuat, persis kebalikan dari gunanya.
   const [pathTerakhir, setPathTerakhir] = useState(pathname);
   if (pathTerakhir !== pathname) {
     setPathTerakhir(pathname);

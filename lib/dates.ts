@@ -9,7 +9,7 @@
    Semua tanggal "hari ini" di sisi server WAJIB lewat localDateStr()
    supaya dihitung eksplisit di zona operasional, tidak ikut zona server.
 
-   Di komponen client ("use client") hal ini tidak berlaku — di sana
+   Di komponen client ("use client") hal ini tidak berlaku, di sana
    `new Date()` sudah memakai zona browser user, yang memang benar.
    ============================================================ */
 

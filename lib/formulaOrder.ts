@@ -4,7 +4,7 @@
    Operator menimbang per fase: semua bahan Fase A dulu sampai
    habis, baru Fase B. Di dalam satu fase, bahan dengan persentase
    terbesar ditimbang lebih dulu karena itu yang menentukan massa
-   batch — sisa kecil menyusul.
+   batch, sisa kecil menyusul.
 
    Urutan ini harus SAMA di tiga tempat: detail produk (acuan
    formula), layar penimbangan di eksekusi produksi, dan Batch

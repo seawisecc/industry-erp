@@ -26,7 +26,7 @@ export default function StorageBar({
   ringkas?: boolean;
 }) {
   const tone = toneStorage(pakai);
-  // Bar-nya berhenti di 100% walau pemakaiannya lewat — bar yang
+  // Bar-nya berhenti di 100% walau pemakaiannya lewat, bar yang
   // meluber keluar kotaknya tidak menambah informasi apa pun.
   const lebar = Math.min(100, Math.max(pakai.bytes > 0 ? 2 : 0, pakai.persen));
 

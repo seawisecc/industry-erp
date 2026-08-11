@@ -3,7 +3,7 @@
 /* ============================================================
    Tombol "Hitung Ulang" pemakaian penyimpanan.
 
-   Angkanya snapshot, jadi layar WAJIB menyebut kapan diambil —
+   Angkanya snapshot, jadi layar WAJIB menyebut kapan diambil,
    tanpa itu tidak ada yang tahu apakah 9,7 GB itu kondisi tadi pagi
    atau kondisi bulan lalu, dan angka yang dipakai menagih tidak
    boleh setengah diketahui begitu.

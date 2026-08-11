@@ -7,7 +7,7 @@
 
    Sepuluh tabel terbesarnya ikut ditampilkan, dan itu bukan hiasan:
    yang membengkak hampir selalu `activity_logs` (satu baris per item
-   yang diimpor CSV — lihat Known Issue di CLAUDE.md). Tanpa rincian
+   yang diimpor CSV, lihat Known Issue di CLAUDE.md). Tanpa rincian
    ini, client cuma tahu "penuh" tanpa tahu apa yang memenuhinya.
    ============================================================ */
 
@@ -36,7 +36,7 @@ export default function StorageCard({
       <p className="text-muted text-[12.5px] mt-0.5 mb-4">
         Kuota {pakai.quotaGb.toLocaleString("id-ID")} GB. Pemakaian di atas
         kuota tidak menghentikan transaksi apa pun, tapi menimbulkan biaya
-        tambahan — hubungi Seawise Studio kalau butuh kuota lebih besar.
+        tambahan. Hubungi Seawise Studio kalau butuh kuota lebih besar.
       </p>
 
       <div className="max-w-md">

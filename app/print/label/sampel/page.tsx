@@ -1,5 +1,5 @@
 /* ============================================================
-   Label "Sampel Telah Diambil" — ditempel di wadah induk yang
+   Label "Sampel Telah Diambil", ditempel di wadah induk yang
    sampelnya baru saja diambil QC.
 
    Isinya lewat query string, alasan yang sama persis dengan label
@@ -9,7 +9,7 @@
    lembar setengah jadi cuma untuk mencetak label.
 
    Label ini menjawab satu pertanyaan yang selalu muncul di gudang:
-   "drum ini kenapa sudah terbuka segelnya?" — jawabannya tercetak
+   "drum ini kenapa sudah terbuka segelnya?" Jawabannya tercetak
    di badannya, lengkap dengan siapa yang mengambil dan kapan.
    ============================================================ */
 
@@ -105,7 +105,7 @@ export default async function PrintSampleLabelPage({
             />
             <Field label="Jam Cetak" value={jamFmt.format(dicetak)} />
           </FieldPair>
-          {/* Tanggal uji sering belum diisi saat sampel baru diambil —
+          {/* Tanggal uji sering belum diisi saat sampel baru diambil,
               kalau kosong, barisnya jadi garis untuk ditulis tangan. */}
           <Field
             label="Rencana Tanggal Uji"

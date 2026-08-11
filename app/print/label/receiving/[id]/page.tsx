@@ -5,7 +5,7 @@
    labelnya sendiri. Mencetaknya satu per satu dari layar detail
    berarti belasan kali bolak-balik, jadi halaman ini merangkai
    semuanya sebagai halaman-halaman terpisah dalam satu perintah
-   cetak — printer thermal memotong di antara tiap label.
+   cetak, printer thermal memotong di antara tiap label.
    ============================================================ */
 
 import { createClient } from "@/lib/supabase/server";

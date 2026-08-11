@@ -1,5 +1,5 @@
 /* ============================================================
-   Aksi per baris tabel — icon button, bukan tombol teks.
+   Aksi per baris tabel, icon button, bukan tombol teks.
 
    Kenapa ikon: kolom aksi dulu berisi "Edit / Cetak / Detail /
    Batal" sebagai teks. Di tabel dengan 8 kolom itu memakan lebar
@@ -84,7 +84,7 @@ export function ActionTip({
 /**
  * Satu tombol aksi berbentuk ikon.
  *
- * `label` wajib — jadi aria-label sekaligus tooltip. Beri `href`
+ * `label` wajib, jadi aria-label sekaligus tooltip. Beri `href`
  * untuk navigasi, atau biarkan kosong + `disabled` untuk aksi yang
  * sedang tidak tersedia (mis. PO yang sudah diterima tidak bisa
  * dibatalkan) sehingga posisinya tetap konsisten antar baris.
@@ -102,7 +102,7 @@ export function IconAction({
   label: string;
   href?: string;
   tone?: ActionTone;
-  /** buka di tab baru — dipakai untuk halaman cetak */
+  /** buka di tab baru, dipakai untuk halaman cetak */
   external?: boolean;
   disabled?: boolean;
   size?: number;

@@ -5,7 +5,7 @@
    supabase/migrations/20260806_activity_logs.sql), jadi isinya nama
    kolom apa adanya: `status_bayar`, `qa_status`, `can_cancel`. Yang
    membaca log adalah auditor dan pemilik pabrik, bukan yang menulis
-   skemanya — penerjemahannya di sini.
+   skemanya, penerjemahannya di sini.
 
    File ini murni pemetaan, tidak menyentuh database. Tidak ada helper
    "catat aktivitas" untuk dipanggil dari server action, dan itu
@@ -17,7 +17,7 @@ import { MODULES } from "./modules";
 
 export type AktivitasAksi = "Buat" | "Ubah" | "Hapus";
 
-/** {kolom: {dari, ke}} — bentuk kolom `perubahan` di activity_logs. */
+/** {kolom: {dari, ke}}, bentuk kolom `perubahan` di activity_logs. */
 export type Perubahan = Record<string, { dari: unknown; ke: unknown }>;
 
 const MODUL_LABEL = new Map<string, string>(MODULES.map((m) => [m.key, m.label]));

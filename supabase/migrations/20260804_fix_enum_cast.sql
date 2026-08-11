@@ -1,5 +1,5 @@
 -- ============================================================
--- PATCH 20260804 — cast enum pada penulisan kolom status
+-- PATCH 20260804, cast enum pada penulisan kolom status
 --
 -- Gejala yang diperbaiki:
 --   ERROR: column "status" is of type po_status but expression is of
@@ -18,7 +18,7 @@
 
 
 -- ------------------------------------------------------------
--- 1. create_receiving_tx — status PO di akhir penerimaan.
+-- 1. create_receiving_tx, status PO di akhir penerimaan.
 --    PENYEBAB ERROR YANG DILAPORKAN.
 -- ------------------------------------------------------------
 create or replace function public.create_receiving_tx(
@@ -80,7 +80,7 @@ begin
   from jsonb_array_elements(p_items) x;
 
   -- Validasi sisa PO sambil mengunci barisnya. Qty dijumlahkan per baris PO
-  -- dulu — kalau satu po_item muncul dua kali, pengecekannya harus melihat
+  -- dulu, kalau satu po_item muncul dua kali, pengecekannya harus melihat
   -- total, bukan masing-masing.
   for v_it in
     select (x->>'po_item_id')::uuid as po_item_id,
@@ -165,7 +165,7 @@ begin
 
   -- Cast wajib. Literal telanjang (`set status = 'Selesai'`) otomatis
   -- dipaksa ke tipe kolom, tapi CASE yang seluruh cabangnya literal
-  -- tanpa tipe akan diselesaikan jadi `text` dulu — dan text→enum tidak
+  -- tanpa tipe akan diselesaikan jadi `text` dulu, dan text→enum tidak
   -- punya assignment cast, jadi Postgres menolak dengan
   -- "column status is of type po_status but expression is of type text".
   update purchase_orders
@@ -178,7 +178,7 @@ $$;
 
 
 -- ------------------------------------------------------------
--- 2. recompute_invoice_status — status bayar invoice.
+-- 2. recompute_invoice_status, status bayar invoice.
 --    Belum pernah error, tapi polanya persis sama. Dikeraskan lewat
 --    variabel %TYPE supaya benar baik kolomnya text maupun enum.
 -- ------------------------------------------------------------
@@ -196,7 +196,7 @@ declare
   -- %TYPE, bukan nama tipe yang di-hardcode. Sama seperti status PO,
   -- CASE yang seluruh cabangnya literal jadi `text` dan ditolak kalau
   -- kolomnya enum. Lewat variabel bertipe kolom, assignment-nya pakai
-  -- konversi I/O plpgsql sehingga benar baik kolomnya text maupun enum —
+  -- konversi I/O plpgsql sehingga benar baik kolomnya text maupun enum,
   -- termasuk kalau nanti diubah jadi enum.
   v_status  sales_invoices.status_bayar%type;
 begin
