@@ -482,6 +482,40 @@ server. Jangan menambahkannya ke file yang sudah menyentuh database.
 `import type { … }` dari file server tetap aman: tipe dihapus saat
 kompilasi.
 
+# Hak akses modul: jangan pernah menuju halaman tetap
+
+Hak akses per user disimpan di `profiles.allowed_modules`, dan
+`lib/modules.ts` yang menerjemahkannya. Satu hal yang gampang dilupakan
+dan sudah sekali menghasilkan jebakan: **Dashboard adalah modul biasa
+yang bisa TIDAK diberikan.** Dia kebetulan yang pertama di daftar, bukan
+halaman istimewa.
+
+Karena itu **tidak boleh ada kode yang mengarahkan orang ke
+`/dashboard`**, baik sesudah login, sebagai tombol "kembali", maupun
+sebagai tujuan darurat. Yang benar `/` , dan `app/page.tsx` yang
+menghitung tujuannya di server lewat `landingPath()`: modul pertama yang
+boleh dibuka user itu menurut urutan `MODULES`.
+
+Pelanggarannya menghasilkan kebuntuan, bukan sekadar layar jelek. Petugas
+QC yang tidak punya akses dashboard dilempar ke sana sesudah login, kena
+layar "Tidak Punya Akses", lalu menekan tombol yang mengarah balik ke
+`/dashboard` dan kembali ke layar yang sama. Di HP sidebar sembunyi di
+balik hamburger, jadi dia benar-benar terjebak.
+
+Aturan turunannya:
+
+- **Komponen klien tidak tahu hak akses siapa pun.** `error.tsx`,
+  `AccessGuard`, halaman login: kalau butuh mengirim orang "pulang",
+  kirim ke `/` dan biarkan server yang memutuskan.
+- **`/notifications` adalah jaring pengaman, jaga tetap begitu.** Dia
+  sengaja TIDAK terdaftar di `MODULES`, sehingga `canAccessModule`
+  selalu meloloskannya dan setiap orang yang berhasil login pasti punya
+  minimal satu halaman yang bisa dibuka. Menambahkannya ke `MODULES`
+  akan membuat akun tanpa modul terkunci di luar tanpa jalan keluar.
+- **Menambah modul baru cukup di `MODULES`.** Sidebar, penjaga akses,
+  checklist di form Pengguna, dan perhitungan pendaratan semuanya
+  membaca daftar yang sama.
+
 # Known issue
 
 **Sidebar berkedip lebar → sempit saat muat pertama.** Preferensi minimize
