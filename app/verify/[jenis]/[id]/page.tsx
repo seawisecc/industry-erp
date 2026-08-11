@@ -22,7 +22,8 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
-import { JUDUL_DOKUMEN, bacaQrSign } from "@/lib/qrSign";
+import { JUDUL_DOKUMEN } from "@/lib/qrSign";
+import { bacaQrDoc, pengesahQr, type SignSlot } from "@/lib/docSign";
 import { ambilRingkasan, isDocType, sidikDokumen } from "@/lib/qrSignServer";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +54,13 @@ export default async function VerifyPage({
   const admin = createAdminClient();
   const ringkas = await ambilRingkasan(admin, jenis, id);
 
-  const [{ data: org }, { data: setting }] = ringkas
+  // Pengesahnya dibaca dari pengaturan JENIS DOKUMEN ini, sumber yang
+  // sama dengan yang dipakai halaman cetak. Lembar uji produk jadi
+  // berbagi pengaturan dengan lembar uji bahan ("qc"), sama seperti
+  // kolom tanda tangannya.
+  const kunciPengaturan = ringkas?.jenis === "qc-produk" ? "qc" : ringkas?.jenis;
+
+  const [{ data: org }, { data: signRow }] = ringkas
     ? await Promise.all([
         admin
           .from("organizations")
@@ -61,14 +68,18 @@ export default async function VerifyPage({
           .eq("id", ringkas.organizationId)
           .maybeSingle(),
         admin
-          .from("organization_settings")
-          .select("qr_sign_nama, qr_sign_jabatan, qr_sign_instansi")
+          .from("doc_sign_settings")
+          .select("slots, qr_sign")
           .eq("organization_id", ringkas.organizationId)
+          .eq("doc_type", kunciPengaturan)
           .maybeSingle(),
       ])
     : [{ data: null }, { data: null }];
 
-  const pengesah = bacaQrSign(setting);
+  const slots: SignSlot[] = Array.isArray(signRow?.slots)
+    ? (signRow.slots as SignSlot[])
+    : [];
+  const pengesah = pengesahQr(slots, bacaQrDoc(signRow?.qr_sign));
   const sidik = ringkas ? sidikDokumen(ringkas) : null;
 
   // Tiga kemungkinan, dan ketiganya harus dibedakan dengan jelas.
@@ -123,16 +134,14 @@ export default async function VerifyPage({
                 <Baris label="Nomor" nilai={ringkas.nomor} mono />
                 <Baris label="Tanggal" nilai={formatTanggal(ringkas.tanggal)} />
                 <Baris label="Diterbitkan Oleh" nilai={org?.nama || "-"} />
-                {pengesah.nama && (
+                {pengesah && (
                   <Baris
-                    label="Disahkan Oleh"
+                    label={pengesah.label.replace(/,$/, "")}
                     nilai={
                       <>
                         {pengesah.nama}
                         <span className="block text-[12px] text-muted">
-                          {[pengesah.jabatan, pengesah.instansi]
-                            .filter(Boolean)
-                            .join(" · ")}
+                          {pengesah.jabatan}
                         </span>
                       </>
                     }

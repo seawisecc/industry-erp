@@ -261,7 +261,12 @@ export default async function PrintQcProdukPage({
         </div>
 
         {/* ===== QR SIGNATURE ===== */}
-        <QrSignBlock jenis="qc-produk" id={id} organizationId={organizationId!} />
+        <QrSignBlock
+          jenis="qc-produk"
+          docType="qc"
+          id={id}
+          organizationId={organizationId!}
+        />
 
         {/* ===== TANDA TANGAN ===== */}
         {signers.length > 0 && (

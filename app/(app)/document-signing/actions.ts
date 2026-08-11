@@ -3,18 +3,22 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
-import type { DocTypeKey, SignSlot } from "@/lib/docSign";
-import { qrSignLengkap, type QrSignSettings } from "@/lib/qrSign";
+import {
+  pengesahQr,
+  type DocTypeKey,
+  type QrSignDoc,
+  type SignSlot,
+} from "@/lib/docSign";
 
 export type DocSignPayload = {
   doc_type: DocTypeKey;
   slots: SignSlot[];
+  qr_sign: QrSignDoc;
 }[];
 
 // Simpan pengaturan pengesahan semua jenis dokumen sekaligus (Admin saja)
 export async function saveDocSignSettings(
-  payload: DocSignPayload,
-  qr?: QrSignSettings
+  payload: DocSignPayload
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient();
@@ -22,6 +26,16 @@ export async function saveDocSignSettings(
     if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
     if (!isSuperAdmin && profile?.role !== "Admin")
       throw new Error("Hanya Admin yang bisa mengubah pengaturan ini");
+
+    // Aturan yang sama dengan di form, ditegakkan lagi di sini: form bisa
+    // dilewati, server action tidak. QR yang menunjuk pengesah kosong akan
+    // menerbitkan dokumen yang tampak sah tanpa ada yang bertanggung jawab.
+    for (const p of payload) {
+      if (p.qr_sign?.aktif && !pengesahQr(p.slots, p.qr_sign))
+        throw new Error(
+          "Pengesah QR harus kolom tanda tangan yang aktif dan lengkap nama serta jabatannya."
+        );
+    }
 
     const { error } = await supabase.from("doc_sign_settings").upsert(
       payload.map((p) => ({
@@ -34,33 +48,11 @@ export async function saveDocSignSettings(
           jabatan: s.jabatan.trim(),
           aktif: s.aktif,
         })),
+        qr_sign: { aktif: p.qr_sign?.aktif === true, slot: p.qr_sign?.slot },
       })),
       { onConflict: "organization_id,doc_type" }
     );
     if (error) throw new Error(error.message);
-
-    if (qr) {
-      // Aturan yang sama dengan di form, ditegakkan lagi di sini: form
-      // bisa dilewati, server action tidak.
-      if (qr.aktif && !qrSignLengkap(qr))
-        throw new Error(
-          "Nama & jabatan pengesah wajib diisi sebelum QR Signature bisa diaktifkan."
-        );
-
-      const { error: qrError } = await supabase
-        .from("organization_settings")
-        .upsert(
-          {
-            organization_id: organizationId,
-            qr_sign_aktif: qr.aktif,
-            qr_sign_nama: qr.nama.trim() || null,
-            qr_sign_jabatan: qr.jabatan.trim() || null,
-            qr_sign_instansi: qr.instansi.trim() || null,
-          },
-          { onConflict: "organization_id" }
-        );
-      if (qrError) throw new Error(qrError.message);
-    }
 
     revalidatePath("/document-signing");
     return { ok: true };

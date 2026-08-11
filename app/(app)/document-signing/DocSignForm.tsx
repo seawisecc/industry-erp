@@ -2,30 +2,42 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DOC_TYPES, type DocTypeKey, type SignSlot } from "@/lib/docSign";
-import { qrSignLengkap, type QrSignSettings } from "@/lib/qrSign";
+import {
+  DOC_TYPES,
+  SLOT_DEFS,
+  pengesahQr,
+  type DocTypeKey,
+  type QrSignDoc,
+  type SignSlot,
+} from "@/lib/docSign";
 import { saveDocSignSettings } from "./actions";
 
 export type DocSignInitial = Record<DocTypeKey, SignSlot[]>;
+export type QrSignInitial = Record<DocTypeKey, QrSignDoc>;
 
 export default function DocSignForm({
   initial,
   qrAwal,
 }: {
   initial: DocSignInitial;
-  qrAwal: QrSignSettings;
+  qrAwal: QrSignInitial;
 }) {
   const router = useRouter();
   const [data, setData] = useState<DocSignInitial>(initial);
-  const [qr, setQr] = useState<QrSignSettings>(qrAwal);
+  const [qr, setQr] = useState<QrSignInitial>(qrAwal);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-  function setQrField(patch: Partial<QrSignSettings>) {
+  function setQrDoc(docType: DocTypeKey, patch: Partial<QrSignDoc>) {
     setSaved(false);
-    setQr((q) => ({ ...q, ...patch }));
+    setQr((q) => ({ ...q, [docType]: { ...q[docType], ...patch } }));
   }
+
+  /** Dokumen yang QR-nya dinyalakan tapi pengesahnya belum sah. */
+  const qrBermasalah = DOC_TYPES.filter(
+    (d) => qr[d.key].aktif && !pengesahQr(data[d.key], qr[d.key])
+  );
 
   function setSlot(
     docType: DocTypeKey,
@@ -43,11 +55,13 @@ export default function DocSignForm({
     e.preventDefault();
     if (loading) return;
     // Dicek di sini DAN di server. Yang di sini supaya user langsung
-    // tahu field mana yang kurang; yang di server supaya aturannya tetap
-    // berlaku walau form-nya dilewati.
-    if (qr.aktif && !qrSignLengkap(qr)) {
+    // tahu dokumen mana yang belum beres; yang di server supaya
+    // aturannya tetap berlaku walau form-nya dilewati.
+    if (qrBermasalah.length > 0) {
       setError(
-        "Nama & jabatan pengesah wajib diisi sebelum QR Signature bisa diaktifkan."
+        `Pengesah QR belum sah di: ${qrBermasalah
+          .map((d) => d.label)
+          .join(", ")}. Kolom yang dipilih harus dicentang dan nama & jabatannya terisi.`
       );
       return;
     }
@@ -56,8 +70,11 @@ export default function DocSignForm({
     setSaved(false);
     try {
       const result = await saveDocSignSettings(
-        DOC_TYPES.map((d) => ({ doc_type: d.key, slots: data[d.key] })),
-        qr
+        DOC_TYPES.map((d) => ({
+          doc_type: d.key,
+          slots: data[d.key],
+          qr_sign: qr[d.key],
+        }))
       );
       if (result.ok) {
         setSaved(true);
@@ -81,6 +98,8 @@ export default function DocSignForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {DOC_TYPES.map((doc) => {
         const aktifCount = data[doc.key].filter((s) => s.aktif).length;
+        const qrDoc = qr[doc.key];
+        const pengesah = pengesahQr(data[doc.key], qrDoc);
         return (
           <div key={doc.key} className="glass rounded-2xl p-6 flex flex-col gap-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -89,14 +108,18 @@ export default function DocSignForm({
               </h3>
               <span
                 className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                  aktifCount > 0
+                  pengesah
                     ? "bg-botanical-100 text-botanical-700"
-                    : "bg-clay-100 text-clay-600"
+                    : aktifCount > 0
+                      ? "bg-botanical-100 text-botanical-700"
+                      : "bg-clay-100 text-clay-600"
                 }`}
               >
-                {aktifCount > 0
-                  ? `${aktifCount} kolom tanda tangan`
-                  : "Tanpa tanda tangan"}
+                {pengesah
+                  ? `QR · ${pengesah.nama}`
+                  : aktifCount > 0
+                    ? `${aktifCount} kolom tanda tangan`
+                    : "Tanpa tanda tangan"}
               </span>
               {doc.key === "qa" && (
                 <span className="w-full text-[11.5px] text-muted">
@@ -152,83 +175,90 @@ export default function DocSignForm({
                 />
               </div>
             ))}
+
+            {/* ===== QR Signature dokumen ini ===== */}
+            <div className="border-t border-line pt-3 mt-1 flex flex-col gap-2.5">
+              <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={qrDoc.aktif}
+                  onChange={(e) =>
+                    setQrDoc(doc.key, { aktif: e.target.checked })
+                  }
+                  className="accent-[#2f4f3e] w-4 h-4 mt-0.5"
+                />
+                <span>
+                  <span className="text-[13px] font-medium text-ink">
+                    Sahkan dengan QR Signature
+                  </span>
+                  <span className="block text-[11.5px] text-muted">
+                    Kolom tanda tangan di atas tidak ikut tercetak, diganti
+                    kotak QR yang bisa dipindai siapa pun untuk memastikan
+                    dokumen ini benar terbit dari sistem.
+                  </span>
+                </span>
+              </label>
+
+              {qrDoc.aktif && (
+                <div className="pl-6 flex flex-col gap-2">
+                  <span className="text-[12px] text-muted">
+                    Yang mengesahkan:
+                  </span>
+                  <div className="flex flex-wrap gap-x-5 gap-y-2">
+                    {SLOT_DEFS.map((def) => {
+                      const s2 = data[doc.key].find((x) => x.key === def.key);
+                      // Slot yang dimatikan atau belum lengkap tidak boleh
+                      // dipilih — QR yang menunjuk pengesah kosong membuat
+                      // dokumen tampak sah tanpa ada yang bertanggung jawab.
+                      const bisa =
+                        !!s2 && s2.aktif && !!s2.nama.trim() && !!s2.jabatan.trim();
+                      return (
+                        <label
+                          key={def.key}
+                          className={`flex items-center gap-1.5 select-none ${
+                            bisa ? "cursor-pointer" : "opacity-45"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`qr-slot-${doc.key}`}
+                            checked={qrDoc.slot === def.key}
+                            disabled={!bisa}
+                            onChange={() => setQrDoc(doc.key, { slot: def.key })}
+                            className="accent-[#2f4f3e] w-4 h-4"
+                          />
+                          <span className="text-[12.5px]">
+                            {def.label.replace(",", "")}
+                            {s2?.nama ? (
+                              <span className="text-muted"> · {s2.nama}</span>
+                            ) : (
+                              <span className="text-muted"> · belum diisi</span>
+                            )}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {!pengesah && (
+                    <p className="text-clay-600 text-[12px]">
+                      Pilih kolom yang sudah dicentang dan lengkap nama serta
+                      jabatannya.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         );
       })}
 
-      {/* ===== QR SIGNATURE ===== */}
-      <div className="glass rounded-2xl p-6 flex flex-col gap-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <h3 className="font-display text-[15px] font-semibold text-ink">
-            QR Signature
-          </h3>
-          <span
-            className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
-              qr.aktif
-                ? "bg-botanical-100 text-botanical-700"
-                : "bg-clay-100 text-clay-600"
-            }`}
-          >
-            {qr.aktif ? "Aktif" : "Nonaktif"}
-          </span>
-          <span className="w-full text-[11.5px] text-muted">
-            Menambahkan kotak QR di kaki semua dokumen cetak. Siapa pun yang
-            memindainya bisa memastikan dokumen itu benar terbit dari sistem,
-            tanpa perlu login dan tanpa melihat isi dokumennya.
-          </span>
-        </div>
-
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={qr.aktif}
-            onChange={(e) => setQrField({ aktif: e.target.checked })}
-            className="accent-[#2f4f3e] w-4 h-4"
-          />
-          <span className="text-[13px] font-medium text-ink">
-            Cetak QR Signature di dokumen
-          </span>
-        </label>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <input
-            value={qr.nama}
-            onChange={(e) => setQrField({ nama: e.target.value })}
-            disabled={!qr.aktif}
-            placeholder="Nama pengesah"
-            className={inputCls}
-          />
-          <input
-            value={qr.jabatan}
-            onChange={(e) => setQrField({ jabatan: e.target.value })}
-            disabled={!qr.aktif}
-            placeholder="Jabatan"
-            className={inputCls}
-          />
-          <input
-            value={qr.instansi}
-            onChange={(e) => setQrField({ instansi: e.target.value })}
-            disabled={!qr.aktif}
-            placeholder="Instansi / divisi (opsional)"
-            className={inputCls}
-          />
-        </div>
-
-        {qr.aktif && !qrSignLengkap(qr) && (
-          <p className="text-clay-600 text-[12px]">
-            Nama & jabatan wajib diisi. QR yang menunjuk ke pengesah kosong
-            membuat dokumen tampak sah tanpa ada yang bertanggung jawab.
-          </p>
-        )}
-
-        <p className="text-[11.5px] text-muted">
-          Ini <b>bukan</b> tanda tangan elektronik tersertifikasi: tidak ada
-          PSrE dan tidak punya kekuatan hukum setara e-Meterai. Gunanya
-          validasi internal — memastikan selembar kertas benar keluar dari
-          sistem ini, bukan diketik ulang orang lain. Keterangan
-          &ldquo;Non-Certified&rdquo; ikut tercetak di dokumennya.
-        </p>
-      </div>
+      <p className="text-[11.5px] text-muted -mt-1">
+        QR Signature ini <b>non-certified</b>: tidak ada PSrE dan tidak punya
+        kekuatan hukum setara e-Meterai. Gunanya validasi internal, memastikan
+        selembar kertas benar keluar dari sistem ini dan bukan diketik ulang
+        orang lain. Keterangan itu ikut tercetak di dokumennya.
+      </p>
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}
       {saved && (

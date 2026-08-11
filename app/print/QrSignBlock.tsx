@@ -1,49 +1,59 @@
 /* ============================================================
    Blok QR Signature di kaki dokumen cetak A4.
 
-   Komponennya mengambil pengaturan DAN identitas dokumennya sendiri,
-   lalu mengembalikan null kalau fiturnya mati atau data pengesahnya
-   belum lengkap. Itu disengaja: tujuh halaman cetak memakainya, dan
-   kalau tiap halaman harus ikut mengambil pengaturan lalu memutuskan
-   sendiri kapan menampilkan, cepat atau lambat ada satu halaman yang
-   lupa memeriksa lalu mencetak QR atas nama pengesah kosong.
+   Pengesahnya PER JENIS DOKUMEN dan diambil dari kolom tanda tangan
+   dokumen itu sendiri: PO disahkan COO, Batch Record diketahui Kepala
+   QA, lembar uji oleh Kepala QC. Yang dipilih di pengaturan cuma
+   SLOT-nya ("Disetujui oleh"), namanya ikut yang sudah terisi di slot
+   itu — jadi QR tidak mungkin menyebut nama yang berbeda dari kolom
+   tanda tangan dokumen yang sama.
+
+   Komponennya memutuskan sendiri kapan menampilkan diri dan
+   mengembalikan null kalau pengesahnya tidak sah (slot dimatikan atau
+   namanya belum lengkap). Delapan halaman cetak memakainya, dan kalau
+   tiap halaman harus memeriksa sendiri, cepat atau lambat ada satu
+   yang lupa lalu mencetak QR atas nama pengesah kosong.
 
    Nomor & tanggalnya juga TIDAK diterima sebagai prop, melainkan
    dibaca lewat ambilRingkasan() — sumber yang sama persis dengan
    halaman verifikasi. Prop akan membuka peluang halaman cetak
    mengirim nomor yang sedikit berbeda, dan sidik yang beda satu
    karakter pun membuat dokumennya tampak palsu saat dipindai.
-
-   Dua query kecil per halaman cetak adalah harga yang murah untuk
-   jaminan itu.
    ============================================================ */
 
 import { createClient } from "@/lib/supabase/server";
-import { bacaQrSign, qrSignLengkap, type VerifyKey } from "@/lib/qrSign";
+import { getDocSignConfig } from "@/lib/docSignServer";
+import type { DocTypeKey } from "@/lib/docSign";
+import { type VerifyKey } from "@/lib/qrSign";
 import { ambilRingkasan, siapkanQrSign } from "@/lib/qrSignServer";
 
 export default async function QrSignBlock({
   jenis,
   id,
   organizationId,
+  docType,
 }: {
+  /** Menentukan URL & sidik verifikasi */
   jenis: VerifyKey;
   id: string;
   organizationId: string;
+  /**
+   * Menentukan dari pengaturan mana pengesahnya dibaca. Default sama
+   * dengan `jenis`; dikirim terpisah hanya oleh lembar uji produk jadi,
+   * yang berbagi pengaturan tanda tangan dengan lembar uji bahan ("qc")
+   * tapi harus punya sidik verifikasi sendiri.
+   */
+  docType?: DocTypeKey;
 }) {
   const supabase = await createClient();
+  const kunciPengaturan = (docType ?? jenis) as DocTypeKey;
 
-  const [{ data: setting }, ringkas] = await Promise.all([
-    supabase
-      .from("organization_settings")
-      .select("qr_sign_aktif, qr_sign_nama, qr_sign_jabatan, qr_sign_instansi")
-      .eq("organization_id", organizationId)
-      .maybeSingle(),
+  const [cfg, ringkas] = await Promise.all([
+    getDocSignConfig(organizationId, kunciPengaturan),
     ambilRingkasan(supabase, jenis, id),
   ]);
 
-  const s = bacaQrSign(setting);
-  if (!s.aktif || !qrSignLengkap(s) || !ringkas) return null;
+  if (!cfg.pengesah || !ringkas) return null;
 
   const { url, svg, sidik } = await siapkanQrSign(ringkas);
 
@@ -61,9 +71,16 @@ export default async function QrSignBlock({
           <div className="font-bold text-[10.5px] uppercase tracking-wide">
             Disahkan Secara Elektronik
           </div>
-          <div className="mt-1 text-[11.5px] font-semibold">{s.nama}</div>
-          <div className="text-neutral-600">{s.jabatan}</div>
-          {s.instansi && <div className="text-neutral-600">{s.instansi}</div>}
+          {/* Label slotnya ikut tercetak ("Disetujui oleh,") supaya
+              peran pengesahnya tidak hilang saat kolom manualnya
+              digantikan QR ini. */}
+          <div className="text-neutral-600 mt-0.5">
+            {cfg.pengesah.label.replace(/,$/, "")}
+          </div>
+          <div className="mt-1 text-[11.5px] font-semibold">
+            {cfg.pengesah.nama}
+          </div>
+          <div className="text-neutral-600">{cfg.pengesah.jabatan}</div>
           <div className="mt-1.5">
             <span className="text-neutral-500">Sidik dokumen: </span>
             <span className="font-mono font-semibold tracking-wide">{sidik}</span>

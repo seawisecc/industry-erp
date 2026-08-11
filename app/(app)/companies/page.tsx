@@ -147,6 +147,10 @@ export default async function CompaniesPage({
       </p>
 
       <div className="mt-4">
+        <StorageRefresh dihitungPada={dihitungPada} paksa />
+      </div>
+
+      <div className="mt-4">
         <TableToolbar
           placeholder="Cari nama company / admin..."
           info={info}

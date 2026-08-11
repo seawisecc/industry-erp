@@ -1,9 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import SettingsShell from "@/components/SettingsShell";
-import { DOC_TYPES, defaultSlots, type DocTypeKey, type SignSlot } from "@/lib/docSign";
-import DocSignForm, { DocSignInitial } from "./DocSignForm";
-import { bacaQrSign } from "@/lib/qrSign";
+import {
+  DOC_TYPES,
+  bacaQrDoc,
+  defaultSlots,
+  type DocTypeKey,
+  type SignSlot,
+} from "@/lib/docSign";
+import DocSignForm, { DocSignInitial, QrSignInitial } from "./DocSignForm";
 
 export default async function DocumentSigningPage() {
   const supabase = await createClient();
@@ -12,29 +17,36 @@ export default async function DocumentSigningPage() {
   const [{ data: rows }, { data: legacy }] = await Promise.all([
     supabase
       .from("doc_sign_settings")
-      .select("doc_type, slots")
+      .select("doc_type, slots, qr_sign")
       .eq("organization_id", organizationId),
     supabase
       .from("organization_settings")
       .select(
-        "sign_dibuat_nama, sign_dibuat_jabatan, sign_disetujui_nama, sign_disetujui_jabatan, sign_mengetahui_nama, sign_mengetahui_jabatan, qr_sign_aktif, qr_sign_nama, qr_sign_jabatan, qr_sign_instansi"
+        "sign_dibuat_nama, sign_dibuat_jabatan, sign_disetujui_nama, sign_disetujui_jabatan, sign_mengetahui_nama, sign_mengetahui_jabatan"
       )
       .eq("organization_id", organizationId)
       .maybeSingle(),
   ]);
 
   const saved = new Map(
-    ((rows || []) as { doc_type: string; slots: SignSlot[] }[]).map((r) => [
-      r.doc_type,
-      r.slots,
-    ])
+    (
+      (rows || []) as {
+        doc_type: string;
+        slots: SignSlot[];
+        qr_sign: unknown;
+      }[]
+    ).map((r) => [r.doc_type, r])
   );
 
   const initial = {} as DocSignInitial;
+  const qrAwal = {} as QrSignInitial;
   for (const d of DOC_TYPES) {
-    const s = saved.get(d.key);
+    const row = saved.get(d.key);
     initial[d.key as DocTypeKey] =
-      s && Array.isArray(s) && s.length > 0 ? s : defaultSlots(legacy);
+      row?.slots && Array.isArray(row.slots) && row.slots.length > 0
+        ? row.slots
+        : defaultSlots(legacy);
+    qrAwal[d.key as DocTypeKey] = bacaQrDoc(row?.qr_sign);
   }
 
   return (
@@ -51,7 +63,7 @@ export default async function DocumentSigningPage() {
       </div>
 
       <div className="mt-4">
-        <DocSignForm initial={initial} qrAwal={bacaQrSign(legacy)} />
+        <DocSignForm initial={initial} qrAwal={qrAwal} />
       </div>
     </SettingsShell>
   );

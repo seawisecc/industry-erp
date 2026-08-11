@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
 import type { SignSlot } from "@/lib/docSign";
+import { getDocSignConfig } from "@/lib/docSignServer";
 import PrintButton from "../../po/[id]/PrintButton";
 import QrSignBlock from "../../QrSignBlock";
 
@@ -99,15 +100,16 @@ export default async function PrintInvoicePage({
 
   // Kolom tanda tangan: pakai pengaturan Document Signing bila sudah diatur,
   // kalau belum tetap tampil "Regards," seperti template asli.
-  const { data: signRow } = await supabase
-    .from("doc_sign_settings")
-    .select("slots")
-    .eq("organization_id", organizationId)
-    .eq("doc_type", "invoice")
-    .maybeSingle();
-  const invoiceSigners: SignSlot[] = Array.isArray(signRow?.slots)
-    ? (signRow!.slots as SignSlot[]).filter((s) => s.aktif)
-    : [];
+  //
+  // Invoice satu-satunya dokumen yang punya fallback itu, dan karena itu
+  // dia TIDAK boleh cuma mengandalkan daftar penandatangan yang kosong
+  // untuk menyembunyikan kolomnya: kosong di sini justru memunculkan
+  // "Regards,". Jadi keaktifan QR-nya diperiksa terpisah.
+  const signCfg = await getDocSignConfig(organizationId!, "invoice");
+  const pakaiQr = signCfg.pengesah !== null;
+  const invoiceSigners: SignSlot[] = pakaiQr
+    ? []
+    : signCfg.slots.filter((s) => s.aktif);
 
   return (
     <div className="min-h-screen py-4 sm:py-8 print:py-0">
@@ -305,7 +307,7 @@ export default async function PrintInvoicePage({
         <QrSignBlock jenis="invoice" id={id} organizationId={organizationId!} />
 
         {/* ===== TANDA TANGAN ===== */}
-          {invoiceSigners.length > 0 ? (
+          {pakaiQr ? null : invoiceSigners.length > 0 ? (
             <div
               className="mt-8 mb-2 grid gap-6 text-center text-[11.5px]"
               style={{

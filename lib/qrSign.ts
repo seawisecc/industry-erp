@@ -16,6 +16,10 @@
    kunci privat milik perorangan. Kalimat "Non-Certified" wajib ikut
    tercetak di dokumennya — pengesahan yang mengaku lebih dari
    kemampuannya lebih berbahaya daripada tidak ada pengesahan.
+
+   Siapa pengesah tiap dokumen TIDAK ada di sini, melainkan di
+   lib/docSign.ts (`QrSignDoc`, `pengesahQr`): dia menunjuk salah satu
+   kolom tanda tangan dokumen itu sendiri, bukan identitas terpisah.
    ============================================================ */
 
 import type { DocTypeKey } from "@/lib/docSign";
@@ -31,50 +35,6 @@ import type { DocTypeKey } from "@/lib/docSign";
  * menyebut lembar uji sebagai sertifikat analisa.
  */
 export type VerifyKey = DocTypeKey | "qc-produk";
-
-export type QrSignSettings = {
-  aktif: boolean;
-  nama: string;
-  jabatan: string;
-  instansi: string;
-};
-
-export const QR_SIGN_KOSONG: QrSignSettings = {
-  aktif: false,
-  nama: "",
-  jabatan: "",
-  instansi: "",
-};
-
-/** Bentuk baris organization_settings yang dipakai fitur ini. */
-export type QrSignRow = {
-  qr_sign_aktif?: boolean | null;
-  qr_sign_nama?: string | null;
-  qr_sign_jabatan?: string | null;
-  qr_sign_instansi?: string | null;
-} | null;
-
-export function bacaQrSign(row: QrSignRow): QrSignSettings {
-  return {
-    aktif: row?.qr_sign_aktif === true,
-    nama: row?.qr_sign_nama || "",
-    jabatan: row?.qr_sign_jabatan || "",
-    instansi: row?.qr_sign_instansi || "",
-  };
-}
-
-/**
- * Boleh dinyalakan?
- *
- * Pengesah tanpa nama & jabatan menghasilkan QR yang menunjuk ke
- * halaman verifikasi bertuliskan "disahkan oleh (kosong)" — itu
- * lebih buruk daripada dokumen tanpa QR sama sekali, karena
- * tampak sah tanpa ada yang bertanggung jawab. Karena itu
- * validasinya keras, bukan peringatan.
- */
-export function qrSignLengkap(s: QrSignSettings): boolean {
-  return s.nama.trim().length > 0 && s.jabatan.trim().length > 0;
-}
 
 /** Nama dokumen yang tampil di halaman verifikasi. */
 export const JUDUL_DOKUMEN: Record<VerifyKey, string> = {

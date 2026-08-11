@@ -1,25 +1,38 @@
 import { createClient } from "@/lib/supabase/server";
 import {
+  bacaQrDoc,
   defaultSlots,
+  pengesahQr,
   type DocTypeKey,
+  type QrSignDoc,
   type SignSlot,
   type LegacySettings,
 } from "@/lib/docSign";
 
+export type DocSignConfig = {
+  /** Seluruh slot apa adanya, termasuk yang dimatikan */
+  slots: SignSlot[];
+  qr: QrSignDoc;
+  /** Slot yang sah mengesahkan lewat QR, atau null */
+  pengesah: SignSlot | null;
+};
+
 /**
- * Slot tanda tangan AKTIF untuk satu jenis dokumen, dipakai halaman cetak.
- * Kalau belum pernah diatur, fallback ke 3 key person lama (semua aktif).
+ * Pengaturan pengesahan satu jenis dokumen.
+ *
+ * Kalau belum pernah diatur, fallback ke 3 key person lama dari
+ * organization_settings (semuanya aktif).
  */
-export async function getDocSigners(
+export async function getDocSignConfig(
   organizationId: string,
   docType: DocTypeKey
-): Promise<SignSlot[]> {
+): Promise<DocSignConfig> {
   const supabase = await createClient();
 
   const [{ data: row }, { data: legacy }] = await Promise.all([
     supabase
       .from("doc_sign_settings")
-      .select("slots")
+      .select("slots, qr_sign")
       .eq("organization_id", organizationId)
       .eq("doc_type", docType)
       .maybeSingle(),
@@ -37,5 +50,28 @@ export async function getDocSigners(
       ? (row.slots as SignSlot[])
       : defaultSlots(legacy as LegacySettings);
 
-  return slots.filter((s) => s.aktif);
+  const qr = bacaQrDoc(row?.qr_sign);
+  return { slots, qr, pengesah: pengesahQr(slots, qr) };
+}
+
+/**
+ * Kolom tanda tangan MANUAL yang harus dicetak pada dokumen ini.
+ *
+ * Kosong ketika dokumennya disahkan lewat QR, dan itu bukan efek
+ * samping melainkan aturannya: dokumen ditandatangani basah ATAU
+ * secara elektronik, tidak dua-duanya. Mencetak keduanya berarti
+ * meminta orang yang sama mengesahkan hal yang sama dua kali, dan
+ * meninggalkan ruang tanda tangan kosong di dokumen yang sebenarnya
+ * sudah sah — auditor akan menganggapnya dokumen yang belum selesai.
+ *
+ * Aturan itu ditegakkan DI SINI, bukan di tiap halaman cetak, supaya
+ * halaman cetak berikutnya tidak perlu ingat memeriksanya.
+ */
+export async function getDocSigners(
+  organizationId: string,
+  docType: DocTypeKey
+): Promise<SignSlot[]> {
+  const cfg = await getDocSignConfig(organizationId, docType);
+  if (cfg.pengesah) return [];
+  return cfg.slots.filter((s) => s.aktif);
 }
