@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 
 /* ---------- KONFIGURASI, ganti di sini saja ---------- */
-const WA_NUMBER = "628123757759"; // TODO: ganti dengan nomor WhatsApp bisnis
+const WA_NUMBER = "6281237597759"; // TODO: ganti dengan nomor WhatsApp bisnis
 const CONTACT_EMAIL = "seawise.cc@gmail.com";
 const HARGA_AKTIVASI = "Rp 25.000.000";
 const HARGA_MAINTENANCE = "Rp 9.500.000";
