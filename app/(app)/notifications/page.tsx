@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
+import { tanpaModul } from "@/lib/modules";
 import { getFeatures } from "@/lib/featuresServer";
 import { getNotifikasi, type NotifIkon, type Urgensi } from "@/lib/notifikasi";
 import {
@@ -37,6 +38,11 @@ const URGENSI_TONE: Record<Urgensi, string> = {
 
 export default async function NotificationsPage() {
   const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+  const belumPunyaModul = tanpaModul({
+    isSuperAdmin,
+    role: profile?.role || "",
+    allowedModules: profile?.allowed_modules ?? null,
+  });
   const features = await getFeatures(organizationId!);
 
   const grup = await getNotifikasi(
@@ -67,6 +73,23 @@ export default async function NotificationsPage() {
         {totalKritis > 0 ? `, ${totalKritis} di antaranya sudah mendesak` : ""}.
         Hanya modul yang bisa kamu akses yang ditampilkan.
       </p>
+
+      {/* Akun yang belum diberi modul apa pun mendarat di sini setelah
+          login, karena inilah satu-satunya halaman yang dijamin bisa
+          dibuka siapa pun. Tanpa keterangan ini dia cuma melihat layar
+          yang sepi dan tidak tahu kenapa menunya kosong. */}
+      {belumPunyaModul && (
+        <div className="glass rounded-2xl p-5 mt-5 border-l-4 border-amber-500">
+          <h2 className="font-display text-[15px] font-semibold text-ink mb-1">
+            Akunmu belum diberi akses modul
+          </h2>
+          <p className="text-muted text-[13px] leading-relaxed">
+            Kamu sudah berhasil masuk, tapi Admin perusahaan belum menentukan
+            menu mana saja yang boleh kamu buka. Hubungi Admin supaya aksesnya
+            diaktifkan. Sementara itu halaman ini tetap bisa kamu pantau.
+          </p>
+        </div>
+      )}
 
       {grup.length === 0 ? (
         <div className="glass rounded-2xl p-10 mt-6 text-center">

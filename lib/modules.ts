@@ -64,3 +64,46 @@ export function canAccessModule(p: AccessProfile, moduleKey: string): boolean {
   if (!p.allowedModules) return true;
   return p.allowedModules.includes(moduleKey);
 }
+
+/* ============================================================
+   Halaman pendaratan setelah login.
+
+   Dulu semua orang dilempar ke /dashboard, padahal dashboard adalah
+   modul biasa yang bisa TIDAK diberikan ke seseorang. Akibatnya user
+   seperti petugas QC selalu disambut layar "Tidak Punya Akses" tepat
+   setelah memasukkan password, dan tombol satu-satunya di layar itu
+   mengarah balik ke /dashboard: buntu.
+
+   Sekarang pendaratannya dihitung dari hak aksesnya sendiri, memakai
+   urutan MODULES di atas. Petugas QC mendarat di QC Incoming, kasir
+   di POS.
+
+   Akun yang belum diberi modul apa pun jatuh ke /notifications, dan
+   itu bukan pilihan asal: notifications sengaja TIDAK terdaftar di
+   MODULES, jadi canAccessModule selalu meloloskannya. Halaman itu
+   satu-satunya yang dijamin bisa dibuka siapa pun yang berhasil
+   login, sehingga tidak mungkin ada orang yang terkunci di luar.
+   ============================================================ */
+
+export const LANDING_TANPA_MODUL = "/notifications";
+
+/** Modul pertama yang boleh dibuka user ini, atau notifications. */
+export function landingPath(p: AccessProfile): string {
+  for (const m of MODULES) {
+    if (canAccessModule(p, m.key)) return `/${m.key}`;
+  }
+  return LANDING_TANPA_MODUL;
+}
+
+/** Nama halaman pendaratan, untuk teks tombol. */
+export function landingLabel(p: AccessProfile): string {
+  const path = landingPath(p);
+  if (path === LANDING_TANPA_MODUL) return "Notifications";
+  const key = path.slice(1);
+  return MODULES.find((m) => m.key === key)?.label ?? "Beranda";
+}
+
+/** true = akun ini belum diberi modul apa pun. */
+export function tanpaModul(p: AccessProfile): boolean {
+  return landingPath(p) === LANDING_TANPA_MODUL;
+}

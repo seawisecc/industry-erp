@@ -42,11 +42,15 @@ export default function AppError({
         >
           <RotateCw size={15} /> Coba Lagi
         </button>
+        {/* Tujuannya "/" bukan "/dashboard". Ini komponen error boundary
+            di sisi klien, dia tidak tahu hak akses siapa pun, dan dashboard
+            adalah modul yang bisa tidak diberikan. "/" menyerahkan
+            keputusannya ke server yang memang tahu. */}
         <Link
-          href="/dashboard"
+          href="/"
           className="inline-flex items-center justify-center border border-line text-ink text-[13.5px] font-medium px-4 py-2.5 rounded-lg hover:bg-white/50 transition-colors"
         >
-          Kembali ke Dashboard
+          Kembali ke Beranda
         </Link>
       </div>
 

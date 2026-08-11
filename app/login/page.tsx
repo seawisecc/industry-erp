@@ -88,7 +88,11 @@ export default function LoginPage() {
     }
     // Hard navigation: mengosongkan seluruh cache router dari sesi sebelumnya
     // (mencegah redirect basi/data user lama muncul setelah ganti akun).
-    window.location.assign("/dashboard");
+    //
+    // Tujuannya "/" bukan "/dashboard": halaman ini tidak tahu hak akses
+    // siapa pun, dan dashboard adalah modul yang bisa tidak diberikan.
+    // Yang menghitung pendaratannya app/page.tsx di server.
+    window.location.assign("/");
   }
 
   async function handleRegister(e: React.FormEvent) {
