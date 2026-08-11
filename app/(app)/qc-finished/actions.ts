@@ -14,6 +14,7 @@ export type QcProdukHasil = {
 
 export type QcProdukSheet = {
   jumlah_sampel: string | null;
+  tanggal_sampling: string | null;
   tanggal_uji: string | null;
   hasil: QcProdukHasil[];
   note: string | null;
@@ -71,6 +72,7 @@ export async function saveQcProduk(
       .from("production_batches")
       .update({
         qc_produk_jumlah_sampel: sheet.jumlah_sampel?.trim() || null,
+        qc_produk_tanggal_sampling: sheet.tanggal_sampling || null,
         qc_produk_tanggal_uji: sheet.tanggal_uji || null,
         qc_produk_hasil: sheet.hasil,
         qc_produk_note: sheet.note?.trim() || null,

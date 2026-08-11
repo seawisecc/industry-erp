@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
 import { getDocSigners } from "@/lib/docSignServer";
 import PrintButton from "../../po/[id]/PrintButton";
+import QrSignBlock from "../../QrSignBlock";
 
 type QcHasil = {
   nama: string;
@@ -257,6 +258,9 @@ export default async function PrintQcPage({
             )}
           </div>
         </div>
+
+        {/* ===== QR SIGNATURE ===== */}
+        <QrSignBlock jenis="qc" id={id} organizationId={organizationId!} />
 
         {/* ===== TANDA TANGAN ===== */}
         {signers.length > 0 && (

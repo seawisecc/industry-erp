@@ -14,6 +14,7 @@ type BatchRaw = {
   tanggal_produksi: string;
   qa_status: string;
   qc_produk_jumlah_sampel: string | null;
+  qc_produk_tanggal_sampling: string | null;
   qc_produk_tanggal_uji: string | null;
   qc_produk_note: string | null;
   qc_produk_selesai: boolean | null;
@@ -49,7 +50,8 @@ export default async function QaSheetPage({
     .from("production_batches")
     .select(
       `id, no_batch_produksi, tanggal_produksi, qa_status, qc_produk_jumlah_sampel,
-       qc_produk_tanggal_uji, qc_produk_note, qc_produk_selesai, qc_produk_hasil,
+       qc_produk_tanggal_sampling, qc_produk_tanggal_uji, qc_produk_note,
+       qc_produk_selesai, qc_produk_hasil,
        production_outputs(qty_hasil, satuan, varian_ukuran,
          products(id, kode, nama_produk, brand, qa_spec))`
     )
@@ -102,12 +104,14 @@ export default async function QaSheetPage({
       satuan: o.satuan,
     })),
     jumlahSampel: batch.qc_produk_jumlah_sampel,
+    tanggalSampling: batch.qc_produk_tanggal_sampling,
     tanggalUji: batch.qc_produk_tanggal_uji,
     note: batch.qc_produk_note,
     selesai: batch.qc_produk_selesai === true,
     hasilTersimpan: Array.isArray(batch.qc_produk_hasil)
       ? batch.qc_produk_hasil
       : [],
+    petugas: profile?.nama || null,
   };
 
   return (

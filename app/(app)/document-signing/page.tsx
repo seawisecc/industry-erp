@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import SettingsShell from "@/components/SettingsShell";
 import { DOC_TYPES, defaultSlots, type DocTypeKey, type SignSlot } from "@/lib/docSign";
 import DocSignForm, { DocSignInitial } from "./DocSignForm";
+import { bacaQrSign } from "@/lib/qrSign";
 
 export default async function DocumentSigningPage() {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function DocumentSigningPage() {
     supabase
       .from("organization_settings")
       .select(
-        "sign_dibuat_nama, sign_dibuat_jabatan, sign_disetujui_nama, sign_disetujui_jabatan, sign_mengetahui_nama, sign_mengetahui_jabatan"
+        "sign_dibuat_nama, sign_dibuat_jabatan, sign_disetujui_nama, sign_disetujui_jabatan, sign_mengetahui_nama, sign_mengetahui_jabatan, qr_sign_aktif, qr_sign_nama, qr_sign_jabatan, qr_sign_instansi"
       )
       .eq("organization_id", organizationId)
       .maybeSingle(),
@@ -50,7 +51,7 @@ export default async function DocumentSigningPage() {
       </div>
 
       <div className="mt-4">
-        <DocSignForm initial={initial} />
+        <DocSignForm initial={initial} qrAwal={bacaQrSign(legacy)} />
       </div>
     </SettingsShell>
   );

@@ -9,7 +9,7 @@
 
 import { Fragment, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Check, X } from "lucide-react";
+import { Save, Check, X, Tags } from "lucide-react";
 import { saveQcSheet, decideQc, type QcHasilRow } from "../actions";
 
 export type SheetInfo = {
@@ -27,6 +27,8 @@ export type SheetInfo = {
   tanggalUji: string | null;
   note: string | null;
   hasilTersimpan: QcHasilRow[];
+  /** Nama petugas QC yang sedang membuka lembar ini, untuk label sampel */
+  petugas: string | null;
 };
 
 export default function QcSheetForm({
@@ -58,6 +60,33 @@ export default function QcSheetForm({
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
   const terisi = rows.filter((r) => r.hasil.trim()).length;
+
+  // Label sampel baru punya arti setelah dua hal itu terisi: tanpa
+  // jumlah dan tanggal, yang tertempel di drum cuma stiker kosong.
+  const bisaCetakSampel = !!jumlahSampel.trim() && !!tglSampling;
+
+  /**
+   * Buka label "Sampel Telah Diambil" di TAB BARU.
+   *
+   * Isian lembar ini belum tentu tersimpan, dan tab baru menjaga
+   * lembar pengujiannya tetap hidup di tab asal. Sama seperti label
+   * penimbangan di eksekusi produksi.
+   */
+  function cetakLabelSampel() {
+    const q = new URLSearchParams({
+      jenis: "bahan",
+      nama: info.itemNama,
+      kode: info.itemKode,
+      batch: info.noLot || "",
+      pihak: info.supplier || "",
+      qty: `${info.qty.toLocaleString("id-ID")} ${info.satuan}`,
+      sampel: jumlahSampel,
+      tglSampling: tglSampling,
+      tglUji: tglUji,
+      oleh: info.petugas || "",
+    });
+    window.open(`/print/label/sampel?${q}`, "_blank", "noopener");
+  }
 
   function sheet() {
     return {
@@ -216,6 +245,22 @@ export default function QcSheetForm({
               className={inputCls}
             />
           </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap mt-4 pt-4 border-t border-line">
+          <button
+            type="button"
+            onClick={cetakLabelSampel}
+            disabled={!bisaCetakSampel}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-white/70 border border-line text-ink text-[12.5px] font-medium hover:bg-white transition-colors disabled:opacity-45 disabled:hover:bg-white/70 whitespace-nowrap"
+          >
+            <Tags size={14} /> Cetak Label Sampel
+          </button>
+          <span className="text-muted text-[12px]">
+            {bisaCetakSampel
+              ? "Tempel di wadah induk yang sampelnya diambil."
+              : "Isi jumlah sampel & tanggal ambil sampel dulu."}
+          </span>
         </div>
       </div>
 

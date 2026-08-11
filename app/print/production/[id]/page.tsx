@@ -5,6 +5,7 @@ import { getDocSigners } from "@/lib/docSignServer";
 import { urutkanFormula } from "@/lib/formulaOrder";
 import { hitungEstimasiProduksi } from "@/lib/productionEstimate";
 import PrintButton from "../../po/[id]/PrintButton";
+import QrSignBlock from "../../QrSignBlock";
 
 type BatchPrint = {
   id: string;
@@ -421,6 +422,9 @@ export default async function PrintProductionPage({
             {batch.catatan}
           </div>
         )}
+
+        {/* ===== QR SIGNATURE ===== */}
+        <QrSignBlock jenis="production" id={id} organizationId={organizationId!} />
 
         {/* ===== TANDA TANGAN ===== */}
         {signers.length > 0 && (

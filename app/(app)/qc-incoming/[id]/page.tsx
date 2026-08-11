@@ -105,6 +105,7 @@ export default async function QcSheetPage({
     tanggalUji: batch.qc_tanggal_uji,
     note: batch.qc_note,
     hasilTersimpan: Array.isArray(batch.qc_hasil) ? batch.qc_hasil : [],
+    petugas: profile?.nama || null,
   };
 
   return (

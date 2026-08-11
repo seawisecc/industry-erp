@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
 import type { SignSlot } from "@/lib/docSign";
 import PrintButton from "../../po/[id]/PrintButton";
+import QrSignBlock from "../../QrSignBlock";
 
 type InvPrint = {
   id: string;
@@ -300,7 +301,10 @@ export default async function PrintInvoicePage({
             </div>
           </div>
 
-          {/* ===== TANDA TANGAN ===== */}
+          {/* ===== QR SIGNATURE ===== */}
+        <QrSignBlock jenis="invoice" id={id} organizationId={organizationId!} />
+
+        {/* ===== TANDA TANGAN ===== */}
           {invoiceSigners.length > 0 ? (
             <div
               className="mt-8 mb-2 grid gap-6 text-center text-[11.5px]"

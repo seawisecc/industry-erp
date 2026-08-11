@@ -8,7 +8,7 @@
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Save, Check, FileText, Printer } from "lucide-react";
+import { Save, Check, FileText, Printer, Tags } from "lucide-react";
 import { saveQcProduk, type QcProdukHasil } from "../actions";
 
 export type QcProdukInfo = {
@@ -21,10 +21,13 @@ export type QcProdukInfo = {
   tanggalProduksi: string;
   outputs: { varian: string | null; qty: number; satuan: string }[];
   jumlahSampel: string | null;
+  tanggalSampling: string | null;
   tanggalUji: string | null;
   note: string | null;
   selesai: boolean;
   hasilTersimpan: QcProdukHasil[];
+  /** Nama petugas QC yang sedang membuka lembar ini, untuk label sampel */
+  petugas: string | null;
 };
 
 export default function QcProdukForm({
@@ -39,6 +42,7 @@ export default function QcProdukForm({
   const router = useRouter();
 
   const [jumlahSampel, setJumlahSampel] = useState(info.jumlahSampel || "");
+  const [tglSampling, setTglSampling] = useState(info.tanggalSampling || "");
   const [tglUji, setTglUji] = useState(info.tanggalUji || "");
   const [note, setNote] = useState(info.note || "");
   const [rows, setRows] = useState<QcProdukHasil[]>(() =>
@@ -53,9 +57,38 @@ export default function QcProdukForm({
 
   const terisi = rows.filter((r) => r.hasil.trim()).length;
 
+  // Label sampel baru punya arti setelah dua hal itu terisi: tanpa
+  // jumlah dan tanggal, yang tertempel di kardus cuma stiker kosong.
+  const bisaCetakSampel = !!jumlahSampel.trim() && !!tglSampling;
+
+  /**
+   * Buka label "Sampel Telah Diambil" di TAB BARU — isian lembar ini
+   * belum tentu tersimpan, dan tab baru menjaganya tetap hidup.
+   */
+  function cetakLabelSampel() {
+    const q = new URLSearchParams({
+      jenis: "produk",
+      nama: info.produkNama,
+      kode: info.produkKode || "",
+      batch: info.noBatch,
+      pihak: [info.outputs.map((o) => o.varian).filter(Boolean).join(", "), info.brand]
+        .filter(Boolean)
+        .join(" \u00b7 "),
+      qty: info.outputs
+        .map((o) => `${o.qty.toLocaleString("id-ID")} ${o.satuan}`)
+        .join(" + "),
+      sampel: jumlahSampel,
+      tglSampling: tglSampling,
+      tglUji: tglUji,
+      oleh: info.petugas || "",
+    });
+    window.open(`/print/label/sampel?${q}`, "_blank", "noopener");
+  }
+
   function sheet() {
     return {
       jumlah_sampel: jumlahSampel,
+      tanggal_sampling: tglSampling || null,
       tanggal_uji: tglUji || null,
       hasil: rows,
       note,
@@ -190,6 +223,18 @@ export default function QcProdukForm({
             />
           </div>
           <div>
+            <label className={labelCls}>Tanggal Ambil Sampel</label>
+            <input
+              type="date"
+              value={tglSampling}
+              onChange={(e) => {
+                setTglSampling(e.target.value);
+                setSaved(false);
+              }}
+              className={inputCls}
+            />
+          </div>
+          <div>
             <label className={labelCls}>Tanggal Uji</label>
             <input
               type="date"
@@ -201,6 +246,22 @@ export default function QcProdukForm({
               className={inputCls}
             />
           </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap mt-4 pt-4 border-t border-line">
+          <button
+            type="button"
+            onClick={cetakLabelSampel}
+            disabled={!bisaCetakSampel}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-white/70 border border-line text-ink text-[12.5px] font-medium hover:bg-white transition-colors disabled:opacity-45 disabled:hover:bg-white/70 whitespace-nowrap"
+          >
+            <Tags size={14} /> Cetak Label Sampel
+          </button>
+          <span className="text-muted text-[12px]">
+            {bisaCetakSampel
+              ? "Tempel di kemasan induk yang sampelnya diambil."
+              : "Isi jumlah sampel & tanggal ambil sampel dulu."}
+          </span>
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
 import { getDocSigners } from "@/lib/docSignServer";
 import PrintButton from "../../po/[id]/PrintButton";
+import QrSignBlock from "../../QrSignBlock";
 
 type RcvPrint = {
   id: string;
@@ -224,6 +225,9 @@ export default async function PrintReceivingPage({
             </div>
           </div>
         </div>
+
+        {/* ===== QR SIGNATURE ===== */}
+        <QrSignBlock jenis="receiving" id={id} organizationId={organizationId!} />
 
         {/* ===== TANDA TANGAN ===== */}
         {signers.length > 0 && (

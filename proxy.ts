@@ -30,8 +30,10 @@ export async function proxy(request: NextRequest) {
   // Singapore, panggilan ini hanya ~5-15ms — aman untuk tiap request.
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Halaman publik: bisa diakses tanpa login
-  const publicPaths = ["/login", "/kenapa"];
+  // Halaman publik: bisa diakses tanpa login.
+  // /verify ada di sini karena memang dipindai orang luar dari kertas —
+  // isinya sengaja cuma identitas dokumen, tidak pernah isinya.
+  const publicPaths = ["/login", "/kenapa", "/verify"];
   const isPublic = publicPaths.some((p) =>
     request.nextUrl.pathname.startsWith(p)
   );

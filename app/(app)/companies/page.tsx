@@ -12,6 +12,9 @@ import {
   type SearchParams,
 } from "@/lib/pagination";
 import { localDateStr } from "@/lib/dates";
+import StorageBar from "@/components/StorageBar";
+import StorageRefresh from "./StorageRefresh";
+import { bacaPemakaian, type StorageRow } from "@/lib/storage";
 
 type OrgRow = {
   id: string;
@@ -19,6 +22,7 @@ type OrgRow = {
   slug: string;
   aktif: boolean;
   aktif_sampai: string | null;
+  storage_quota_gb: number | null;
   profiles: { id: string; nama: string; email: string; role: string }[];
 };
 
@@ -65,7 +69,7 @@ export default async function CompaniesPage({
   let query = admin
     .from("organizations")
     .select(
-      "id, nama, slug, aktif, aktif_sampai, profiles(id, nama, email, role)",
+      "id, nama, slug, aktif, aktif_sampai, storage_quota_gb, profiles(id, nama, email, role)",
       { count: "exact" }
     );
 
@@ -100,6 +104,20 @@ export default async function CompaniesPage({
       return { label: "Kedaluwarsa", cls: "bg-clay-100 text-clay-600" };
     return { label: "Aktif", cls: "bg-botanical-100 text-botanical-700" };
   };
+
+  // Snapshot pemakaian penyimpanan. Dibaca apa adanya — hitungannya
+  // mahal dan sudah dijalankan terpisah (tombol Hitung Ulang / pg_cron).
+  const { data: storageRows } = await admin
+    .from("organization_storage")
+    .select("organization_id, bytes, baris, per_tabel, dihitung_pada");
+  const storageOf = new Map<string, StorageRow>(
+    ((storageRows || []) as StorageRow[]).map((r) => [r.organization_id, r])
+  );
+  const dihitungPada =
+    ((storageRows || []) as StorageRow[])
+      .map((r) => r.dihitung_pada)
+      .sort()
+      .pop() || null;
 
   // Fitur berbayar per company (MES dsb.)
   const { data: settingsRows } = await admin
@@ -148,7 +166,7 @@ export default async function CompaniesPage({
       <DataTable
         rows={list}
         rowKey={(o) => o.id}
-        minWidth={1080}
+        minWidth={1240}
         empty="Belum ada company."
         columns={[
           {
@@ -196,6 +214,17 @@ export default async function CompaniesPage({
             header: "User",
             role: "primary",
             cell: (o) => o.profiles.length,
+          },
+          {
+            key: "storage",
+            header: "Penyimpanan",
+            role: "primary",
+            cell: (o) => (
+              <StorageBar
+                pakai={bacaPemakaian(storageOf.get(o.id), o.storage_quota_gb)}
+                ringkas
+              />
+            ),
           },
           {
             key: "status",
