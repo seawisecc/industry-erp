@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import ExecuteForm, { PlanInfo, ItemInfo } from "./ExecuteForm";
+import { canAccessModule } from "@/lib/modules";
 import type { ExecutionData } from "../../../actions";
 import { getFeatures } from "@/lib/featuresServer";
 
@@ -44,8 +45,20 @@ export default async function ExecutePage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { profile, organizationId } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
   const features = await getFeatures(organizationId!);
+
+  // Tautan PPIC di peringatan stok cuma untuk yang boleh membukanya.
+  const ppicHref = canAccessModule(
+    {
+      isSuperAdmin,
+      role: profile?.role || "",
+      allowedModules: profile?.allowed_modules ?? null,
+    },
+    "ppic"
+  )
+    ? "/ppic"
+    : null;
 
   const [{ data }, { data: items }] = await Promise.all([
     supabase
@@ -59,11 +72,14 @@ export default async function ExecutePage({
       .eq("id", id)
       .eq("organization_id", organizationId)
       .single(),
+    // Item nonaktif ikut diambil: bahan yang dinonaktifkan setelah
+    // formulanya dibuat tetap harus terbaca stoknya, kalau tidak,
+    // peringatan stok akan bilang "kurang" untuk barang yang ada.
+    // Penyaringan aktif dilakukan di pemilih Adjusting saja.
     supabase
       .from("items")
-      .select("id, kode, nama, satuan, purchase_batches(qty_sisa)")
+      .select("id, kode, nama, satuan, aktif, purchase_batches(qty_sisa)")
       .eq("organization_id", organizationId)
-      .eq("aktif", true)
       .order("kode"),
   ]);
 
@@ -77,6 +93,7 @@ export default async function ExecutePage({
       kode: string;
       nama: string;
       satuan: string;
+      aktif: boolean;
       purchase_batches: { qty_sisa: number }[];
     }[]
   ).map((it) => ({
@@ -84,6 +101,7 @@ export default async function ExecutePage({
     kode: it.kode,
     nama: it.nama,
     satuan: it.satuan,
+    aktif: !!it.aktif,
     stok: (it.purchase_batches || []).reduce((s, b) => s + Number(b.qty_sisa), 0),
   }));
 
@@ -153,7 +171,7 @@ export default async function ExecutePage({
         batch = {planInfo.bulkKg.toLocaleString("id-ID")} kg bulk
       </p>
 
-      <ExecuteForm plan={planInfo} items={itemInfos} />
+      <ExecuteForm plan={planInfo} items={itemInfos} ppicHref={ppicHref} />
     </div>
   );
 }

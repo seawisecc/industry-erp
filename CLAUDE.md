@@ -162,6 +162,35 @@ Aturan turunannya untuk laporan: **Stock Movement menjumlahkan
 menghitung barang yang sama dua kali: sekali lewat pemusnahan QC, sekali
 lewat retur.
 
+## Peringatan stok produksi muncul di awal, tapi tidak menghalangi
+
+Stok bahan baru terpotong di Input Hasil (`create_production`). Tanpa
+peringatan lebih awal, kekurangan bahan baru ketahuan setelah ruahan
+terlanjur dibuat dan penimbangan selesai dicatat.
+
+Karena itu `lib/stokCek.ts` menghitung kekurangan dari isian layar, dan
+`components/StokKurangAlert.tsx` menampilkannya di dua titik: form Plan
+(sebelum plan disimpan) dan layar Execution (ikut berubah tiap angka
+timbangan diketik).
+
+Dua aturan yang mengikat:
+
+- **Pembandingnya `purchase_batches.qty_sisa`, bukan qty_sisa +
+  qty_karantina.** Itu angka yang sama yang dipakai RPC saat memotong.
+  Ikut menghitung karantina akan membuat layar bilang "cukup" untuk
+  barang yang tetap ditolak RPC, dan peringatan yang salah lebih buruk
+  daripada tidak ada peringatan.
+- **Peringatan, bukan penghalang.** Plan tetap boleh disimpan dan
+  penimbangan tetap boleh dicatat: bahannya bisa saja baru datang
+  menjelang tanggal produksi. Yang dicegah cuma satu, orang mulai
+  bekerja tanpa tahu.
+
+Karena layar produksi memakai daftar item untuk mencari stok, **query
+item-nya tidak boleh menyaring `aktif = true`**. Bahan yang
+dinonaktifkan setelah formulanya dibuat akan terbaca stok nol dan
+memunculkan "kurang" untuk barang yang ada. Penyaringan aktif dilakukan
+di pemilih Adjusting saja.
+
 ## Stok produk jadi tidak disimpan tapi dihitung, dan rumusnya cuma satu
 
 Bahan punya baris `purchase_batches` yang bisa dinaikkan atau diturunkan.

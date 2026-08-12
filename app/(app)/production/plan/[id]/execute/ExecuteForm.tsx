@@ -11,6 +11,8 @@ import {
 } from "../../../actions";
 import DataTable from "@/components/DataTable";
 import RowActions, { ActionTip, iconActionClass } from "@/components/RowActions";
+import StokKurangAlert from "@/components/StokKurangAlert";
+import { gabungKebutuhan, hitungKekurangan } from "@/lib/stokCek";
 import { urutkanFormula, faseKey, faseLabel } from "@/lib/formulaOrder";
 
 /* ------------------------------------------------------------
@@ -91,6 +93,9 @@ export type ItemInfo = {
   nama: string;
   satuan: string;
   stok: number;
+  /** Item nonaktif tetap dikirim supaya bahan lama di formula tetap
+      ketahuan stoknya, tapi tidak ditawarkan lagi di Adjusting. */
+  aktif: boolean;
 };
 
 export type PlanInfo = {
@@ -138,9 +143,12 @@ function formatId(n: number) {
 export default function ExecuteForm({
   plan,
   items,
+  ppicHref,
 }: {
   plan: PlanInfo;
   items: ItemInfo[];
+  /** null bila user tidak punya akses modul PPIC */
+  ppicHref: string | null;
 }) {
   const router = useRouter();
   const itemOf = (id: string) => items.find((it) => it.id === id);
@@ -425,6 +433,29 @@ export default function ExecuteForm({
     parseNum(kemasanTerpakai[id] || "") -
     parseNum(kemasanRusak[id] || "");
 
+  /* ===== Peringatan stok, seluruh bahan yang akan terpotong =====
+     Bahan formula, kemasan, dan adjusting dijumlahkan jadi satu daftar
+     karena create_production memotong ketiganya sekaligus di akhir
+     alur. Nilainya ikut berubah tiap angka diketik, jadi operator yang
+     menaikkan timbangan melewati stok langsung melihatnya, bukan nanti
+     saat Input Hasil ditolak.
+
+     Dihitung di badan komponen, bukan useEffect + setState: ini murni
+     turunan dari isian form. */
+  const kekurangan = hitungKekurangan(
+    gabungKebutuhan([
+      ...plan.formulas.map((f) => ({
+        item_id: f.item_id,
+        qty: parseNum(bahanReal[f.item_id] || ""),
+      })),
+      ...kemasanIds.map((id) => ({ item_id: id, qty: diambilOf(id) })),
+      ...adjustRows
+        .filter((r) => r.item)
+        .map((r) => ({ item_id: r.item!.id, qty: parseNum(r.qty) })),
+    ]),
+    itemOf
+  );
+
   function updateAdjust(idx: number, patch: Partial<AdjustRow>) {
     setAdjustRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
@@ -434,6 +465,7 @@ export default function ExecuteForm({
     const q = row.query.toLowerCase();
     const used = adjustRows.map((r) => r.item?.id).filter(Boolean);
     return items
+      .filter((it) => it.aktif)
       .filter((it) => !used.includes(it.id) || it.id === row.item?.id)
       .filter(
         (it) => it.nama.toLowerCase().includes(q) || it.kode.toLowerCase().includes(q)
@@ -549,6 +581,13 @@ export default function ExecuteForm({
           </div>
         </div>
       )}
+
+      {/* ===== Peringatan stok, sebelum satu bahan pun ditimbang ===== */}
+      <StokKurangAlert
+        kekurangan={kekurangan}
+        keterangan={`batch ini (${formatId(plan.bulkKg)} kg ruahan)`}
+        ppicHref={ppicHref}
+      />
 
       {/* ============ TAHAP 1, CATATAN PENGOLAHAN BATCH ============ */}
       <div className="flex items-center gap-3">
