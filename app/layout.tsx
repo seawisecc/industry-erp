@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Fraunces, IBM_Plex_Mono } from "next/font/google";
 import TopProgress from "@/components/TopProgress";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 // Nama variabel HARUS cocok dengan @theme di globals.css
@@ -39,6 +40,14 @@ export const metadata: Metadata = {
   },
   description:
     "ERP manufaktur siap audit CPKB: purchase order, stok FEFO, produksi & HPP real per batch, MES, QC/QA, penjualan, dan regulasi INCI.",
+  // iOS tidak membaca "display" dari manifest. Tanpa blok ini, aplikasi
+  // yang ditambahkan ke Home Screen tetap terbuka di dalam Safari lengkap
+  // dengan address bar.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Industry ERP",
+  },
   openGraph: {
     type: "website",
     siteName: "Industry Management | Seawise Studio",
@@ -57,6 +66,12 @@ export const metadata: Metadata = {
   },
 };
 
+// Warna bar atas browser & bilah status saat aplikasi dipasang. Sama dengan
+// theme_color di app/manifest.ts; kalau salah satunya diubah, ubah dua-duanya.
+export const viewport: Viewport = {
+  themeColor: "#1E3327",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -69,6 +84,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <TopProgress />
+        <ServiceWorkerRegister />
         {children}
       </body>
     </html>

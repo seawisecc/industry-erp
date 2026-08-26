@@ -49,6 +49,11 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // manifest.webmanifest, sw.js, dan offline.html WAJIB ada di daftar
+    // kecuali ini. Browser mengambil manifest tanpa cookie sama sekali, jadi
+    // kalau proxy ikut menjaganya yang diterima cuma redirect ke /login dan
+    // aplikasinya berhenti bisa dipasang lewat Chrome. Service worker
+    // punya masalah yang sama, dan offline.html memang halaman publik.
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|sw.js|offline.html|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

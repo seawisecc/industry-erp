@@ -511,6 +511,51 @@ server. Jangan menambahkannya ke file yang sudah menyentuh database.
 `import type { … }` dari file server tetap aman: tipe dihapus saat
 kompilasi.
 
+# PWA: boleh dipasang, tidak boleh menyimpan data
+
+Aplikasinya bisa dipasang lewat Chrome (Install) maupun Add to Home Screen di
+iOS. Empat berkas yang membentuknya:
+
+| Berkas | Guna |
+| --- | --- |
+| `app/manifest.ts` | Terbit di `/manifest.webmanifest`, `<link rel="manifest">` disisipkan Next otomatis |
+| `public/sw.js` | Service worker: syarat install di Chrome + jaring pengaman offline |
+| `public/offline.html` | Layar "tidak ada koneksi", statis, tanpa data |
+| `components/ServiceWorkerRegister.tsx` | Pendaftar sw.js, dipasang di root layout |
+
+Ikonnya `public/icon-192.png`, `icon-512.png`, dan `icon-maskable-512.png`,
+ketiganya hasil render `app/icon.svg`. Yang maskable punya latar penuh dengan
+logo di 58% tengah, karena Android memotong ikon jadi lingkaran.
+
+Empat aturan yang menentukan, dan semuanya gampang dilanggar tanpa sadar:
+
+- **Service worker ini sengaja tidak menyimpan satu pun halaman.** Ini ERP
+  multi-company di balik login: halaman yang tersimpan di disk akan terbaca
+  lagi oleh orang berikutnya yang memakai komputer yang sama, dan angka stok
+  yang basi lebih berbahaya daripada layar kosong. Yang boleh masuk cache cuma
+  `/_next/static/*` (ber-hash, tidak mungkin basi untuk URL yang sama) dan
+  `offline.html`. Kalau nanti tergoda menambah "offline mode" sungguhan,
+  yang harus dijawab lebih dulu bukan soal teknis: bagaimana cache dibuang
+  saat logout dan saat ganti organisasi.
+- **`start_url` wajib `/`.** Alasannya persis sama dengan bab di bawah ini:
+  user tanpa akses Dashboard akan terjebak di layar "Tidak Punya Akses" tiap
+  kali membuka aplikasi dari home screen. Karena itu juga manifest-nya TIDAK
+  punya `shortcuts`: tiap shortcut adalah halaman tetap, dan tidak ada satu
+  pun modul yang pasti boleh dibuka semua orang.
+- **`/manifest.webmanifest`, `/sw.js`, dan `/offline.html` harus ada di daftar
+  kecuali `proxy.ts`.** Browser mengambil manifest tanpa cookie sama sekali,
+  jadi kalau proxy ikut menjaganya yang diterima cuma redirect ke `/login`,
+  dan tombol Install tidak pernah muncul. Gejalanya membingungkan karena
+  aplikasinya sendiri jalan normal.
+- **Di dev, service worker dicabut, bukan didaftarkan.** Service worker sisa
+  `npm start` di localhost akan menyajikan chunk lama ke `npm run dev` di port
+  yang sama, dan gejalanya menyesatkan: perubahan kode seperti tidak
+  berpengaruh. Konsekuensinya, menguji tombol Install harus lewat
+  `npm run build && npm start` atau di deploy Vercel, bukan `npm run dev`.
+
+`theme_color` di manifest dan `viewport.themeColor` di `app/layout.tsx` adalah
+angka yang sama (`#1E3327`) di dua tempat. Ubah dua-duanya.
+
 # Hak akses modul: jangan pernah menuju halaman tetap
 
 Hak akses per user disimpan di `profiles.allowed_modules`, dan
