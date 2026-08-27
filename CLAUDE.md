@@ -338,6 +338,18 @@ melintang penuh. Yang itu cukup diberi `sticky-col` pada kolom pertamanya.
 terpotong. Baris form yang butuh ketik-cari pakai grid biasa. Lihat
 bagian Adjusting di `ExecuteForm` dan `MaterialIssueForm`.
 
+**Dialog yang dibuka dari sel tabel WAJIB lewat `createPortal` ke
+`document.body`.** `position: fixed` berjangkar ke viewport hanya selama
+tidak ada leluhur yang punya `transform`, `filter`, atau
+`backdrop-filter`; salah satunya membuat leluhur itu jadi containing
+block-nya. Pembungkus `.dt-table` punya dua-duanya sekaligus,
+`backdrop-filter` dari `.glass` dan `overflow-auto`, jadi `fixed inset-0`
+di dalam sel bukan cuma menempel di panel tabel, tapi ikut terpotong
+scroll container-nya. Gejalanya: overlay gelap cuma menutupi area tabel
+dan tombol di kaki dialog hilang di balik tepi panel. Contoh yang benar:
+`CancelTxButton`, `PaymentPanel`, `OutletActions`, `CompanyToggle`,
+`ExpiryActions`.
+
 ## Sticky: tiga jebakan yang mahal kalau dilanggar
 
 **1. Sticky header butuh batas tinggi.** `top: 0` berjangkar ke scroll

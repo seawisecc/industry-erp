@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { FlaskRound, Trash2 } from "lucide-react";
 import { retestBatch, destroyBatch } from "./actions";
@@ -62,9 +63,13 @@ export default function ExpiryActions({
         </button>
       </div>
 
-      {mode && (
+      {/* Portal ke <body>: pembungkus tabel punya backdrop-filter (.glass),
+          dan itu menjadikannya containing block untuk position:fixed. Tanpa
+          portal, panel ini terkurung di dalam tabel lalu terpotong
+          overflow-auto-nya. */}
+      {mode && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4"
           onClick={() => setMode(null)}
         >
           <div
@@ -141,7 +146,8 @@ export default function ExpiryActions({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

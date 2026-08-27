@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { setCompanyActive } from "./actions";
 
@@ -79,9 +80,13 @@ export default function CompanyToggle({
         {aktif ? "Ubah Masa Aktif" : "Aktifkan"}
       </button>
 
-      {open && (
+      {/* Portal ke <body>: pembungkus tabel punya backdrop-filter (.glass),
+          dan itu menjadikannya containing block untuk position:fixed. Tanpa
+          portal, panel ini terkurung di dalam tabel lalu terpotong
+          overflow-auto-nya. */}
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4"
           onClick={() => setOpen(false)}
         >
         <div
@@ -150,7 +155,8 @@ export default function CompanyToggle({
             </button>
           </div>
         </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
