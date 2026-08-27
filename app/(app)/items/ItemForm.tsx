@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { createItem, updateItem } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { klasSorot, tombolCombo } from "@/lib/keyboard";
 
 type MaterialOption = {
   id: string;
@@ -46,6 +47,7 @@ export default function ItemForm({ materials, item }: Props) {
   );
   const [materialQuery, setMaterialQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sorot, setSorot] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -178,23 +180,48 @@ export default function ItemForm({ materials, item }: Props) {
                 onChange={(e) => {
                   setMaterialQuery(e.target.value);
                   setSearchOpen(true);
+                  setSorot(0);
                 }}
                 onFocus={() => setSearchOpen(true)}
                 onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
+                onKeyDown={(e) =>
+                  tombolCombo(e, {
+                    jumlah: filteredMaterials.length,
+                    sorot,
+                    setSorot,
+                    buka: searchOpen,
+                    setBuka: setSearchOpen,
+                    pilih: (i) => selectMaterial(filteredMaterials[i]),
+                  })
+                }
                 placeholder={`Ketik kode / tradename material ${kategori.toLowerCase()}...`}
+                role="combobox"
+                aria-expanded={searchOpen}
+                aria-controls="daftar-material"
                 className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
               />
               {filteredMaterials.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
-                  {filteredMaterials.map((m) => (
+                <div
+                  role="listbox"
+                  id="daftar-material"
+                  className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto"
+                >
+                  {filteredMaterials.map((m, i) => (
                     <button
                       key={m.id}
                       type="button"
+                      role="option"
+                      aria-selected={i === sorot}
+                      tabIndex={-1}
+                      data-sorot={i === sorot ? "true" : undefined}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         selectMaterial(m);
                       }}
-                      className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 flex gap-2"
+                      onMouseEnter={() => setSorot(i)}
+                      className={`w-full text-left px-3 py-2 text-[13px] flex gap-2 ${klasSorot(
+                        i === sorot
+                      )}`}
                     >
                       <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
                         {m.material_code}

@@ -2,6 +2,7 @@ import Sidebar from "@/components/Sidebar";
 import AccessGuard from "@/components/AccessGuard";
 import SignOutButton from "@/components/SignOutButton";
 import IdleLogout from "@/components/IdleLogout";
+import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import Logo from "@/components/Logo";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { createClient } from "@/lib/supabase/server";
@@ -62,6 +63,7 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen">
       <IdleLogout />
+      <KeyboardShortcuts />
       <Sidebar />
       <main className="flex-1 p-4 pt-[72px] pb-[calc(env(safe-area-inset-bottom)_+_96px)] sm:p-8 sm:pt-8 sm:pb-8 xl:px-10 2xl:px-12 max-w-[1600px] mx-auto w-full min-w-0">
         <AccessGuard

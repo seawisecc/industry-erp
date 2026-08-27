@@ -6,6 +6,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { createMaterialIssue } from "./actions";
 import { TUJUAN_PEMAKAIAN } from "@/lib/materialIssue";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
 
 export type IssueItem = {
   id: string;
@@ -45,6 +46,7 @@ export default function MaterialIssueForm({
   const [tujuan, setTujuan] = useState<string>(TUJUAN_PEMAKAIAN[0]);
   const [catatan, setCatatan] = useState("");
   const [rows, setRows] = useState<Row[]>([{ ...BARIS_KOSONG }]);
+  const [sorot, setSorot] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -124,7 +126,7 @@ export default function MaterialIssueForm({
   const labelCls = "block text-[12.5px] font-medium text-muted mb-1.5";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       <div className="glass rounded-2xl p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className={labelCls}>Tanggal Pemakaian</label>
@@ -212,22 +214,52 @@ export default function MaterialIssueForm({
                     <>
                       <input
                         value={row.query}
-                        onChange={(e) =>
-                          updateRow(idx, { query: e.target.value, open: true })
-                        }
-                        onFocus={() => updateRow(idx, { open: true })}
+                        onChange={(e) => {
+                          updateRow(idx, { query: e.target.value, open: true });
+                          setSorot(0);
+                        }}
+                        onFocus={() => {
+                          updateRow(idx, { open: true });
+                          setSorot(0);
+                        }}
                         onBlur={() =>
                           setTimeout(() => updateRow(idx, { open: false }), 150)
                         }
+                        onKeyDown={(e) =>
+                          tombolCombo(e, {
+                            jumlah: saran.length,
+                            sorot,
+                            setSorot,
+                            buka: !!row.open,
+                            setBuka: (b) => updateRow(idx, { open: b }),
+                            pilih: (i) =>
+                              updateRow(idx, {
+                                item: saran[i],
+                                query: "",
+                                open: false,
+                              }),
+                          })
+                        }
                         placeholder="Ketik kode / nama bahan..."
+                        role="combobox"
+                        aria-expanded={!!row.open}
+                        aria-controls={`daftar-bahan-${idx}`}
                         className={inputCls}
                       />
                       {saran.length > 0 && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-50 max-h-52 overflow-y-auto">
-                          {saran.map((it) => (
+                        <div
+                          role="listbox"
+                          id={`daftar-bahan-${idx}`}
+                          className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-50 max-h-52 overflow-y-auto"
+                        >
+                          {saran.map((it, i) => (
                             <button
                               key={it.id}
                               type="button"
+                              role="option"
+                              aria-selected={i === sorot}
+                              tabIndex={-1}
+                              data-sorot={row.open && i === sorot ? "true" : undefined}
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 updateRow(idx, {
@@ -236,7 +268,10 @@ export default function MaterialIssueForm({
                                   open: false,
                                 });
                               }}
-                              className="w-full text-left px-3 py-2 text-[13px] hover:bg-porcelain flex items-center gap-2"
+                              onMouseEnter={() => setSorot(i)}
+                              className={`w-full text-left px-3 py-2 text-[13px] flex items-center gap-2 ${klasSorot(
+                                i === sorot
+                              )}`}
                             >
                               <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
                                 {it.kode}

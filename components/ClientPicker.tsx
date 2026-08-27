@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { klasSorot, tombolCombo } from "@/lib/keyboard";
 
 export type ClientOption = {
   id: string;
@@ -33,6 +34,7 @@ export default function ClientPicker({
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [sorot, setSorot] = useState(0);
 
   const selected = clients.find((c) => c.id === value) || null;
 
@@ -75,6 +77,16 @@ export default function ClientPicker({
   }
 
   const list = options();
+  // Satu larik saran, "tanpa client" ikut jadi baris pertama supaya
+  // panah atas/bawah memperlakukannya sama dengan client lain.
+  const saran: (ClientOption | null)[] = allowEmpty ? [null, ...list] : list;
+
+  function pilih(i: number) {
+    const c = saran[i];
+    onChange(c ? c.id : "");
+    setQuery("");
+    setOpen(false);
+  }
 
   return (
     <div className="relative">
@@ -83,44 +95,61 @@ export default function ClientPicker({
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
+          setSorot(0);
         }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) =>
+          tombolCombo(e, {
+            jumlah: saran.length,
+            sorot,
+            setSorot,
+            buka: open,
+            setBuka: setOpen,
+            pilih,
+          })
+        }
         placeholder={placeholder}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="daftar-client"
         className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
       />
-      {open && (list.length > 0 || allowEmpty) && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-50 max-h-56 overflow-y-auto">
-          {allowEmpty && (
+      {open && saran.length > 0 && (
+        <div
+          id="daftar-client"
+          role="listbox"
+          className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-50 max-h-56 overflow-y-auto"
+        >
+          {saran.map((c, i) => (
             <button
+              key={c ? c.id : "__kosong"}
               type="button"
+              role="option"
+              aria-selected={i === sorot}
+              tabIndex={-1}
+              data-sorot={i === sorot ? "true" : undefined}
               onMouseDown={(e) => {
                 e.preventDefault();
-                onChange("");
-                setQuery("");
-                setOpen(false);
+                pilih(i);
               }}
-              className="w-full text-left px-3 py-2 text-[13px] text-muted hover:bg-white/60 border-b border-line"
+              onMouseEnter={() => setSorot(i)}
+              className={`w-full text-left px-3 py-2 text-[13px] truncate ${klasSorot(
+                i === sorot
+              )} ${c ? "" : "text-muted border-b border-line"}`}
             >
-              {emptyLabel}
-            </button>
-          )}
-          {list.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onChange(c.id);
-                setQuery("");
-                setOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 truncate"
-            >
-              {c.kode && (
-                <span className="text-muted font-mono text-[12px]">{c.kode}, </span>
+              {c === null ? (
+                emptyLabel
+              ) : (
+                <>
+                  {c.kode && (
+                    <span className="text-muted font-mono text-[12px]">
+                      {c.kode},{" "}
+                    </span>
+                  )}
+                  {c.company_brand}
+                </>
               )}
-              {c.company_brand}
             </button>
           ))}
         </div>

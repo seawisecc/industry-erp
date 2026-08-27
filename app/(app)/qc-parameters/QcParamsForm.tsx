@@ -12,6 +12,7 @@ import {
 } from "@/lib/qcParams";
 import { saveQcParameters } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 
 export default function QcParamsForm({ initial }: { initial: QcParamInput[] }) {
   const router = useRouter();
@@ -84,7 +85,7 @@ export default function QcParamsForm({ initial }: { initial: QcParamInput[] }) {
     "w-full glass-input rounded-lg px-2.5 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-botanical-700";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-4">
       {/* ===== Tab kategori ===== */}
       <div className="flex flex-wrap gap-2">
         {QC_KATEGORI.map((k) => {

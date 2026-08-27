@@ -14,6 +14,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { klasSorot, tombolCombo } from "@/lib/keyboard";
 
 export type ProductOption = {
   /** unik: "productId|varian", atau "svc|serviceId" untuk jasa */
@@ -70,6 +71,7 @@ export default function ProductPicker({
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [sorot, setSorot] = useState(0);
 
   const selected = options.find((o) => o.key === value) || null;
 
@@ -107,6 +109,14 @@ export default function ProductPicker({
       : options
   ).slice(0, MAX_SARAN);
 
+  function pilih(i: number) {
+    const o = list[i];
+    if (!o) return;
+    onChange(o.key);
+    setQuery("");
+    setOpen(false);
+  }
+
   return (
     <div className="relative">
       <input
@@ -114,25 +124,48 @@ export default function ProductPicker({
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
+          setSorot(0);
         }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) =>
+          tombolCombo(e, {
+            jumlah: list.length,
+            sorot,
+            setSorot,
+            buka: open,
+            setBuka: setOpen,
+            pilih,
+          })
+        }
         placeholder={placeholder}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="daftar-produk"
         className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
       />
       {open && list.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-50 max-h-56 overflow-y-auto">
-          {list.map((o) => (
+        <div
+          id="daftar-produk"
+          role="listbox"
+          className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-50 max-h-56 overflow-y-auto"
+        >
+          {list.map((o, i) => (
             <button
               key={o.key}
               type="button"
+              role="option"
+              aria-selected={i === sorot}
+              tabIndex={-1}
+              data-sorot={i === sorot ? "true" : undefined}
               onMouseDown={(e) => {
                 e.preventDefault();
-                onChange(o.key);
-                setQuery("");
-                setOpen(false);
+                pilih(i);
               }}
-              className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 flex items-center gap-2"
+              onMouseEnter={() => setSorot(i)}
+              className={`w-full text-left px-3 py-2 text-[13px] flex items-center gap-2 ${klasSorot(
+                i === sorot
+              )}`}
             >
               <span className="truncate flex-1">{o.label}</span>
               {showStock && <StokInfo o={o} />}

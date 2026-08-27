@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { createMaterial, updateMaterial, type InciRow } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
 
 type SupplierOption = { id: string; nama: string };
 type InciOption = { id: string; inci_name: string; cas_number: string | null };
@@ -45,6 +46,7 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
       : [{ inci_master_id: "", inci_name: "", percentage: "" }]
   );
   const [activeSearch, setActiveSearch] = useState<number | null>(null);
+  const [sorot, setSorot] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -126,7 +128,7 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
   }
 
   return (
-    <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 flex flex-col gap-4">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="glass rounded-2xl p-6 flex flex-col gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">Kode Material</label>
@@ -200,24 +202,59 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
                       onChange={(e) => {
                         updateRow(i, { inci_name: e.target.value, inci_master_id: "" });
                         setActiveSearch(i);
+                        setSorot(0);
                       }}
-                      onFocus={() => setActiveSearch(i)}
+                      onFocus={() => {
+                        setActiveSearch(i);
+                        setSorot(0);
+                      }}
                       onBlur={() => setTimeout(() => setActiveSearch(null), 150)}
+                      onKeyDown={(e) =>
+                        tombolCombo(e, {
+                          jumlah: filtered.length,
+                          sorot,
+                          setSorot,
+                          buka: activeSearch === i,
+                          setBuka: (b) => setActiveSearch(b ? i : null),
+                          pilih: (n) => {
+                            const o = filtered[n];
+                            updateRow(i, {
+                              inci_master_id: o.id,
+                              inci_name: o.inci_name,
+                            });
+                            setActiveSearch(null);
+                          },
+                        })
+                      }
                       placeholder="Ketik untuk cari INCI Name..."
+                      role="combobox"
+                      aria-expanded={activeSearch === i}
+                      aria-controls={`daftar-inci-${i}`}
                       className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                     />
                     {filtered.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
-                        {filtered.map((o) => (
+                      <div
+                        role="listbox"
+                        id={`daftar-inci-${i}`}
+                        className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto"
+                      >
+                        {filtered.map((o, n) => (
                           <button
                             key={o.id}
                             type="button"
+                            role="option"
+                            aria-selected={n === sorot}
+                            tabIndex={-1}
+                            data-sorot={n === sorot ? "true" : undefined}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               updateRow(i, { inci_master_id: o.id, inci_name: o.inci_name });
                               setActiveSearch(null);
                             }}
-                            className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 flex justify-between gap-2"
+                            onMouseEnter={() => setSorot(n)}
+                            className={`w-full text-left px-3 py-2 text-[13px] flex justify-between gap-2 ${klasSorot(
+                              n === sorot
+                            )}`}
                           >
                             <span>{o.inci_name}</span>
                             <span className="text-muted text-[11.5px]">{o.cas_number || ""}</span>

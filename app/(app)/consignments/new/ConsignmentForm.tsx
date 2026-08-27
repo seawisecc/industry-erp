@@ -9,6 +9,7 @@ import ClientPicker from "@/components/ClientPicker";
 import ProductPicker from "@/components/ProductPicker";
 import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 
 /**
  * `hargaManual` menandai baris yang harganya sudah diketik user, supaya
@@ -133,7 +134,7 @@ export default function ConsignmentForm({
     "w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       <div className="relative z-40 glass rounded-2xl p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">

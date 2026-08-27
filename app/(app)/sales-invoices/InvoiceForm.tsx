@@ -10,6 +10,7 @@ import ClientPicker from "@/components/ClientPicker";
 import ProductPicker from "@/components/ProductPicker";
 import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -274,7 +275,7 @@ export default function InvoiceForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       <div className="relative z-40 glass rounded-2xl p-5 sm:p-6 flex flex-col gap-4">
         {!isPos && (
           <div className="text-[12px] text-muted bg-white/50 rounded-lg px-3 py-2">

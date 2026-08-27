@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createReceiving } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 
 export type POOption = {
   id: string;
@@ -160,7 +161,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       <div className="glass rounded-2xl p-6 flex flex-col gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2">

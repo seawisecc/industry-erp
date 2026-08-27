@@ -75,10 +75,18 @@ export default function TableToolbar({
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            // Esc: bersihkan dulu, tekan sekali lagi untuk melepas fokus.
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            if (q) setQ("");
+            else e.currentTarget.blur();
+          }}
           placeholder={placeholder}
+          data-cari-tabel
           className="w-full h-[42px] glass-input rounded-lg pl-9 pr-8 text-[13px] focus:outline-none focus:ring-2 focus:ring-botanical-700"
         />
-        {q && (
+        {q ? (
           <button
             type="button"
             onClick={() => setQ("")}
@@ -87,6 +95,15 @@ export default function TableToolbar({
           >
             <X size={14} />
           </button>
+        ) : (
+          // Petunjuk shortcut. Tanpa ini "/" tidak akan pernah ditemukan
+          // orang, dan shortcut yang tidak diketahui sama dengan tidak ada.
+          <kbd
+            aria-hidden="true"
+            className="hidden sm:flex absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 items-center justify-center rounded border border-line bg-white/70 text-[11px] font-medium text-muted pointer-events-none"
+          >
+            /
+          </kbd>
         )}
       </div>
 

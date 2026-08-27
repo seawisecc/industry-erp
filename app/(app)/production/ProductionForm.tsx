@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { X, Plus, Trash2 } from "lucide-react";
 import { createProduction } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
 
 export type ProductOption = {
   id: string;
@@ -69,6 +70,7 @@ export default function ProductionForm({
   const [kemasanRows, setKemasanRows] = useState<Row[]>([]);
   const [adjustRows, setAdjustRows] = useState<Row[]>([]);
   const [catatan, setCatatan] = useState("");
+  const [sorot, setSorot] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -279,23 +281,58 @@ export default function ProductionForm({
               <>
                 <input
                   value={row.query}
-                  onChange={(e) => updateIn(setter, idx, { query: e.target.value, open: true })}
-                  onFocus={() => updateIn(setter, idx, { open: true })}
+                  onChange={(e) => {
+                    updateIn(setter, idx, { query: e.target.value, open: true });
+                    setSorot(0);
+                  }}
+                  onFocus={() => {
+                    updateIn(setter, idx, { open: true });
+                    setSorot(0);
+                  }}
                   onBlur={() => setTimeout(() => updateIn(setter, idx, { open: false }), 150)}
+                  onKeyDown={(e) =>
+                    tombolCombo(e, {
+                      jumlah: options.length,
+                      sorot,
+                      setSorot,
+                      buka: !!row.open,
+                      setBuka: (b) => updateIn(setter, idx, { open: b }),
+                      pilih: (i) =>
+                        updateIn(setter, idx, {
+                          item: options[i],
+                          query: "",
+                          open: false,
+                        }),
+                    })
+                  }
                   placeholder="Ketik kode / nama bahan..."
+                  role="combobox"
+                  aria-expanded={!!row.open}
+                  aria-controls={`daftar-adjust-${row.source}-${idx}`}
                   className={inputCls}
                 />
                 {options.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
-                    {options.map((it) => (
+                  <div
+                    role="listbox"
+                    id={`daftar-adjust-${row.source}-${idx}`}
+                    className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto"
+                  >
+                    {options.map((it, i) => (
                       <button
                         key={it.id}
                         type="button"
+                        role="option"
+                        aria-selected={i === sorot}
+                        tabIndex={-1}
+                        data-sorot={row.open && i === sorot ? "true" : undefined}
                         onMouseDown={(e) => {
                           e.preventDefault();
                           updateIn(setter, idx, { item: it, query: "", open: false });
                         }}
-                        className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 flex gap-2 items-baseline"
+                        onMouseEnter={() => setSorot(i)}
+                        className={`w-full text-left px-3 py-2 text-[13px] flex gap-2 items-baseline ${klasSorot(
+                          i === sorot
+                        )}`}
                       >
                         <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
                           {it.kode}
@@ -345,7 +382,7 @@ export default function ProductionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       {/* ============ HEADER PRODUKSI ============ */}
       <div className="glass rounded-2xl p-6 flex flex-col gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

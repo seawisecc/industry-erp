@@ -15,6 +15,7 @@ import StokKurangAlert from "@/components/StokKurangAlert";
 import { gabungKebutuhan, hitungKekurangan } from "@/lib/stokCek";
 import { urutkanFormula, faseKey, faseLabel } from "@/lib/formulaOrder";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
 
 /* ------------------------------------------------------------
    Draft otomatis di browser.
@@ -243,6 +244,7 @@ export default function ExecuteForm({
       qty: toStr(a.qty),
     }))
   );
+  const [sorot, setSorot] = useState(0);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -564,7 +566,7 @@ export default function ExecuteForm({
     "w-full glass-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       {/* ===== Tawaran pulihkan draft dari sesi sebelumnya ===== */}
       {draftFound && (
         <div className="glass rounded-2xl p-4 sm:p-5 border-amber-500/40 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -955,27 +957,60 @@ export default function ExecuteForm({
                   <>
                     <input
                       value={row.query}
-                      onChange={(e) =>
-                        updateAdjust(idx, { query: e.target.value, open: true })
-                      }
-                      onFocus={() => updateAdjust(idx, { open: true })}
+                      onChange={(e) => {
+                        updateAdjust(idx, { query: e.target.value, open: true });
+                        setSorot(0);
+                      }}
+                      onFocus={() => {
+                        updateAdjust(idx, { open: true });
+                        setSorot(0);
+                      }}
                       onBlur={() =>
                         setTimeout(() => updateAdjust(idx, { open: false }), 150)
                       }
+                      onKeyDown={(e) =>
+                        tombolCombo(e, {
+                          jumlah: options.length,
+                          sorot,
+                          setSorot,
+                          buka: !!row.open,
+                          setBuka: (b) => updateAdjust(idx, { open: b }),
+                          pilih: (i) =>
+                            updateAdjust(idx, {
+                              item: options[i],
+                              query: "",
+                              open: false,
+                            }),
+                        })
+                      }
                       placeholder="Ketik kode / nama bahan..."
+                      role="combobox"
+                      aria-expanded={!!row.open}
+                      aria-controls={`daftar-adjust-${idx}`}
                       className={inputCls}
                     />
                     {options.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
-                        {options.map((it) => (
+                      <div
+                        role="listbox"
+                        id={`daftar-adjust-${idx}`}
+                        className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto"
+                      >
+                        {options.map((it, i) => (
                           <button
                             key={it.id}
                             type="button"
+                            role="option"
+                            aria-selected={i === sorot}
+                            tabIndex={-1}
+                            data-sorot={row.open && i === sorot ? "true" : undefined}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               updateAdjust(idx, { item: it, query: "", open: false });
                             }}
-                            className="w-full text-left px-3 py-2 text-[13px] hover:bg-porcelain flex gap-2"
+                            onMouseEnter={() => setSorot(i)}
+                            className={`w-full text-left px-3 py-2 text-[13px] flex gap-2 ${klasSorot(
+                              i === sorot
+                            )}`}
                           >
                             <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
                               {it.kode}

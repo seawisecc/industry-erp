@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { createStockAdjustment } from "./actions";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 
 export type AdjustItem = {
   id: string;
@@ -142,7 +143,7 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
     "w-full glass-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       <div className="glass rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">

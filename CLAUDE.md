@@ -453,6 +453,51 @@ Gantinya, pilih yang paling pas menurut fungsi kalimatnya:
 Tanda hubung biasa (`-`) tetap boleh untuk kata majemuk (`rata-rata`)
 dan sebagai penanda "kosong" di sel tabel.
 
+# Navigasi keyboard
+
+Isian data di pabrik dilakukan sambil memegang barang, jadi berpindah ke
+mouse mahal. Aturannya ada di `lib/keyboard.ts` (bersih dari import server)
+dan `components/KeyboardShortcuts.tsx` (dipasang sekali di layout).
+
+| Tombol | Guna |
+| --- | --- |
+| Tab | pindah field, bawaan HTML, jangan diutak-atik |
+| Panah atas/bawah | pilih saran di pemilih ketik-cari |
+| Enter di pemilih | ambil saran yang tersorot |
+| Enter di kolom isian | pindah ke kolom berikutnya (form bertabel item) |
+| Esc | tutup daftar saran, tutup dialog, bersihkan kotak cari |
+| Ctrl / Cmd + S | simpan form yang sedang dibuka |
+| / | lompat ke kotak pencarian halaman daftar |
+
+Empat hal yang menentukan:
+
+- **Saran di pemilih WAJIB `tabIndex={-1}`.** Saran dirender sebagai
+  `<button>`, dan tombol ikut urutan Tab. Tanpa itu Tab harus ditekan 30
+  kali untuk keluar dari satu pemilih. Ini bukan teori: sebelum
+  `lib/keyboard.ts` ada, itulah yang terjadi di form Invoice.
+- **`onMouseDown` saja tidak cukup.** Saran dipilih lewat `onMouseDown`
+  (supaya `onBlur` input tidak keburu menutup daftar), dan `onMouseDown`
+  TIDAK dipicu tombol Enter. Jadi selama Enter tidak ditangani di input,
+  saran sama sekali tidak bisa dipilih dengan keyboard. Pakai
+  `tombolCombo` di `onKeyDown` input-nya.
+- **`tombolCombo` selalu `preventDefault` untuk tombol yang ditanganinya**,
+  dan `enterKeFieldBerikutnya` berhenti kalau `e.defaultPrevented`. Itu
+  yang mencegah satu Enter dibaca dua kali (memilih saran sekaligus
+  meloncat ke kolom berikutnya).
+- **Ctrl+S memakai `form.requestSubmit()`, bukan `submit()`.** `submit()`
+  melewati validasi bawaan browser DAN handler `onSubmit`, artinya dialog
+  konfirmasi ikut terlewat.
+
+`enterKeFieldBerikutnya` dipasang hanya di form yang punya tabel item
+(PO, Invoice, Konsinyasi, Receiving, Retur, Pemakaian Bahan, Penyesuaian,
+Produksi, Penimbangan, Produk, Material, Harga Client, Parameter QC).
+Form pendek seperti Supplier atau INCI dibiarkan: di situ Enter yang
+langsung menyimpan justru yang diharapkan.
+
+Shortcut yang tidak diketahui sama dengan tidak ada, karena itu kotak cari
+menampilkan lencana `/` selama masih kosong. Kalau menambah shortcut baru,
+pikirkan dulu di mana orang akan melihatnya.
+
 # Konfirmasi sebelum menyimpan
 
 Setiap layar yang MENULIS data bertanya dulu lewat `components/ConfirmSave.tsx`,

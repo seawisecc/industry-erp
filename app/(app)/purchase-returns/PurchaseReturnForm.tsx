@@ -6,6 +6,7 @@ import { createPurchaseReturn } from "./actions";
 import { ALASAN_RETUR } from "@/lib/purchaseReturn";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 
 export type ReturBatch = {
   id: string;
@@ -131,7 +132,7 @@ export default function PurchaseReturnForm({
   const labelCls = "block text-[12.5px] font-medium text-muted mb-1.5";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       <div className="glass rounded-2xl p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className={labelCls}>Tanggal Retur</label>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { X, Plus, Trash2 } from "lucide-react";
 import { createPO, updatePO, deletePO } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { klasSorot, tombolCombo, enterKeFieldBerikutnya } from "@/lib/keyboard";
 
 export type SupplierOption = { id: string; nama: string };
 
@@ -72,6 +73,8 @@ export default function POForm({ suppliers, items, po }: Props) {
   const [supplierId, setSupplierId] = useState(po?.supplier_id || "");
   const [supQuery, setSupQuery] = useState("");
   const [supOpen, setSupOpen] = useState(false);
+  const [supSorot, setSupSorot] = useState(0);
+  const [itemSorot, setItemSorot] = useState(0);
   const [tanggal, setTanggal] = useState(
     po?.tanggal_po || new Date().toLocaleDateString("sv-SE")
   );
@@ -97,6 +100,18 @@ export default function POForm({ suppliers, items, po }: Props) {
 
   function updateRow(idx: number, patch: Partial<Row>) {
     setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+
+  function pilihItem(idx: number, row: Row, it: ItemOption) {
+    // Harga otomatis dari pembelian terakhir, tetap bisa diubah manual
+    // bila ada perubahan
+    const hargaPrefill =
+      parseNum(row.harga) > 0
+        ? row.harga
+        : it.harga_terakhir != null
+          ? String(it.harga_terakhir).replace(".", ",")
+          : "";
+    updateRow(idx, { item: it, query: "", open: false, harga: hargaPrefill });
   }
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId) || null;
@@ -219,7 +234,7 @@ export default function POForm({ suppliers, items, po }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       <div className="relative z-30 glass rounded-2xl p-6 flex flex-col gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2">
@@ -246,23 +261,48 @@ export default function POForm({ suppliers, items, po }: Props) {
                     onChange={(e) => {
                       setSupQuery(e.target.value);
                       setSupOpen(true);
+                      setSupSorot(0);
                     }}
                     onFocus={() => setSupOpen(true)}
                     onBlur={() => setTimeout(() => setSupOpen(false), 150)}
+                    onKeyDown={(e) =>
+                      tombolCombo(e, {
+                        jumlah: supplierOptions().length,
+                        sorot: supSorot,
+                        setSorot: setSupSorot,
+                        buka: supOpen,
+                        setBuka: setSupOpen,
+                        pilih: (i) => handleSupplierChange(supplierOptions()[i].id),
+                      })
+                    }
                     placeholder="Ketik nama supplier..."
+                    role="combobox"
+                    aria-expanded={supOpen}
+                    aria-controls="daftar-supplier"
                     className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                   />
                   {supplierOptions().length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-30 max-h-52 overflow-y-auto">
-                      {supplierOptions().map((s) => (
+                    <div
+                      id="daftar-supplier"
+                      role="listbox"
+                      className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-30 max-h-52 overflow-y-auto"
+                    >
+                      {supplierOptions().map((s, i) => (
                         <button
                           key={s.id}
                           type="button"
+                          role="option"
+                          aria-selected={i === supSorot}
+                          tabIndex={-1}
+                          data-sorot={supOpen && i === supSorot ? "true" : undefined}
                           onMouseDown={(e) => {
                             e.preventDefault();
                             handleSupplierChange(s.id);
                           }}
-                          className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 truncate"
+                          onMouseEnter={() => setSupSorot(i)}
+                          className={`w-full text-left px-3 py-2 text-[13px] truncate ${klasSorot(
+                            i === supSorot
+                          )}`}
                         >
                           {s.nama}
                         </button>
@@ -363,40 +403,57 @@ export default function POForm({ suppliers, items, po }: Props) {
                     <>
                       <input
                         value={row.query}
-                        onChange={(e) =>
-                          updateRow(idx, { query: e.target.value, open: true })
-                        }
-                        onFocus={() => updateRow(idx, { open: true })}
+                        onChange={(e) => {
+                          updateRow(idx, { query: e.target.value, open: true });
+                          setItemSorot(0);
+                        }}
+                        onFocus={() => {
+                          updateRow(idx, { open: true });
+                          setItemSorot(0);
+                        }}
                         onBlur={() =>
                           setTimeout(() => updateRow(idx, { open: false }), 150)
                         }
+                        onKeyDown={(e) =>
+                          tombolCombo(e, {
+                            jumlah: options.length,
+                            sorot: itemSorot,
+                            setSorot: setItemSorot,
+                            buka: !!row.open,
+                            setBuka: (b) => updateRow(idx, { open: b }),
+                            pilih: (i) => pilihItem(idx, row, options[i]),
+                          })
+                        }
                         placeholder="Ketik kode / nama item..."
+                        role="combobox"
+                        aria-expanded={!!row.open}
+                        aria-controls={`daftar-item-${idx}`}
                         className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                       />
                       {options.length > 0 && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto">
-                          {options.map((it) => (
+                        <div
+                          id={`daftar-item-${idx}`}
+                          role="listbox"
+                          className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto"
+                        >
+                          {options.map((it, i) => (
                             <button
                               key={it.id}
                               type="button"
+                              role="option"
+                              aria-selected={i === itemSorot}
+                              tabIndex={-1}
+                              data-sorot={
+                                row.open && i === itemSorot ? "true" : undefined
+                              }
                               onMouseDown={(e) => {
                                 e.preventDefault();
-                                // Harga otomatis dari pembelian terakhir -
-                                // tetap bisa diubah manual bila ada perubahan
-                                const hargaPrefill =
-                                  parseNum(row.harga) > 0
-                                    ? row.harga
-                                    : it.harga_terakhir != null
-                                      ? String(it.harga_terakhir).replace(".", ",")
-                                      : "";
-                                updateRow(idx, {
-                                  item: it,
-                                  query: "",
-                                  open: false,
-                                  harga: hargaPrefill,
-                                });
+                                pilihItem(idx, row, it);
                               }}
-                              className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/60 flex gap-2 items-center"
+                              onMouseEnter={() => setItemSorot(i)}
+                              className={`w-full text-left px-3 py-2 text-[13px] flex gap-2 items-center ${klasSorot(
+                                i === itemSorot
+                              )}`}
                             >
                               <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
                                 {it.kode}

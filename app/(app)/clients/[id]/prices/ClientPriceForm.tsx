@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { saveClientPrices } from "../../actions";
 import ProductPicker, { type ProductOption } from "@/components/ProductPicker";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 
 export type HargaOption = ProductOption & {
   product_id: string;
@@ -117,7 +118,7 @@ export default function ClientPriceForm({
     "w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
       <div className="relative z-20 glass rounded-2xl p-5 sm:p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <div>
