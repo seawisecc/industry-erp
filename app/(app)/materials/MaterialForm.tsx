@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { createMaterial, updateMaterial, type InciRow } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 type SupplierOption = { id: string; nama: string };
 type InciOption = { id: string; inci_name: string; cas_number: string | null };
@@ -28,6 +29,7 @@ type RowState = { inci_master_id: string; inci_name: string; percentage: string 
 
 export default function MaterialForm({ suppliers, inciOptions, material }: Props) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const isEdit = !!material;
 
   const [materialCode, setMaterialCode] = useState(material?.material_code || "");
@@ -64,6 +66,26 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: isEdit ? "Simpan perubahan material ini?" : "Tambah material baru?",
+      ringkasan: [
+        { label: "Kode", nilai: materialCode },
+        { label: "Tradename", nilai: tradename },
+        { label: "Kategori", nilai: kategori },
+        ...(kategori === "Kemasan"
+          ? []
+          : [
+              {
+                label: "Komposisi INCI",
+                nilai:
+                  rows.filter((r) => r.inci_name.trim()).length + " baris",
+              },
+            ]),
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -278,6 +300,7 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
       >
         {loading ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Simpan"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

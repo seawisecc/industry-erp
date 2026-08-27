@@ -9,6 +9,7 @@ import { computeTotals } from "@/lib/invoiceMath";
 import ClientPicker from "@/components/ClientPicker";
 import ProductPicker from "@/components/ProductPicker";
 import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -54,6 +55,7 @@ export default function InvoiceForm({
   mode: "invoice" | "pos";
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const isPos = mode === "pos";
 
   // POS = Invoice tunai; non-POS = Proforma (jadi Invoice otomatis saat lunas)
@@ -121,6 +123,26 @@ export default function InvoiceForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const pembeli =
+      clients.find((c) => c.id === clientId)?.company_brand ||
+      namaPembeli ||
+      "Walk in customer";
+    const lanjut = await konfirmasi.minta({
+      judul: isPos ? "Selesaikan transaksi ini?" : "Terbitkan Proforma?",
+      pesan: isPos
+        ? "Stok produk langsung berkurang dan penjualan tercatat lunas."
+        : "Stok produk langsung berkurang begitu dokumen terbit.",
+      ringkasan: [
+        { label: "Pembeli", nilai: pembeli },
+        { label: "Tanggal", nilai: tanggal },
+        { label: "Item", nilai: rows.filter((r) => r.key).length + " baris" },
+        { label: "Total", nilai: formatRupiah(totals.total) },
+      ],
+      tombol: isPos ? "Ya, Selesaikan" : "Ya, Terbitkan",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -489,6 +511,7 @@ export default function InvoiceForm({
             ? "Simpan Penjualan (Lunas) & Cetak"
             : `Simpan ${tipe} & Cetak`}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

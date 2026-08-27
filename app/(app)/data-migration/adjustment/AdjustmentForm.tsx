@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { createStockAdjustment } from "./actions";
 import DataTable from "@/components/DataTable";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type AdjustItem = {
   id: string;
@@ -35,6 +36,7 @@ function formatId(n: number) {
 
 export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
 
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [catatan, setCatatan] = useState("");
@@ -98,6 +100,19 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
 
     setLoading(true);
     setError("");
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan penyesuaian stok?",
+      pesan: "Stok item yang diubah langsung mengikuti angka di layar ini.",
+      ringkasan: [
+        { label: "Tanggal", nilai: tanggal },
+        { label: "Item Diubah", nilai: changed.length + " item" },
+      ],
+      tombol: "Ya, Sesuaikan Stok",
+      nada: "bahaya",
+    });
+    if (!lanjut) return;
+
     try {
       const result = await createStockAdjustment({
         tanggal,
@@ -295,6 +310,7 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
             ? "Belum ada perubahan"
             : `Simpan Adjustment (${changed.length} item berubah)`}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

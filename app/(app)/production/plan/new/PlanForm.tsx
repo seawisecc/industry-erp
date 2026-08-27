@@ -6,6 +6,7 @@ import { CheckCircle2, Info } from "lucide-react";
 import { createPlan } from "../../actions";
 import StokKurangAlert from "@/components/StokKurangAlert";
 import { gabungKebutuhan, hitungKekurangan, type ItemStok } from "@/lib/stokCek";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type ProductOpt = {
   id: string;
@@ -30,6 +31,7 @@ export default function PlanForm({
   ppicHref: string | null;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
 
   const [productId, setProductId] = useState("");
   const [noBatch, setNoBatch] = useState("");
@@ -65,6 +67,19 @@ export default function PlanForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan rencana produksi?",
+      ringkasan: [
+        { label: "Produk", nilai: product?.nama_produk || "-" },
+        { label: "No. Batch", nilai: noBatch },
+        { label: "Jumlah Batch", nilai: jumlahBatch },
+        { label: "Tanggal Rencana", nilai: tanggal },
+      ],
+      tombol: "Ya, Simpan Plan",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -230,6 +245,7 @@ export default function PlanForm({
         )}
         {loading ? "Menyimpan..." : "Simpan Plan Produksi"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

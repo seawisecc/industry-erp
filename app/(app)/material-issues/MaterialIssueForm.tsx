@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, X } from "lucide-react";
 import { createMaterialIssue } from "./actions";
 import { TUJUAN_PEMAKAIAN } from "@/lib/materialIssue";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type IssueItem = {
   id: string;
@@ -39,6 +40,7 @@ export default function MaterialIssueForm({
   hariIni: string;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [tanggal, setTanggal] = useState(hariIni);
   const [tujuan, setTujuan] = useState<string>(TUJUAN_PEMAKAIAN[0]);
   const [catatan, setCatatan] = useState("");
@@ -76,6 +78,21 @@ export default function MaterialIssueForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const dipakai = rows.filter((r) => r.item && parseNum(r.qty) > 0);
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan pemakaian bahan ini?",
+      pesan: "Stok bahan langsung dipotong FEFO begitu disimpan.",
+      ringkasan: [
+        { label: "Tanggal", nilai: tanggal },
+        { label: "Tujuan", nilai: tujuan },
+        { label: "Bahan", nilai: dipakai.length + " item" },
+      ],
+      tombol: "Ya, Catat Pemakaian",
+      nada: "bahaya",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -297,6 +314,7 @@ export default function MaterialIssueForm({
         Biaya final dihitung dari harga lot yang benar-benar terpotong, bisa
         berbeda dari perkiraan di atas.
       </p>
+      {konfirmasi.dialog}
     </form>
   );
 }

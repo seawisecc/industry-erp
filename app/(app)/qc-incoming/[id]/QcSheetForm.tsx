@@ -11,6 +11,7 @@ import { Fragment, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save, Check, X, Tags } from "lucide-react";
 import { saveQcSheet, decideQc, type QcHasilRow } from "../actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type SheetInfo = {
   batchId: string;
@@ -41,6 +42,7 @@ export default function QcSheetForm({
   boleh: boolean;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
 
   const [jumlahSampel, setJumlahSampel] = useState(info.jumlahSampel || "");
   const [tglSampling, setTglSampling] = useState(info.tanggalSampling || "");
@@ -100,6 +102,18 @@ export default function QcSheetForm({
 
   async function simpanDraft() {
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan draft hasil uji QC?",
+      pesan: "Keputusan release / reject belum diambil, lembarnya masih bisa diubah.",
+      ringkasan: [
+        { label: "Item", nilai: info.itemNama },
+        { label: "No. Lot", nilai: info.noLot || "-" },
+      ],
+      tombol: "Ya, Simpan Draft",
+    });
+    if (!lanjut) return;
+
     setLoading("draft");
     setError("");
     setSaved(false);
@@ -123,14 +137,25 @@ export default function QcSheetForm({
       noteRef.current?.scrollIntoView({ block: "center" });
       return;
     }
-    if (
-      !confirm(
+    const lanjut = await konfirmasi.minta({
+      judul: status === "Released" ? "Release lot ini?" : "Reject lot ini?",
+      pesan:
         status === "Released"
-          ? `Release batch ini? Stok masuk ke gudang siap pakai (FEFO).`
-          : `Reject batch ini? Stok hangus dan tercatat di audit log. Tindakan tidak bisa dibatalkan.`
-      )
-    )
-      return;
+          ? "Stok masuk ke gudang siap pakai dan bisa dipotong produksi (FEFO)."
+          : "Stok lot ini hangus dan tercatat di audit log. Tidak bisa dibatalkan.",
+      ringkasan: [
+        { label: "Item", nilai: info.itemNama },
+        { label: "No. Lot", nilai: info.noLot || "-" },
+        {
+          label: "Qty",
+          nilai: info.qty.toLocaleString("id-ID") + " " + info.satuan,
+        },
+      ],
+      tombol: status === "Released" ? "Ya, Release" : "Ya, Reject",
+      nada: status === "Released" ? "simpan" : "bahaya",
+    });
+    if (!lanjut) return;
+
     setLoading(status === "Released" ? "release" : "reject");
     setError("");
     const res = await decideQc(info.batchId, status, sheet());
@@ -440,6 +465,7 @@ export default function QcSheetForm({
           </p>
         )}
       </div>
+      {konfirmasi.dialog}
     </div>
   );
 }

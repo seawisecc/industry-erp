@@ -14,6 +14,7 @@ import RowActions, { ActionTip, iconActionClass } from "@/components/RowActions"
 import StokKurangAlert from "@/components/StokKurangAlert";
 import { gabungKebutuhan, hitungKekurangan } from "@/lib/stokCek";
 import { urutkanFormula, faseKey, faseLabel } from "@/lib/formulaOrder";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 /* ------------------------------------------------------------
    Draft otomatis di browser.
@@ -151,6 +152,7 @@ export default function ExecuteForm({
   ppicHref: string | null;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const itemOf = (id: string) => items.find((it) => it.id === id);
   /**
    * Formula diurut per fase, lalu bahan terbesar dulu, urutan kerja di
@@ -476,6 +478,25 @@ export default function ExecuteForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan penimbangan batch ini?",
+      pesan: "Angka timbangan ini yang dipakai saat hasil produksi dikunci nanti.",
+      ringkasan: [
+        { label: "No. Batch", nilai: plan.no_batch },
+        { label: "Produk", nilai: plan.produkNama },
+        {
+          label: "Bahan Ditimbang",
+          nilai:
+            plan.formulas.filter((f) => parseNum(bahanReal[f.item_id] || "") > 0)
+              .length +
+            " dari " +
+            plan.formulas.length,
+        },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
 
@@ -1518,6 +1539,7 @@ export default function ExecuteForm({
         Stok belum terpotong di tahap ini, pemotongan terjadi saat Input Hasil
         (Result).
       </p>
+      {konfirmasi.dialog}
     </form>
   );
 }

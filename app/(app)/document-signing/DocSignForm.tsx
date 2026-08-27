@@ -11,6 +11,7 @@ import {
   type SignSlot,
 } from "@/lib/docSign";
 import { saveDocSignSettings } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type DocSignInitial = Record<DocTypeKey, SignSlot[]>;
 export type QrSignInitial = Record<DocTypeKey, QrSignDoc>;
@@ -23,6 +24,7 @@ export default function DocSignForm({
   qrAwal: QrSignInitial;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [data, setData] = useState<DocSignInitial>(initial);
   const [qr, setQr] = useState<QrSignInitial>(qrAwal);
   const [loading, setLoading] = useState(false);
@@ -65,6 +67,20 @@ export default function DocSignForm({
       );
       return;
     }
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan pengaturan tanda tangan dokumen?",
+      pesan: "Berlaku untuk dokumen yang dicetak setelah ini.",
+      ringkasan: [
+        { label: "Jenis Dokumen", nilai: DOC_TYPES.length + " dokumen" },
+        {
+          label: "Pakai QR",
+          nilai: DOC_TYPES.filter((d) => qr[d.key]?.aktif).length + " dokumen",
+        },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     setSaved(false);
@@ -277,6 +293,7 @@ export default function DocSignForm({
         )}
         {loading ? "Menyimpan..." : "Simpan Semua Pengaturan"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

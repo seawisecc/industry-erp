@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createStockOpname } from "../actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export default function OpnameNewForm({
   hariIni,
@@ -20,6 +21,7 @@ export default function OpnameNewForm({
   };
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [tanggal, setTanggal] = useState(hariIni);
   const [kategori, setKategori] = useState("");
   const [catatan, setCatatan] = useState("");
@@ -38,6 +40,18 @@ export default function OpnameNewForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Buka opname baru?",
+      pesan: "Stok sistem seluruh item dalam cakupan dipotret saat ini juga.",
+      ringkasan: [
+        { label: "Tanggal", nilai: tanggal },
+        { label: "Cakupan", nilai: kategori || "Semua golongan" },
+      ],
+      tombol: "Ya, Buka Opname",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -135,6 +149,7 @@ export default function OpnameNewForm({
           Tidak ada baris aktif pada cakupan ini.
         </p>
       )}
+      {konfirmasi.dialog}
     </form>
   );
 }

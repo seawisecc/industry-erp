@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Plus, Trash2 } from "lucide-react";
 import { createPO, updatePO, deletePO } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type SupplierOption = { id: string; nama: string };
 
@@ -65,6 +66,7 @@ function formatRupiah(n: number) {
 
 export default function POForm({ suppliers, items, po }: Props) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const isEdit = !!po;
 
   const [supplierId, setSupplierId] = useState(po?.supplier_id || "");
@@ -148,6 +150,21 @@ export default function POForm({ suppliers, items, po }: Props) {
         return;
       }
     }
+
+    const lanjut = await konfirmasi.minta({
+      judul: isEdit ? "Simpan perubahan PO ini?" : "Terbitkan Purchase Order?",
+      pesan: isEdit
+        ? "Seluruh baris item PO ditulis ulang sesuai isi layar ini."
+        : undefined,
+      ringkasan: [
+        { label: "Supplier", nilai: selectedSupplier?.nama || "-" },
+        { label: "Tanggal", nilai: tanggal },
+        { label: "Item", nilai: filled.length + " baris" },
+        { label: "Total", nilai: formatRupiah(total) },
+      ],
+      tombol: isEdit ? "Ya, Simpan" : "Ya, Terbitkan",
+    });
+    if (!lanjut) return;
 
     setLoading(true);
     const payload = {
@@ -539,6 +556,7 @@ export default function POForm({ suppliers, items, po }: Props) {
           </button>
         )}
       </div>
+      {konfirmasi.dialog}
     </form>
   );
 }

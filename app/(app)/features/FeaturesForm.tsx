@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Zap } from "lucide-react";
 import { FEATURES, type FeatureFlags, type FeatureKey } from "@/lib/features";
 import { saveFeatures } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export default function FeaturesForm({
   initial,
@@ -14,6 +15,7 @@ export default function FeaturesForm({
   canToggleMes: boolean;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [flags, setFlags] = useState<FeatureFlags>(initial);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -22,6 +24,21 @@ export default function FeaturesForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const aktif = FEATURES.filter((f) => flags[f.key as FeatureKey]);
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan fitur yang dipakai company ini?",
+      pesan: "Mematikan fitur menyembunyikan modulnya dari semua pengguna company ini.",
+      ringkasan: [
+        {
+          label: "Fitur Aktif",
+          nilai:
+            aktif.length > 0 ? aktif.map((f) => f.label).join(", ") : "Tidak ada",
+        },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     setSaved(false);
@@ -117,6 +134,7 @@ export default function FeaturesForm({
         )}
         {loading ? "Menyimpan..." : "Simpan"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

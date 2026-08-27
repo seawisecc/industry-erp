@@ -11,9 +11,11 @@ import {
   type QcParamInput,
 } from "@/lib/qcParams";
 import { saveQcParameters } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export default function QcParamsForm({ initial }: { initial: QcParamInput[] }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [rows, setRows] = useState<QcParamInput[]>(initial);
   const [tab, setTab] = useState<QcKategoriKey>("bahan_baku");
   const [loading, setLoading] = useState(false);
@@ -47,6 +49,17 @@ export default function QcParamsForm({ initial }: { initial: QcParamInput[] }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan daftar parameter QC?",
+      pesan: "Daftar lama diganti seluruhnya oleh isi layar ini.",
+      ringkasan: [
+        { label: "Parameter Aktif", nilai: rows.filter((r) => r.aktif).length + " parameter" },
+        { label: "Total Baris", nilai: rows.length + " baris" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     setSaved(false);
@@ -277,6 +290,7 @@ export default function QcParamsForm({ initial }: { initial: QcParamInput[] }) {
         )}
         {loading ? "Menyimpan..." : "Simpan Parameter"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

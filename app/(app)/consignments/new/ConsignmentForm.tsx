@@ -8,6 +8,7 @@ import type { ClientOpt, ProductVariantOpt } from "@/lib/salesOptions";
 import ClientPicker from "@/components/ClientPicker";
 import ProductPicker from "@/components/ProductPicker";
 import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 /**
  * `hargaManual` menandai baris yang harganya sudah diketik user, supaya
@@ -32,6 +33,7 @@ export default function ConsignmentForm({
   clientPrices: ClientPriceMap;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [clientId, setClientId] = useState("");
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [catatan, setCatatan] = useState("");
@@ -76,6 +78,23 @@ export default function ConsignmentForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Kirim konsinyasi ke outlet ini?",
+      pesan: "Stok produk jadi berkurang sebanyak yang dikirim.",
+      ringkasan: [
+        {
+          label: "Outlet / Client",
+          nilai:
+            clients.find((c) => c.id === clientId)?.company_brand || "-",
+        },
+        { label: "Tanggal Kirim", nilai: tanggal },
+        { label: "Produk", nilai: rows.filter((r) => r.key).length + " baris" },
+      ],
+      tombol: "Ya, Kirim",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -250,6 +269,7 @@ export default function ConsignmentForm({
         )}
         {loading ? "Menyimpan..." : "Kirim Konsinyasi"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

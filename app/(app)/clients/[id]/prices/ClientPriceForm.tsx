@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveClientPrices } from "../../actions";
 import ProductPicker, { type ProductOption } from "@/components/ProductPicker";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type HargaOption = ProductOption & {
   product_id: string;
@@ -32,6 +33,7 @@ export default function ClientPriceForm({
   awal: { key: string; harga: number }[];
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [rows, setRows] = useState<Row[]>(() =>
     awal.length > 0
       ? awal.map((a) => ({ key: a.key, harga: String(a.harga) }))
@@ -65,6 +67,19 @@ export default function ClientPriceForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan daftar harga khusus client ini?",
+      pesan:
+        isian.length === 0
+          ? "Daftarnya dikosongkan, client ini kembali memakai harga master."
+          : "Daftar lama diganti seluruhnya oleh isi layar ini.",
+      ringkasan: [
+        { label: "Baris Harga", nilai: isian.length + " produk" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     setSukses("");
@@ -218,6 +233,7 @@ export default function ClientPriceForm({
         Menyimpan akan mengganti seluruh daftar harga client ini. Baris yang
         harganya dikosongkan ikut terhapus.
       </p>
+      {konfirmasi.dialog}
     </form>
   );
 }

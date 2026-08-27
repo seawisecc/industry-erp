@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { createItem, updateItem } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 type MaterialOption = {
   id: string;
@@ -27,6 +28,7 @@ type Props = {
 
 export default function ItemForm({ materials, item }: Props) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const isEdit = !!item;
 
   const initialMaterial = materials.find((m) => m.id === item?.material_id) || null;
@@ -93,6 +95,18 @@ export default function ItemForm({ materials, item }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: isEdit ? "Simpan perubahan item ini?" : "Tambah item stok baru?",
+      ringkasan: [
+        { label: "Nama", nilai: nama },
+        { label: "Kategori", nilai: kategori },
+        { label: "Satuan", nilai: satuan },
+        { label: "Link Material", nilai: selectedMaterial?.tradename || "-" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -265,6 +279,7 @@ export default function ItemForm({ materials, item }: Props) {
       >
         {loading ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Simpan"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

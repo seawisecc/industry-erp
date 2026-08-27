@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createPurchaseReturn } from "./actions";
 import { ALASAN_RETUR } from "@/lib/purchaseReturn";
 import DataTable from "@/components/DataTable";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type ReturBatch = {
   id: string;
@@ -55,6 +56,7 @@ export default function PurchaseReturnForm({
   hariIni: string;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [tanggal, setTanggal] = useState(hariIni);
   const [alasan, setAlasan] = useState<string>(ALASAN_RETUR[0]);
   const [catatan, setCatatan] = useState("");
@@ -78,6 +80,25 @@ export default function PurchaseReturnForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan retur ke supplier ini?",
+      pesan: "Stok lot yang diretur berkurang dan tagihan faktur ikut dipotong.",
+      ringkasan: [
+        { label: "No. Faktur", nilai: faktur.no_invoice || "-" },
+        { label: "Tanggal", nilai: tanggal },
+        { label: "Alasan", nilai: alasan },
+        {
+          label: "Lot Diretur",
+          nilai: batches.filter((b) => qtyOf(b.id) > 0).length + " lot",
+        },
+        { label: "Nilai Retur", nilai: formatRupiah(totalNilai) },
+      ],
+      tombol: "Ya, Simpan Retur",
+      nada: "bahaya",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -316,6 +337,7 @@ export default function PurchaseReturnForm({
         ditolak QC stoknya tidak dipotong lagi, hanya tagihannya yang
         berkurang.
       </p>
+      {konfirmasi.dialog}
     </form>
   );
 }

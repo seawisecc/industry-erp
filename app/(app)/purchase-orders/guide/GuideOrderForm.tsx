@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { ShoppingCart, TriangleAlert } from "lucide-react";
 import { createPOsFromGuide, type GuideLine } from "./actions";
 import DataTable from "@/components/DataTable";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type GuideItem = {
   id: string;
@@ -47,6 +48,7 @@ function saranQty(it: GuideItem) {
 
 export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [qty, setQty] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const it of items) init[it.id] = String(saranQty(it));
@@ -96,6 +98,19 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
 
   async function handleSubmit() {
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Terbitkan Purchase Order dari daftar ini?",
+      pesan: "Satu PO dibuat per supplier.",
+      ringkasan: [
+        { label: "Jumlah PO", nilai: perSupplier.size + " supplier" },
+        { label: "Baris Item", nilai: lines.length + " baris" },
+        { label: "Tanggal", nilai: tanggal },
+      ],
+      tombol: "Ya, Terbitkan",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     setResult("");
@@ -348,6 +363,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
           dulu.
         </p>
       )}
+      {konfirmasi.dialog}
     </div>
   );
 }

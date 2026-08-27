@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Plus, Trash2 } from "lucide-react";
 import { createProduct, updateProduct } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type ItemOption = {
   id: string;
@@ -71,6 +72,7 @@ function emptyVariant(): VariantDraft {
 
 export default function ProductForm({ items, product }: Props) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const isEdit = !!product;
 
   const bahanBaku = items.filter((it) => it.kategori === "Bahan Baku");
@@ -186,6 +188,25 @@ export default function ProductForm({ items, product }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: isEdit ? "Simpan perubahan produk ini?" : "Tambah produk baru?",
+      pesan: isEdit
+        ? "Formula, tahapan, dan varian ditulis ulang seluruhnya sesuai isi layar ini."
+        : undefined,
+      ringkasan: [
+        { label: "Nama Produk", nilai: nama },
+        { label: "Brand", nilai: brand || "-" },
+        {
+          label: "Formula",
+          nilai: fRows.filter((r) => r.item).length + " bahan",
+        },
+        { label: "Tahapan", nilai: steps.filter((s) => s.instruksi.trim()).length + " langkah" },
+        { label: "Varian", nilai: variants.length + " varian" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -800,6 +821,7 @@ export default function ProductForm({ items, product }: Props) {
       >
         {loading ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Simpan"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

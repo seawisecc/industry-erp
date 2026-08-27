@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { updateAccount } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 type Props = {
   companyNama: string;
@@ -14,6 +15,7 @@ type Props = {
 export default function AccountForm({ companyNama, adminNama, email }: Props) {
   const router = useRouter();
   const supabase = createClient();
+  const konfirmasi = useConfirmSave();
 
   // ---- Identitas ----
   const [company, setCompany] = useState(companyNama);
@@ -33,6 +35,16 @@ export default function AccountForm({ companyNama, adminNama, email }: Props) {
   async function handleIdentity(e: React.FormEvent) {
     e.preventDefault();
     if (idLoading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan identitas akun?",
+      ringkasan: [
+        { label: "Nama Company", nilai: company },
+        { label: "Nama Admin", nilai: nama },
+      ],
+    });
+    if (!lanjut) return;
+
     setIdLoading(true);
     setIdError("");
     setIdSaved(false);
@@ -60,6 +72,15 @@ export default function AccountForm({ companyNama, adminNama, email }: Props) {
       setPwError("Konfirmasi password tidak sama.");
       return;
     }
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Ganti password akun ini?",
+      pesan: "Setelah diganti, login berikutnya memakai password yang baru.",
+      ringkasan: [{ label: "Email", nilai: email }],
+      tombol: "Ya, Ganti Password",
+      nada: "bahaya",
+    });
+    if (!lanjut) return;
 
     setPwLoading(true);
 
@@ -214,6 +235,7 @@ export default function AccountForm({ companyNama, adminNama, email }: Props) {
           {pwLoading ? "Memproses..." : "Ganti Password"}
         </button>
       </form>
+      {konfirmasi.dialog}
     </div>
   );
 }

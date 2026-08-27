@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { createItemsFromMaterials } from "../actions";
 import DataTable from "@/components/DataTable";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type MaterialRow = {
   id: string;
@@ -26,6 +27,7 @@ function parseNum(s: string) {
 
 export default function FromMaterialForm({ materials }: { materials: MaterialRow[] }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
 
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
@@ -74,6 +76,15 @@ export default function FromMaterialForm({ materials }: { materials: MaterialRow
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading || checkedCount === 0) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Buat item stok dari material terpilih?",
+      pesan: "Tiap material yang dicentang akan jadi satu item gudang baru.",
+      ringkasan: [{ label: "Jumlah Item", nilai: checkedCount + " item" }],
+      tombol: "Ya, Buat Item",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -274,6 +285,7 @@ export default function FromMaterialForm({ materials }: { materials: MaterialRow
             ? "Pilih material dulu"
             : `Buat ${checkedCount} Item Stok`}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

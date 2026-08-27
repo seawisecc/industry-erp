@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveService } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
@@ -21,6 +22,7 @@ export default function ServiceForm({
   };
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [nama, setNama] = useState(initial?.nama_jasa || "");
   const [keterangan, setKeterangan] = useState(initial?.keterangan || "");
   const [biaya, setBiaya] = useState(
@@ -33,6 +35,17 @@ export default function ServiceForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return; // guard: cegah double-submit
+
+    const lanjut = await konfirmasi.minta({
+      judul: id ? "Simpan perubahan jasa ini?" : "Tambah jasa baru?",
+      ringkasan: [
+        { label: "Nama Jasa", nilai: nama },
+        { label: "Biaya", nilai: "Rp " + parseNum(biaya).toLocaleString("id-ID") },
+        { label: "Status", nilai: aktif ? "Aktif" : "Nonaktif" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -128,6 +141,7 @@ export default function ServiceForm({
         )}
         {loading ? "Menyimpan..." : id ? "Simpan Perubahan" : "Simpan Jasa"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

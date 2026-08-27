@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveSupplier, type SupplierInput } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export default function SupplierForm({
   id,
@@ -12,6 +13,7 @@ export default function SupplierForm({
   initial?: Partial<SupplierInput>;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [nama, setNama] = useState(initial?.nama || "");
   const [alamat, setAlamat] = useState(initial?.alamat || "");
   const [namaKontak, setNamaKontak] = useState(initial?.nama_kontak || "");
@@ -24,6 +26,17 @@ export default function SupplierForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return; // guard: cegah double-submit
+
+    const lanjut = await konfirmasi.minta({
+      judul: id ? "Simpan perubahan supplier ini?" : "Tambah supplier baru?",
+      ringkasan: [
+        { label: "Nama", nilai: nama },
+        { label: "Kontak", nilai: namaKontak || "-" },
+        { label: "No. Telp", nilai: noTelp || "-" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -130,6 +143,7 @@ export default function SupplierForm({
         )}
         {loading ? "Menyimpan..." : id ? "Simpan Perubahan" : "Simpan"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

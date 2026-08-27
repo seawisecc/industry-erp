@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Plus, Trash2 } from "lucide-react";
 import { createProduction } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type ProductOption = {
   id: string;
@@ -57,6 +58,7 @@ export default function ProductionForm({
   items: ItemOption[];
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
 
   const [productId, setProductId] = useState("");
   const [noBatch, setNoBatch] = useState("");
@@ -169,6 +171,32 @@ export default function ProductionForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan hasil produksi ini?",
+      pesan: "Stok bahan dipotong FEFO dan batch produk jadi terbentuk. Membatalkannya harus lewat menu pembatalan produksi.",
+      ringkasan: [
+        { label: "Produk", nilai: selectedProduct?.nama_produk || "-" },
+        { label: "No. Batch", nilai: noBatch },
+        { label: "Tanggal", nilai: tanggal },
+        {
+          label: "Bahan Dipakai",
+          nilai: allRows.filter((r) => r.item).length + " item",
+        },
+        {
+          label: "Hasil",
+          nilai:
+            (selectedProduct?.variants || [])
+              .filter((v) => parseNum(variantQty[v.id] || "") > 0)
+              .map((v) => `${parseNum(variantQty[v.id])} ${v.nama_varian}`)
+              .join(", ") || "-",
+        },
+      ],
+      tombol: "Ya, Simpan Produksi",
+      nada: "bahaya",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -540,6 +568,7 @@ export default function ProductionForm({
           dulu.
         </p>
       )}
+      {konfirmasi.dialog}
     </form>
   );
 }

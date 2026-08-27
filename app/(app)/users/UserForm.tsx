@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createUser, updateUser } from "./actions";
 import { MODULES } from "@/lib/modules";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 type Props = {
   user?: {
@@ -37,6 +38,7 @@ const ROLE_SARAN = [
 
 export default function UserForm({ user }: Props) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const isEdit = !!user;
 
   const [email, setEmail] = useState(user?.email || "");
@@ -69,6 +71,27 @@ export default function UserForm({ user }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: isEdit ? "Simpan perubahan pengguna ini?" : "Buat pengguna baru?",
+      pesan: isEdit && password
+        ? "Password pengguna ini ikut diganti."
+        : undefined,
+      ringkasan: [
+        { label: "Nama", nilai: nama },
+        { label: "Email", nilai: email },
+        { label: "Jabatan", nilai: roleTitle || "-" },
+        {
+          label: "Akses",
+          nilai: isAdmin
+            ? "Admin (semua modul)"
+            : checked.length + " modul dipilih",
+        },
+        { label: "Status", nilai: aktif ? "Aktif" : "Nonaktif" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -391,6 +414,7 @@ export default function UserForm({ user }: Props) {
       >
         {loading ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Buat Pengguna"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

@@ -17,6 +17,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { runImport, exportCsvData, ImportKind } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 // Ikon dipilih di sini (client), komponen/function tidak boleh dioper
 // sebagai prop dari Server Component.
@@ -53,6 +54,7 @@ function detectDelimiter(firstLine: string): string {
 export default function ImportCard({ config }: { config: ImportCardConfig }) {
   const Icon = ICONS[config.kind];
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const allCols = [...config.requiredCols, ...config.optionalCols];
 
@@ -153,6 +155,18 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
 
   async function handleImport() {
     if (loading || rows.length === 0) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: `Import ${rows.length} baris ke ${config.title}?`,
+      pesan: "Semua baris disisipkan sebagai data baru, bukan menimpa yang sudah ada.",
+      ringkasan: [
+        { label: "Berkas", nilai: fileName || "-" },
+        { label: "Jumlah Baris", nilai: rows.length + " baris" },
+      ],
+      tombol: "Ya, Import",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     const result = await runImport(config.kind, rows);
@@ -292,6 +306,7 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
           </button>
         </>
       )}
+      {konfirmasi.dialog}
     </div>
   );
 }

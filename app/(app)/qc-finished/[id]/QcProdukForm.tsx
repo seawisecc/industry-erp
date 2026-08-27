@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Save, Check, FileText, Printer, Tags } from "lucide-react";
 import { saveQcProduk, type QcProdukHasil } from "../actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type QcProdukInfo = {
   batchId: string;
@@ -40,6 +41,7 @@ export default function QcProdukForm({
   boleh: boolean;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
 
   const [jumlahSampel, setJumlahSampel] = useState(info.jumlahSampel || "");
   const [tglSampling, setTglSampling] = useState(info.tanggalSampling || "");
@@ -104,13 +106,22 @@ export default function QcProdukForm({
       setError("Isi hasil uji minimal satu parameter sebelum dikirim ke QA.");
       return;
     }
-    if (
-      selesai &&
-      !confirm(
-        "Tandai pengujian produk jadi SELESAI? Hasil akan dikirim ke QA untuk pelulusan."
-      )
-    )
-      return;
+    const lanjut = await konfirmasi.minta({
+      judul: selesai
+        ? "Tandai pengujian produk jadi SELESAI?"
+        : "Simpan draft hasil uji produk jadi?",
+      pesan: selesai
+        ? "Hasilnya dikirim ke QA untuk pelulusan batch."
+        : "Lembarnya masih bisa diubah selama belum ditandai selesai.",
+      ringkasan: [
+        { label: "Produk", nilai: info.produkNama },
+        { label: "No. Batch", nilai: info.noBatch },
+        { label: "Parameter Terisi", nilai: terisi + " parameter" },
+      ],
+      tombol: selesai ? "Ya, Kirim ke QA" : "Ya, Simpan Draft",
+    });
+    if (!lanjut) return;
+
     setLoading(selesai ? "selesai" : "draft");
     setError("");
     setSaved(false);
@@ -427,6 +438,7 @@ export default function QcProdukForm({
           </p>
         )}
       </div>
+      {konfirmasi.dialog}
     </div>
   );
 }

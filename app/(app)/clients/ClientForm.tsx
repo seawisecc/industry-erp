@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClientData, updateClientData } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 const KATEGORI = [
   "Brand Owner",
@@ -28,6 +29,7 @@ type Props = {
 
 export default function ClientForm({ client }: Props) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const isEdit = !!client;
 
   const [company, setCompany] = useState(client?.company_brand || "");
@@ -43,6 +45,18 @@ export default function ClientForm({ client }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: isEdit ? "Simpan perubahan client ini?" : "Tambah client baru?",
+      ringkasan: [
+        { label: "Company / Brand", nilai: company },
+        { label: "Kategori", nilai: kategori },
+        { label: "Contact Person", nilai: cp || "-" },
+        { label: "Status", nilai: aktif ? "Aktif" : "Nonaktif" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     const payload = {
@@ -171,6 +185,7 @@ export default function ClientForm({ client }: Props) {
         )}
         {loading ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Simpan Client"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

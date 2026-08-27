@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { decideQaReview, type QaChecklistItem } from "../actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type UjiRow = {
   nama: string;
@@ -120,6 +121,7 @@ export default function QaReviewForm({ info,
   boleh: boolean;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
 
   const [checks, setChecks] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
@@ -157,14 +159,26 @@ export default function QaReviewForm({ info,
       checklistRef.current?.scrollIntoView({ block: "center" });
       return;
     }
-    if (
-      !confirm(
+    const lanjut = await konfirmasi.minta({
+      judul:
+        status === "Released" ? "Luluskan batch ini?" : "Tolak batch ini?",
+      pesan:
         status === "Released"
-          ? "Luluskan batch ini? Produk jadi masuk stok dan bisa dijual."
-          : "Tolak batch ini? Produk tidak akan pernah masuk stok jual."
-      )
-    )
-      return;
+          ? "Produk jadi masuk stok dan bisa dijual."
+          : "Produk tidak akan pernah masuk stok jual.",
+      ringkasan: [
+        { label: "No. Batch", nilai: info.noBatch },
+        { label: "Produk", nilai: info.produkNama },
+        {
+          label: "Checklist",
+          nilai: jumlahCentang + " dari " + CHECKLIST_DEF.length + " terverifikasi",
+        },
+      ],
+      tombol: status === "Released" ? "Ya, Luluskan" : "Ya, Tolak",
+      nada: status === "Released" ? "simpan" : "bahaya",
+    });
+    if (!lanjut) return;
+
     setLoading(status === "Released" ? "release" : "reject");
     setError("");
     const checklist: QaChecklistItem[] = CHECKLIST_DEF.map((c) => ({
@@ -456,6 +470,7 @@ export default function QaReviewForm({ info,
           </p>
         )}
       </div>
+      {konfirmasi.dialog}
     </div>
   );
 }

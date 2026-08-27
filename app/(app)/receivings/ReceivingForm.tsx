@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createReceiving } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type POOption = {
   id: string;
@@ -46,6 +47,7 @@ function formatRupiah(n: number) {
 
 export default function ReceivingForm({ pos }: { pos: POOption[] }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
 
   const [poId, setPoId] = useState("");
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
@@ -111,6 +113,21 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
 
     setLoading(true);
     setError("");
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan penerimaan barang ini?",
+      pesan: "Stok bertambah dan tagihan supplier tercatat begitu disimpan.",
+      ringkasan: [
+        { label: "No. PO", nilai: selectedPO?.no_po || "-" },
+        { label: "Tanggal Terima", nilai: tanggal },
+        { label: "No. Faktur", nilai: noInvoice || "-" },
+        { label: "Item", nilai: rows.length + " baris" },
+        { label: "Total", nilai: formatRupiah(total) },
+      ],
+      tombol: "Ya, Terima Barang",
+    });
+    if (!lanjut) return;
+
     try {
       const result = await createReceiving({
         po_id: poId,
@@ -352,6 +369,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
       >
         {loading ? "Menyimpan..." : "Simpan Penerimaan"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

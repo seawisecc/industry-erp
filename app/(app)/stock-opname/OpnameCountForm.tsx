@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Save, CheckCircle2 } from "lucide-react";
 import { saveOpnameCount, finishStockOpname } from "./actions";
 import DataTable from "@/components/DataTable";
+import { useConfirmSave } from "@/components/ConfirmSave";
 import { judulGolongan, type Golongan } from "./golongan";
 
 export type { Golongan };
@@ -50,6 +51,7 @@ export default function OpnameCountForm({
   hariIni: string;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [fisik, setFisik] = useState<Record<string, string>>(() =>
     Object.fromEntries(awal.map((r) => [r.id, toStr(r.qty_fisik)]))
   );
@@ -99,6 +101,17 @@ export default function OpnameCountForm({
 
   async function simpanProgres() {
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan progres hitung fisik?",
+      pesan: "Opname belum ditutup, hitungannya masih bisa dilanjutkan lagi nanti.",
+      ringkasan: [
+        { label: "Baris Terhitung", nilai: jumlahTerisi + " dari " + awal.length },
+      ],
+      tombol: "Ya, Simpan Progres",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     setSukses("");
@@ -120,6 +133,19 @@ export default function OpnameCountForm({
 
   async function tutupOpname() {
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Tutup opname dan sesuaikan stok?",
+      pesan: "Selisih hitung fisik langsung jadi koreksi stok. Opname yang sudah ditutup tidak bisa dibatalkan.",
+      ringkasan: [
+        { label: "Baris Terhitung", nilai: jumlahTerisi + " dari " + awal.length },
+        { label: "Tanggal Tutup", nilai: tanggalTutup },
+      ],
+      tombol: "Ya, Tutup Opname",
+      nada: "bahaya",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     setSukses("");
@@ -409,6 +435,7 @@ export default function OpnameCountForm({
           <p className="text-botanical-700 text-[12.5px] font-medium">{sukses}</p>
         )}
       </div>
+      {konfirmasi.dialog}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveInci, type InciInput } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export default function InciForm({
   id,
@@ -12,6 +13,7 @@ export default function InciForm({
   initial?: Partial<InciInput>;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [inciName, setInciName] = useState(initial?.inci_name || "");
   const [casNumber, setCasNumber] = useState(initial?.cas_number || "");
   const [noael, setNoael] = useState(initial?.noael || "");
@@ -23,6 +25,17 @@ export default function InciForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return; // guard: cegah double-submit
+
+    const lanjut = await konfirmasi.minta({
+      judul: id ? "Simpan perubahan INCI ini?" : "Tambah INCI baru?",
+      ringkasan: [
+        { label: "INCI Name", nilai: inciName },
+        { label: "CAS Number", nilai: casNumber || "-" },
+        { label: "Function", nilai: fungsi || "-" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -121,6 +134,7 @@ export default function InciForm({
         )}
         {loading ? "Menyimpan..." : id ? "Simpan Perubahan" : "Simpan"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }

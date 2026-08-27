@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { finishProduction } from "../../../actions";
 import DataTable from "@/components/DataTable";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type ResultVariant = {
   nama_varian: string;
@@ -22,6 +23,7 @@ export default function ResultForm({
   variants: ResultVariant[];
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [real, setReal] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       variants.map((v) => [
@@ -43,12 +45,20 @@ export default function ResultForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
-    if (
-      !confirm(
-        "Simpan hasil produksi? Stok bahan & kemasan akan terpotong sesuai data eksekusi (tidak bisa dibatalkan)."
-      )
-    )
-      return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Kunci hasil produksi batch ini?",
+      pesan: "Stok bahan & kemasan terpotong sesuai data penimbangan, dan batch produk jadi terbentuk.",
+      ringkasan: [
+        { label: "Hasil Nyata", nilai: totalReal.toLocaleString("id-ID") + " pcs" },
+        { label: "Teoritis", nilai: totalTeoritis.toLocaleString("id-ID") + " pcs" },
+        { label: "Yield", nilai: yieldPct.toFixed(1).replace(".", ",") + " %" },
+      ],
+      tombol: "Ya, Simpan Hasil",
+      nada: "bahaya",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     const result = await finishProduction(
@@ -207,6 +217,7 @@ export default function ResultForm({
         Stok terpotong FEFO sesuai timbangan real + kemasan + adjusting. HPP real
         tercatat di Production History.
       </p>
+      {konfirmasi.dialog}
     </form>
   );
 }

@@ -453,6 +453,55 @@ Gantinya, pilih yang paling pas menurut fungsi kalimatnya:
 Tanda hubung biasa (`-`) tetap boleh untuk kata majemuk (`rata-rata`)
 dan sebagai penanda "kosong" di sel tabel.
 
+# Konfirmasi sebelum menyimpan
+
+Setiap layar yang MENULIS data bertanya dulu lewat `components/ConfirmSave.tsx`,
+baik saat menambah maupun mengubah. Form baru wajib ikut, jangan bikin dialog
+sendiri dan jangan pakai `confirm()` bawaan browser (tampilannya lepas dari
+aplikasi dan tidak bisa memuat ringkasan).
+
+```tsx
+const konfirmasi = useConfirmSave();
+
+async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  if (loading) return;
+
+  const lanjut = await konfirmasi.minta({
+    judul: isEdit ? "Simpan perubahan client ini?" : "Tambah client baru?",
+    ringkasan: [{ label: "Company / Brand", nilai: company }],
+  });
+  if (!lanjut) return;
+
+  setLoading(true);
+  ...
+}
+
+<form onSubmit={handleSubmit}>… {konfirmasi.dialog}</form>
+```
+
+Empat aturan yang membuatnya berguna, bukan sekadar penghalang:
+
+- **Panggil di dalam `handleSubmit`, bukan di `onClick` tombolnya.** Validasi
+  bawaan browser (`required`) jalan sebelum `onSubmit`, jadi dialognya cuma
+  muncul untuk form yang sudah sah. Membungkus tombolnya membalik urutan itu:
+  user mengkonfirmasi dulu, baru diberi tahu ada kolom kosong.
+- **Panggil SESUDAH validasi manual, SEBELUM `setLoading(true)`.** Kalau
+  loading dinyalakan duluan, tombolnya berputar selama dialog terbuka dan
+  tetap berputar sesudah user menekan Batal.
+- **`ringkasan` diisi hal yang bisa dicek sekilas**: nama, nomor dokumen,
+  jumlah baris, total rupiah. Dialog yang isinya cuma "Yakin?" dalam sebulan
+  akan diklik tanpa dibaca, dan sesudah itu dia cuma menambah satu klik tanpa
+  mencegah apa pun.
+- **`nada: "bahaya"` khusus yang memotong stok atau tidak bisa dibatalkan**
+  (produksi, retur, pemakaian bahan, penyesuaian stok, tutup opname, reject
+  QC/QA). Kalau semua dialog merah, warnanya berhenti berarti apa-apa.
+
+Pengecualian yang disengaja: panel yang SUDAH berupa dialog sendiri
+(`OutletActions`, `ExpiryActions`, `PaymentPanel`, `CompanyToggle`,
+`CancelTxButton`). Membuka dialog di atas dialog membuat tumpukan yang
+membingungkan, dan panelnya sendiri sudah menuntut dua langkah sadar.
+
 # State klien: tiga pola yang wajib diikuti
 
 ## Baca `localStorage` / `matchMedia` lewat `useSyncExternalStore`

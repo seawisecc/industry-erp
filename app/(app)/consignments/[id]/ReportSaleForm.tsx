@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { reportConsignmentSale, closeConsignment } from "../actions";
 import { computeTotals } from "@/lib/invoiceMath";
 import DataTable from "@/components/DataTable";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 export type ConsItem = {
   id: string;
@@ -37,6 +38,7 @@ export default function ReportSaleForm({
   aktif: boolean;
 }) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
   const [laku, setLaku] = useState<Record<string, string>>({});
   const [diskon, setDiskon] = useState("0");
   const [pakaiTax, setPakaiTax] = useState(false);
@@ -55,6 +57,18 @@ export default function ReportSaleForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading || !adaLaku) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Catat penjualan di outlet ini?",
+      pesan: "Barang yang laku keluar dari stok konsinyasi dan Proforma langsung terbit.",
+      ringkasan: [
+        { label: "Produk Laku", nilai: calcItems.length + " baris" },
+        { label: "Total Tagihan", nilai: formatRupiah(totals.total) },
+      ],
+      tombol: "Ya, Terbitkan Proforma",
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -87,12 +101,15 @@ export default function ReportSaleForm({
 
   async function handleClose() {
     if (closing) return;
-    if (
-      !confirm(
-        "Selesaikan konsinyasi? Sisa barang yang belum laku dianggap retur dan kembali ke stok produk jadi."
-      )
-    )
-      return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Selesaikan konsinyasi ini?",
+      pesan: "Sisa barang yang belum laku dianggap retur dan kembali ke stok produk jadi.",
+      tombol: "Ya, Tutup Konsinyasi",
+      nada: "bahaya",
+    });
+    if (!lanjut) return;
+
     setClosing(true);
     try {
       const result = await closeConsignment(consignmentId);
@@ -323,6 +340,7 @@ export default function ReportSaleForm({
           </button>
         </form>
       )}
+      {konfirmasi.dialog}
     </div>
   );
 }

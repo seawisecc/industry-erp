@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveSettings, SettingsInput } from "./actions";
+import { useConfirmSave } from "@/components/ConfirmSave";
 
 type Props = {
   initial: SettingsInput | null;
@@ -10,6 +11,7 @@ type Props = {
 
 export default function SettingsForm({ initial }: Props) {
   const router = useRouter();
+  const konfirmasi = useConfirmSave();
 
   const [form, setForm] = useState<Record<string, string>>({
     alamat: initial?.alamat || "",
@@ -36,6 +38,18 @@ export default function SettingsForm({ initial }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const lanjut = await konfirmasi.minta({
+      judul: "Simpan profil perusahaan?",
+      pesan: "Data ini ikut tercetak di PO, faktur, dan dokumen lain.",
+      ringkasan: [
+        { label: "Alamat", nilai: form.alamat || "-" },
+        { label: "No. Telp", nilai: form.no_telp || "-" },
+        { label: "Email", nilai: form.email || "-" },
+      ],
+    });
+    if (!lanjut) return;
+
     setLoading(true);
     setError("");
     try {
@@ -162,6 +176,7 @@ export default function SettingsForm({ initial }: Props) {
       >
         {loading ? "Menyimpan..." : "Simpan Pengaturan"}
       </button>
+      {konfirmasi.dialog}
     </form>
   );
 }
