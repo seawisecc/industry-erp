@@ -298,6 +298,23 @@ tetap totalnya. `diskonTertimbang` di `lib/clientPrice.ts` yang
 menghitungnya, dipakai dua layar: laporan laku per pengiriman
 (`ReportSaleForm`) dan catat laku per outlet (`OutletActions`).
 
+**`harga` BOLEH null, dan tiap pembacanya wajib menyaringnya.** Ini
+sudah sekali lolos ke produksi dan harus tidak terulang. Waktu kolomnya
+dijadikan nullable, `getSalesOptions` masih memetakannya dengan
+`Number(h.harga)`. `Number(null)` bernilai **0**, bukan `NaN` dan bukan
+`null`, jadi tiap client yang cuma punya diskon terbaca sebagai punya
+harga khusus Rp 0, dan harga khusus itu MENANG atas harga master. Form
+Konsinyasi dan Invoice mengisi harga 0 untuk 17 client sekaligus tanpa
+error apa pun. Sekarang barisnya disaring dua lapis, di query
+(`.not("harga", "is", null)`) sekaligus di pemetaannya, dan nol yang
+ditulis sengaja tetap dihormati.
+
+Pelajaran yang lebih besar dari satu kolom ini: **membuat kolom jadi
+nullable adalah perubahan yang menyentuh SEMUA pembacanya, bukan cuma
+penulisnya.** Sebelum mengirimnya, telusuri dulu siapa saja yang membaca
+kolom itu. Yang berbahaya bukan pembaca yang meledak, tapi yang diam-diam
+menghasilkan angka yang masuk akal.
+
 **Angka diskon di layar tidak boleh menimpa yang sudah diketik user.**
 Polanya sama dengan `hargaManual` di `InvoiceForm`: begitu kolom
 Discount disentuh, `diskonManual` menyala dan angka otomatis berhenti
@@ -935,3 +952,18 @@ manual, pembatalannya harus ikut dipikirkan.
 jadi tidak menyimpan satuan jual per varian, jadi lembar hitung dan layar
 opname menuliskan `pcs`. Angkanya benar, labelnya yang bisa menyesatkan
 kalau ada produk yang dihitung dalam satuan lain.
+
+**Varian yatim yang stoknya sudah nol masih terlihat di Finished Goods.**
+Dia sudah disaring dari pemilih produk penjualan, tapi layar stok tetap
+menampilkannya sebagai baris nol. Di situ memang lebih berguna terlihat
+(riwayatnya jelas: masuk sekian, keluar sekian), tapi kalau daftarnya
+jadi panjang, penyaringannya perlu dipikirkan ulang.
+
+**Tanda Terima Konsinyasi = satu dokumen per pengiriman.** Kurir yang
+mengantar beberapa CSG sekaligus ke satu outlet membawa beberapa lembar.
+Menggabungkannya butuh dokumen yang merujuk banyak `consignments`
+sekaligus, dan nomor dokumennya sendiri.
+
+**Tanda Terima Konsinyasi belum punya kolom kondisi barang.** Penerima
+bisa tanda tangan tapi tidak punya tempat mencatat "1 botol penyok" di
+kertas yang sama, jadi keberatan seperti itu tercatat di luar sistem.
