@@ -10,6 +10,7 @@ type ProductRaw = {
   id: string;
   kode: string | null;
   nama_produk: string;
+  brand: string | null;
   aktif: boolean;
   product_variants: { nama_varian: string; harga_jual: number | null }[];
 };
@@ -41,12 +42,14 @@ export default async function ClientPricesPage({
       // diam-diam waktu daftar disimpan ulang. Ditandai di labelnya saja.
       supabase
         .from("products")
-        .select("id, kode, nama_produk, aktif, product_variants(nama_varian, harga_jual)")
+        .select(
+          "id, kode, nama_produk, brand, aktif, product_variants(nama_varian, harga_jual)"
+        )
         .eq("organization_id", organizationId)
         .order("kode"),
       supabase
         .from("client_prices")
-        .select("product_id, varian, harga")
+        .select("product_id, varian, harga, diskon_persen")
         .eq("organization_id", organizationId)
         .eq("client_id", id),
     ]);
@@ -63,6 +66,7 @@ export default async function ClientPricesPage({
         product_id: p.id,
         varian: "-",
         label: `${p.kode || ""}, ${p.nama_produk}${suffix}`,
+        brand: p.brand,
         available: 0,
         service_id: null,
         harga_master: null,
@@ -76,21 +80,27 @@ export default async function ClientPricesPage({
         product_id: p.id,
         varian: vk,
         label: `${p.kode || ""}, ${p.nama_produk}${vk !== "-" ? ` (${vk})` : ""}${suffix}`,
+        brand: p.brand,
         available: 0,
         service_id: null,
         harga_master: v.harga_jual == null ? null : Number(v.harga_jual),
       });
     }
   }
-  options.sort((a, b) => a.label.localeCompare(b.label));
+  options.sort(
+    (a, b) =>
+      (a.brand || "").localeCompare(b.brand || "") || a.label.localeCompare(b.label)
+  );
 
   const awal = ((prices || []) as {
     product_id: string;
     varian: string | null;
-    harga: number;
+    harga: number | null;
+    diskon_persen: number | null;
   }[]).map((r) => ({
     key: `${r.product_id}|${varianKey(r.varian)}`,
-    harga: Number(r.harga),
+    harga: r.harga == null ? null : Number(r.harga),
+    diskon: r.diskon_persen == null ? null : Number(r.diskon_persen),
   }));
 
   // Harga yang produk/variannya sudah tidak ada lagi (mis. varian dihapus
@@ -110,14 +120,16 @@ export default async function ClientPricesPage({
 
       <div className="flex items-center gap-3 mb-1 flex-wrap">
         <h1 className="font-display text-2xl font-semibold text-ink">
-          Harga Khusus
+          Harga &amp; Diskon Khusus
         </h1>
         <span className="font-mono text-[13px] text-muted">{client.kode}</span>
       </div>
       <p className="text-muted text-sm mb-6">
         {client.company_brand}
-        {client.kategori ? ` · ${client.kategori}` : ""} · dipakai otomatis di
-        Invoice, POS, dan Konsinyasi begitu client ini dipilih.
+        {client.kategori ? ` · ${client.kategori}` : ""} · harga khusus dipakai
+        di Invoice, POS, dan Konsinyasi begitu client ini dipilih. Diskon
+        dipakai di Konsinyasi: potongannya masuk sendiri ke Proforma saat
+        barang laku dicatat.
       </p>
 
       {options.length === 0 ? (

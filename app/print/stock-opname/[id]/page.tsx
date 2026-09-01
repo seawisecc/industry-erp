@@ -21,13 +21,15 @@ type ItemRaw = {
   item_id: string | null;
   varian: string | null;
   items: { kode: string; nama: string; satuan: string; kategori: string } | null;
-  products: { kode: string | null; nama_produk: string } | null;
+  products: { kode: string | null; nama_produk: string; brand: string | null } | null;
 };
 
 type SheetRow = {
   golongan: Golongan;
   kode: string;
   nama: string;
+  /** brand pemilik produk jadi; null untuk baris bahan */
+  brand: string | null;
   varian: string;
   satuan: string;
 };
@@ -76,7 +78,7 @@ export default async function PrintOpnameSheetPage({
   const { data: rawItems } = await supabase
     .from("stock_opname_items")
     .select(
-      "item_id, varian, items(kode, nama, satuan, kategori), products(kode, nama_produk)"
+      "item_id, varian, items(kode, nama, satuan, kategori), products(kode, nama_produk, brand)"
     )
     .eq("opname_id", id)
     .eq("organization_id", organizationId);
@@ -88,6 +90,7 @@ export default async function PrintOpnameSheetPage({
             golongan: r.items?.kategori === "Kemasan" ? "Kemasan" : "Bahan Baku",
             kode: r.items?.kode || "-",
             nama: r.items?.nama || "(item terhapus)",
+            brand: null,
             varian: "-",
             satuan: r.items?.satuan || "",
           }
@@ -95,6 +98,7 @@ export default async function PrintOpnameSheetPage({
             golongan: "Produk Jadi",
             kode: r.products?.kode || "-",
             nama: r.products?.nama_produk || "(produk terhapus)",
+            brand: r.products?.brand || null,
             varian: varianKey(r.varian),
             satuan: "pcs",
           }
@@ -226,7 +230,12 @@ export default async function PrintOpnameSheetPage({
                     <td className="py-2.5 pr-2 font-mono text-[11px] whitespace-nowrap">
                       {r.kode}
                     </td>
-                    <td className="py-2.5 pr-2">{r.nama}</td>
+                    <td className="py-2.5 pr-2">
+                      {r.nama}
+                      {r.brand ? (
+                        <span className="text-neutral-500"> · {r.brand}</span>
+                      ) : null}
+                    </td>
                     <td className="py-2.5 pr-2 text-[11px] text-neutral-600">
                       {k.golongan === "Produk Jadi" ? r.varian : k.golongan}
                     </td>

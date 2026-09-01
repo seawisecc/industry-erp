@@ -33,7 +33,7 @@ type ItemRaw = {
   qty_fisik: number | null;
   catatan: string | null;
   items: { kode: string; nama: string; satuan: string; kategori: string } | null;
-  products: { kode: string | null; nama_produk: string } | null;
+  products: { kode: string | null; nama_produk: string; brand: string | null } | null;
 };
 
 function formatTanggal(iso: string | null) {
@@ -73,7 +73,7 @@ export default async function OpnameDetailPage({
   const { data: rawItems } = await supabase
     .from("stock_opname_items")
     .select(
-      "id, item_id, product_id, varian, qty_sistem, qty_fisik, catatan, items(kode, nama, satuan, kategori), products(kode, nama_produk)"
+      "id, item_id, product_id, varian, qty_sistem, qty_fisik, catatan, items(kode, nama, satuan, kategori), products(kode, nama_produk, brand)"
     )
     .eq("opname_id", id)
     .eq("organization_id", organizationId);
@@ -111,6 +111,7 @@ export default async function OpnameDetailPage({
           golongan: kategori === "Kemasan" ? "Kemasan" : "Bahan Baku",
           kode: r.items?.kode || "-",
           nama: r.items?.nama || "(item terhapus)",
+          brand: null,
           varian: null,
           satuan: r.items?.satuan || "",
           qty_sistem: Number(r.qty_sistem),
@@ -125,6 +126,7 @@ export default async function OpnameDetailPage({
         golongan: "Produk Jadi",
         kode: r.products?.kode || "-",
         nama: r.products?.nama_produk || "(produk terhapus)",
+        brand: r.products?.brand || null,
         varian: vk,
         satuan: "pcs",
         qty_sistem: Number(r.qty_sistem),
@@ -313,6 +315,7 @@ export default async function OpnameDetailPage({
                     <div className="text-[11px] text-muted font-mono">
                       {r.kode}
                       {r.varian && r.varian !== "-" ? ` · ${r.varian}` : ""}
+                      {r.brand ? ` · ${r.brand}` : ""}
                     </div>
                   </>
                 ),
@@ -322,6 +325,7 @@ export default async function OpnameDetailPage({
                     <div className="text-[11px] text-muted font-mono font-normal">
                       {r.kode}
                       {r.varian && r.varian !== "-" ? ` · ${r.varian}` : ""}
+                      {r.brand ? ` · ${r.brand}` : ""}
                     </div>
                   </>
                 ),

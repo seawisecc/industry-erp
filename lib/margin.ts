@@ -32,6 +32,8 @@ export type MarginRow = {
   key: string;
   kode: string | null;
   nama_produk: string;
+  /** brand pemilik produk, supaya dua produk bernama mirip bisa dibedakan */
+  brand: string | null;
   varian: string;
   qtyTerjual: number;
   omzet: number;
@@ -163,7 +165,7 @@ export async function getMarginReport(
   const { data: penjualan } = await supabase
     .from("sales_invoice_items")
     .select(
-      "product_id, varian_ukuran, qty, subtotal, products(kode, nama_produk), sales_invoices!inner(tanggal)"
+      "product_id, varian_ukuran, qty, subtotal, products(kode, nama_produk, brand), sales_invoices!inner(tanggal)"
     )
     .eq("organization_id", organizationId)
     .not("product_id", "is", null)
@@ -172,14 +174,21 @@ export async function getMarginReport(
 
   const jual = new Map<
     string,
-    { qty: number; omzet: number; kode: string | null; nama: string; varian: string }
+    {
+      qty: number;
+      omzet: number;
+      kode: string | null;
+      nama: string;
+      brand: string | null;
+      varian: string;
+    }
   >();
   for (const s of (penjualan || []) as unknown as {
     product_id: string;
     varian_ukuran: string | null;
     qty: number;
     subtotal: number;
-    products: { kode: string | null; nama_produk: string } | null;
+    products: { kode: string | null; nama_produk: string; brand: string | null } | null;
   }[]) {
     const vk = varianKey(s.varian_ukuran);
     const key = `${s.product_id}|${vk}`;
@@ -188,6 +197,7 @@ export async function getMarginReport(
       omzet: 0,
       kode: s.products?.kode ?? null,
       nama: s.products?.nama_produk || "(produk dihapus)",
+      brand: s.products?.brand ?? null,
       varian: vk,
     };
     cur.qty += Number(s.qty);
@@ -206,6 +216,7 @@ export async function getMarginReport(
       key,
       kode: s.kode,
       nama_produk: s.nama,
+      brand: s.brand,
       varian: s.varian,
       qtyTerjual: s.qty,
       omzet: s.omzet,

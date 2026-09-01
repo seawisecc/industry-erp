@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { getFinishedStock } from "@/lib/salesStock";
-import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
+import {
+  clientPriceKey,
+  type ClientDiscountMap,
+  type ClientPriceMap,
+} from "@/lib/clientPrice";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -9,6 +13,8 @@ export type ProductVariantOpt = {
   product_id: string; // "" untuk jasa
   varian: string;
   label: string;
+  /** brand pemilik produk, dipisah dari label supaya bisa ditampilkan lebih redup */
+  brand: string | null;
   available: number;
   harga_jual: number | null;
   service_id: string | null; // terisi bila baris ini layanan jasa
@@ -42,7 +48,7 @@ export async function getSalesOptions(
         .order("company_brand"),
       supabase
         .from("products")
-        .select("id, kode, nama_produk")
+        .select("id, kode, nama_produk, brand")
         .eq("organization_id", organizationId)
         .order("kode"),
       supabase
@@ -74,9 +80,14 @@ export async function getSalesOptions(
   }
 
   const productMap = new Map(
-    ((products || []) as { id: string; kode: string | null; nama_produk: string }[]).map(
-      (p) => [p.id, p]
-    )
+    (
+      (products || []) as {
+        id: string;
+        kode: string | null;
+        nama_produk: string;
+        brand: string | null;
+      }[]
+    ).map((p) => [p.id, p])
   );
 
   const options: ProductVariantOpt[] = [];
@@ -88,12 +99,18 @@ export async function getSalesOptions(
       product_id: s.product_id,
       varian: s.varian,
       label: `${p.kode || ""}, ${p.nama_produk}${s.varian !== "-" ? ` (${s.varian})` : ""}`,
+      brand: p.brand,
       available: s.available,
       harga_jual: hargaMap.get(`${s.product_id}|${s.varian}`) ?? null,
       service_id: null,
     });
   }
-  options.sort((a, b) => a.label.localeCompare(b.label));
+  // Diurutkan per brand dulu: satu pabrik maklon mengerjakan banyak brand,
+  // dan orang mencari barang dengan mengingat brand-nya lebih dulu.
+  options.sort(
+    (a, b) =>
+      (a.brand || "").localeCompare(b.brand || "") || a.label.localeCompare(b.label)
+  );
 
   // Layanan jasa (tanpa stok), tampil setelah produk
   if (includeServices) {
@@ -114,6 +131,7 @@ export async function getSalesOptions(
         product_id: "",
         varian: "-",
         label: `${s.kode || "JASA"}, ${s.nama_jasa} (Jasa)`,
+        brand: null,
         available: 0,
         harga_jual: s.biaya == null ? null : Number(s.biaya),
         service_id: s.id,
@@ -134,4 +152,37 @@ export async function getSalesOptions(
   }
 
   return { clients: (clients || []) as ClientOpt[], options, clientPrices };
+}
+
+/**
+ * Diskon khusus seluruh client di organisasi ini, dikunci
+ * `client|produk|varian`.
+ *
+ * Ditarik utuh sekali, bukan per client: datanya kecil (satu baris per
+ * kesepakatan, bukan per transaksi) dan layar daftar konsinyasi memang
+ * butuh diskon banyak outlet sekaligus.
+ */
+export async function getClientDiscounts(
+  organizationId: string
+): Promise<ClientDiscountMap> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("client_prices")
+    .select("client_id, product_id, varian, diskon_persen")
+    .eq("organization_id", organizationId)
+    .not("diskon_persen", "is", null);
+
+  const map: ClientDiscountMap = {};
+  for (const r of (data || []) as {
+    client_id: string;
+    product_id: string;
+    varian: string | null;
+    diskon_persen: number | null;
+  }[]) {
+    if (r.diskon_persen == null) continue;
+    map[clientPriceKey(r.client_id, r.product_id, r.varian)] = Number(
+      r.diskon_persen
+    );
+  }
+  return map;
 }

@@ -143,7 +143,14 @@ export async function updateClientData(
  */
 export async function saveClientPrices(
   clientId: string,
-  items: { product_id: string; varian: string | null; harga: number }[]
+  items: {
+    product_id: string;
+    varian: string | null;
+    /** null = tidak ada harga khusus, pakai harga master sebagai dasar */
+    harga: number | null;
+    /** null = tanpa diskon */
+    diskon_persen: number | null;
+  }[]
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient();
@@ -151,7 +158,16 @@ export async function saveClientPrices(
     if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
     if (!clientId) throw new Error("Client tidak dikenal");
 
-    const bersih = items.filter((i) => i.product_id && i.harga >= 0);
+    // Baris tanpa harga DAN tanpa diskon tidak berarti apa-apa; RPC juga
+    // menolaknya, tapi lebih baik tidak dikirim sama sekali.
+    const bersih = items.filter(
+      (i) =>
+        i.product_id &&
+        (i.harga != null || i.diskon_persen != null) &&
+        (i.harga == null || i.harga >= 0) &&
+        (i.diskon_persen == null ||
+          (i.diskon_persen >= 0 && i.diskon_persen <= 100))
+    );
 
     const { error } = await supabase.rpc("save_client_prices_tx", {
       p_organization_id: organizationId,

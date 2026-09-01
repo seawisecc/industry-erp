@@ -15,13 +15,23 @@ export type HargaOption = ProductOption & {
   harga_master: number | null;
 };
 
-type Row = { key: string; harga: string };
+/**
+ * Satu baris kesepakatan. Harga dan diskon dua-duanya boleh kosong
+ * sendiri-sendiri: outlet konsinyasi biasanya cuma punya diskon, sementara
+ * reseller yang harganya sudah dikunci cuma punya harga.
+ */
+type Row = { key: string; harga: string; diskon: string };
+
+const BARIS_KOSONG: Row = { key: "", harga: "", diskon: "" };
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
 }
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
+}
+function formatPersen(n: number) {
+  return n.toLocaleString("id-ID", { maximumFractionDigits: 2 }) + "%";
 }
 
 export default function ClientPriceForm({
@@ -32,14 +42,18 @@ export default function ClientPriceForm({
   clientId: string;
   /** seluruh kombinasi produk × varian, bukan cuma yang ada stoknya */
   options: HargaOption[];
-  awal: { key: string; harga: number }[];
+  awal: { key: string; harga: number | null; diskon: number | null }[];
 }) {
   const router = useRouter();
   const konfirmasi = useConfirmSave();
   const [rows, setRows] = useState<Row[]>(() =>
     awal.length > 0
-      ? awal.map((a) => ({ key: a.key, harga: String(a.harga) }))
-      : [{ key: "", harga: "" }]
+      ? awal.map((a) => ({
+          key: a.key,
+          harga: a.harga == null ? "" : String(a.harga),
+          diskon: a.diskon == null ? "" : String(a.diskon),
+        }))
+      : [{ ...BARIS_KOSONG }]
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -59,25 +73,48 @@ export default function ClientPriceForm({
     terpakai.filter((k, i) => terpakai.indexOf(k) !== i)
   );
 
+  const terisi = (r: Row) => r.harga.trim() !== "" || r.diskon.trim() !== "";
+
   // optOf harus ada: baris yang produknya sudah tidak dikenal dibuang di
   // sini, bukan dibiarkan sampai submit lalu meledak di optOf(...)!
-  const isian = rows.filter(
-    (r) => r.key && r.harga.trim() !== "" && optOf(r.key)
+  const isian = rows.filter((r) => r.key && terisi(r) && optOf(r.key));
+  const adaNegatif = isian.some(
+    (r) => r.harga.trim() !== "" && parseNum(r.harga) < 0
   );
-  const adaNegatif = isian.some((r) => parseNum(r.harga) < 0);
+  const adaDiskonJanggal = isian.some(
+    (r) =>
+      r.diskon.trim() !== "" &&
+      (parseNum(r.diskon) < 0 || parseNum(r.diskon) > 100)
+  );
+
+  /** Harga dasar baris ini: harga khusus kalau diisi, kalau tidak harga master. */
+  function hargaDasar(row: Row): number | null {
+    if (row.harga.trim() !== "") return parseNum(row.harga);
+    return optOf(row.key)?.harga_master ?? null;
+  }
+
+  /** Harga yang benar-benar ditagihkan sesudah diskon. */
+  function hargaAkhir(row: Row): number | null {
+    const dasar = hargaDasar(row);
+    if (dasar == null) return null;
+    if (row.diskon.trim() === "") return dasar;
+    return dasar - (dasar * parseNum(row.diskon)) / 100;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
 
+    const berdiskon = isian.filter((r) => r.diskon.trim() !== "").length;
     const lanjut = await konfirmasi.minta({
-      judul: "Simpan daftar harga khusus client ini?",
+      judul: "Simpan harga & diskon khusus client ini?",
       pesan:
         isian.length === 0
-          ? "Daftarnya dikosongkan, client ini kembali memakai harga master."
+          ? "Daftarnya dikosongkan, client ini kembali memakai harga master penuh."
           : "Daftar lama diganti seluruhnya oleh isi layar ini.",
       ringkasan: [
-        { label: "Baris Harga", nilai: isian.length + " produk" },
+        { label: "Baris Kesepakatan", nilai: isian.length + " produk" },
+        { label: "Pakai Diskon", nilai: berdiskon + " produk" },
       ],
     });
     if (!lanjut) return;
@@ -93,15 +130,16 @@ export default function ClientPriceForm({
           return {
             product_id: o.product_id,
             varian: o.varian === "-" ? null : o.varian,
-            harga: parseNum(r.harga),
+            harga: r.harga.trim() === "" ? null : parseNum(r.harga),
+            diskon_persen: r.diskon.trim() === "" ? null : parseNum(r.diskon),
           };
         })
       );
       if (result.ok) {
         setSukses(
           isian.length === 0
-            ? "Harga khusus dikosongkan, client ini kembali memakai harga master."
-            : `${isian.length} harga khusus tersimpan.`
+            ? "Daftar dikosongkan, client ini kembali memakai harga master penuh."
+            : `${isian.length} baris tersimpan.`
         );
         router.refresh();
       } else {
@@ -124,15 +162,16 @@ export default function ClientPriceForm({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-[15.5px] font-semibold text-ink">
-              Daftar Harga Khusus
+              Daftar Harga &amp; Diskon
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              Produk yang tidak terdaftar di sini otomatis memakai harga master.
+              Isi salah satu atau dua-duanya. Produk yang tidak terdaftar di
+              sini memakai harga master penuh.
             </p>
           </div>
           <button
             type="button"
-            onClick={() => setRows((rs) => [...rs, { key: "", harga: "" }])}
+            onClick={() => setRows((rs) => [...rs, { ...BARIS_KOSONG }])}
             className="flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline flex-shrink-0"
           >
             <Plus size={14} /> Tambah Produk
@@ -142,14 +181,15 @@ export default function ClientPriceForm({
         {rows.map((row, idx) => {
           const o = optOf(row.key);
           const master = o?.harga_master ?? null;
-          const khusus = parseNum(row.harga);
-          const selisih =
-            master != null && master > 0 && row.harga.trim() !== ""
-              ? ((khusus - master) / master) * 100
-              : null;
+          const dasar = hargaDasar(row);
+          const akhir = hargaAkhir(row);
+          const adaDiskon = row.diskon.trim() !== "" && parseNum(row.diskon) > 0;
+          const diskonJanggal =
+            row.diskon.trim() !== "" &&
+            (parseNum(row.diskon) < 0 || parseNum(row.diskon) > 100);
           return (
             <div key={idx} className="flex flex-col gap-1">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_170px_32px] gap-2 items-start">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_150px_120px_32px] gap-2 items-start">
                 <ProductPicker
                   options={options}
                   value={row.key}
@@ -166,11 +206,27 @@ export default function ClientPriceForm({
                     dobel.has(row.key) ? "ring-2 ring-clay-500" : ""
                   }`}
                 />
+                <div className="relative">
+                  <NumberInput
+                    aria-label="Diskon persen"
+                    value={row.diskon}
+                    onChange={(nilai) => updateRow(idx, { diskon: nilai })}
+                    placeholder="Diskon"
+                    className={`${inputCls} text-right pr-7 ${
+                      diskonJanggal ? "ring-2 ring-clay-500" : ""
+                    }`}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-[12.5px] pointer-events-none">
+                    %
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
                     setRows((rs) =>
-                      rs.length > 1 ? rs.filter((_, i) => i !== idx) : [{ key: "", harga: "" }]
+                      rs.length > 1
+                        ? rs.filter((_, i) => i !== idx)
+                        : [{ ...BARIS_KOSONG }]
                     );
                     setSukses("");
                   }}
@@ -185,26 +241,27 @@ export default function ClientPriceForm({
                   Produk &amp; varian ini sudah diisi di baris lain.
                 </p>
               )}
+              {diskonJanggal && (
+                <p className="text-clay-600 text-[12px]">
+                  Diskon harus antara 0 dan 100 persen.
+                </p>
+              )}
               {o && (
                 <p className="text-[11.5px] text-muted">
                   Harga master:{" "}
                   {master != null ? formatRupiah(master) : "belum diisi"}
-                  {selisih != null && (
-                    <span
-                      className={
-                        selisih < 0
-                          ? " text-clay-600 font-medium"
-                          : selisih > 0
-                            ? " text-botanical-700 font-medium"
-                            : ""
-                      }
-                    >
-                      {" · "}
-                      {selisih > 0 ? "+" : ""}
-                      {selisih.toLocaleString("id-ID", {
-                        maximumFractionDigits: 1,
-                      })}
-                      % dari master
+                  {dasar != null && row.harga.trim() !== "" && (
+                    <>
+                      {" · dasar "}
+                      {formatRupiah(dasar)}
+                    </>
+                  )}
+                  {adaDiskon && akhir != null && (
+                    <span className="text-botanical-700 font-medium">
+                      {" · setelah diskon "}
+                      {formatPersen(parseNum(row.diskon))}
+                      {" jadi "}
+                      {formatRupiah(akhir)}
                     </span>
                   )}
                 </p>
@@ -221,17 +278,17 @@ export default function ClientPriceForm({
 
       <button
         type="submit"
-        disabled={loading || dobel.size > 0 || adaNegatif}
+        disabled={loading || dobel.size > 0 || adaNegatif || adaDiskonJanggal}
         className="bg-botanical-700 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-botanical-800 transition-all shadow-sm disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {loading && (
           <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
         )}
-        {loading ? "Menyimpan..." : "Simpan Harga Khusus"}
+        {loading ? "Menyimpan..." : "Simpan Harga & Diskon"}
       </button>
       <p className="text-muted text-[12px] text-center -mt-3">
-        Menyimpan akan mengganti seluruh daftar harga client ini. Baris yang
-        harganya dikosongkan ikut terhapus.
+        Menyimpan akan mengganti seluruh daftar client ini. Baris yang harga
+        dan diskonnya dikosongkan ikut terhapus.
       </p>
       {konfirmasi.dialog}
     </form>

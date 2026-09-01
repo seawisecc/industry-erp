@@ -743,7 +743,7 @@ export default async function ReportsPage({
         supabase
           .from("finished_goods_adjustments")
           .select(
-            "id, tanggal, varian, qty_delta, alasan, products(kode, nama_produk), stock_opnames(no_opname)"
+            "id, tanggal, varian, qty_delta, alasan, products(kode, nama_produk, brand), stock_opnames(no_opname)"
           )
           .eq("organization_id", organizationId)
           .gte("tanggal", from)
@@ -813,13 +813,14 @@ export default async function ReportsPage({
       varian: string | null;
       qty_delta: number;
       alasan: string | null;
-      products: { kode: string | null; nama_produk: string } | null;
+      products: { kode: string | null; nama_produk: string; brand: string | null } | null;
       stock_opnames: { no_opname: string } | null;
     }[]).map((r) => ({
       id: r.id,
       tanggal: r.tanggal,
       kode: r.products?.kode || "-",
       nama: r.products?.nama_produk || "(produk terhapus)",
+      brand: r.products?.brand || null,
       varian: r.varian || "-",
       qty_delta: Number(r.qty_delta),
       sumber: r.stock_opnames?.no_opname || r.alasan || "Koreksi manual",
@@ -929,6 +930,7 @@ export default async function ReportsPage({
                       <div className="max-w-[220px] truncate">{r.nama}</div>
                       <div className="text-[11px] text-muted font-mono">
                         {r.kode}
+                        {r.brand ? ` · ${r.brand}` : ""}
                       </div>
                     </>
                   ),
@@ -937,6 +939,7 @@ export default async function ReportsPage({
                       <div>{r.nama}</div>
                       <div className="text-[11px] text-muted font-mono font-normal">
                         {r.kode}
+                        {r.brand ? ` · ${r.brand}` : ""}
                       </div>
                     </>
                   ),
@@ -1298,7 +1301,10 @@ export default async function ReportsPage({
               cell: (r) => (
                 <>
                   <div className="max-w-[220px] truncate">{r.nama_produk}</div>
-                  <div className="text-[11px] text-muted font-mono">{r.kode}</div>
+                  <div className="text-[11px] text-muted font-mono">
+                    {r.kode}
+                    {r.brand ? ` · ${r.brand}` : ""}
+                  </div>
                 </>
               ),
               cardCell: (r) => (
@@ -1306,6 +1312,7 @@ export default async function ReportsPage({
                   <div>{r.nama_produk}</div>
                   <div className="text-[11px] text-muted font-mono font-normal">
                     {r.kode}
+                    {r.brand ? ` · ${r.brand}` : ""}
                   </div>
                 </>
               ),

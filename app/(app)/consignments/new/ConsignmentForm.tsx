@@ -62,6 +62,16 @@ export default function ConsignmentForm({
     return clientPrices[clientPriceKey(clientId, o.product_id, o.varian)] != null;
   };
 
+  /**
+   * Produk terpilih yang harga jualnya belum pernah diisi di master.
+   * Tanpa penanda ini kolom harganya cuma diam kosong, dan orang mengira
+   * fitur isi-otomatisnya rusak padahal angkanya memang belum ada.
+   */
+  const hargaMasterKosong = (key: string) => {
+    const o = optOf(key);
+    return !!o && o.harga_jual == null && !punyaHargaKhusus(key);
+  };
+
   function gantiClient(id: string) {
     setClientId(id);
     setRows((rs) =>
@@ -243,6 +253,13 @@ export default function ConsignmentForm({
               {punyaHargaKhusus(row.key) && !row.hargaManual && (
                 <p className="text-botanical-700 text-[11.5px]">
                   Harga khusus outlet dipakai
+                </p>
+              )}
+              {hargaMasterKosong(row.key) && (
+                <p className="text-clay-600 text-[11.5px]">
+                  Harga jual produk ini belum diisi di master, jadi tidak bisa
+                  terisi otomatis. Isi manual di sini, atau lengkapi dulu di menu
+                  Products.
                 </p>
               )}
               {over && (

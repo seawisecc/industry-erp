@@ -5,7 +5,11 @@
 
    Daftar produk jadi punya satu baris per kombinasi produk × varian,
    jadi <select> gulungnya bisa ratusan baris. Ketik sebagian kode,
-   nama produk, atau nama varian, daftar menyaring otomatis.
+   nama produk, nama varian, atau BRAND, daftar menyaring otomatis.
+
+   Brand ikut ditampilkan karena satu pabrik maklon mengerjakan
+   produk bernama mirip untuk brand berbeda, dan kode produk pun
+   bisa kembar. Tanpa brand, dua baris bisa terbaca persis sama.
 
    Dipakai di form Invoice, POS, dan Konsinyasi. Baris layanan jasa
    ditandai jelas karena jasa tidak punya stok, jadi angka "stok 0"
@@ -21,6 +25,8 @@ export type ProductOption = {
   key: string;
   /** "PRD-0001, Serum Wajah (30 g)" */
   label: string;
+  /** brand pemilik produk, dirender lebih redup di ekor label */
+  brand?: string | null;
   /** "-" bila produk tanpa varian */
   varian: string;
   available: number;
@@ -78,7 +84,10 @@ export default function ProductPicker({
   if (selected) {
     return (
       <div className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 text-sm">
-        <span className="truncate flex-1">{selected.label}</span>
+        <span className="truncate flex-1">
+          {selected.label}
+          {selected.brand && <span className="text-muted"> · {selected.brand}</span>}
+        </span>
         {showStock && <StokInfo o={selected} />}
         <button
           type="button"
@@ -98,13 +107,16 @@ export default function ProductPicker({
 
   // label sudah memuat kode & nama varian, varian ikut dicocokkan
   // supaya "30 g" tetap ketemu pada produk yang labelnya panjang.
+  // Brand juga: orang sering ingat brand-nya lebih dulu daripada
+  // kode produknya.
   const q = query.trim().toLowerCase();
   const list = (
     q
       ? options.filter(
           (o) =>
             o.label.toLowerCase().includes(q) ||
-            o.varian.toLowerCase().includes(q)
+            o.varian.toLowerCase().includes(q) ||
+            (o.brand || "").toLowerCase().includes(q)
         )
       : options
   ).slice(0, MAX_SARAN);
@@ -167,7 +179,10 @@ export default function ProductPicker({
                 i === sorot
               )}`}
             >
-              <span className="truncate flex-1">{o.label}</span>
+              <span className="truncate flex-1">
+                {o.label}
+                {o.brand && <span className="text-muted"> · {o.brand}</span>}
+              </span>
               {showStock && <StokInfo o={o} />}
             </button>
           ))}

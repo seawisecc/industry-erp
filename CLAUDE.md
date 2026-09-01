@@ -125,6 +125,8 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `create_stock_opname_tx` | Diperluas: cakupan `Produk Jadi` dan null (semua golongan) |
 | | `finish_stock_opname_tx` | Diperluas: selisih bahan → adjustment, selisih produk jadi → `finished_goods_adjustments` |
 | | `save_opname_count_tx` | Dicocokkan lewat id baris opname, bukan `item_id` |
+| `20260817_client_discounts` | `save_client_prices_tx` | Diperluas: baris boleh berisi harga saja, diskon saja, atau dua-duanya |
+| | `log_client_price_change` | Snapshot audit ikut memuat `diskon_persen` |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -218,6 +220,57 @@ setiap rumusnya bergerak.
 Konsekuensinya kalau menambah jalur keluar-masuk produk jadi yang baru:
 tambahkan sebagai `union all` di `fg_stock_calc`, lalu cerminkan di
 fallback `lib/salesStock.ts`. Jangan menambahkan penyesuaian di pemanggil.
+
+# Harga & diskon khusus client
+
+Satu tabel, `client_prices`, dikunci `(organization, client, produk,
+VARIAN)`. Satu baris boleh berisi harga saja, diskon saja, atau
+dua-duanya, karena kesepakatan di lapangan memang dua bentuk: reseller
+harganya dikunci, outlet konsinyasi ambil persentase.
+
+Urutan hitungnya cuma satu, dan harus sama di kedua sisi:
+
+```
+harga dasar = harga khusus client kalau ada, kalau tidak harga master
+harga akhir = harga dasar - (harga dasar * diskon_persen / 100)
+```
+
+Diskon menumpuk DI ATAS harga khusus, bukan menggantikannya.
+
+**Diskon berlaku di konsinyasi saja.** Invoice penjualan langsung dan
+POS tetap memakai harga (khusus atau master) tanpa potongan. Itu
+keputusan pemakainya, bukan keterbatasan teknis: mengubahnya berarti
+tagihan penjualan langsung ikut bergerak nilainya.
+
+**Pengiriman konsinyasi memakai harga dasar PENUH.** `consignment_items.
+harga_jual` menyimpan harga sebelum diskon. Potongannya baru dihitung
+saat laku dicatat, dan diskon yang dipakai adalah yang berlaku HARI ITU,
+bukan yang dibekukan waktu barang dikirim. Kesepakatan diskon berlaku
+pada saat barang laku, dan itu yang ditagihkan.
+
+**Proforma menyimpan satu diskon per DOKUMEN, bukan per baris.** Karena
+itu diskon per produk dirangkum jadi persentase tertimbang sebelum
+dikirim ke RPC:
+
+```
+diskon dokumen % = Σ(qty × harga × diskon baris%) / Σ(qty × harga) × 100
+```
+
+Rumus itu menghasilkan rupiah potongan yang sama persis dengan
+menghitungnya baris per baris, jadi tidak ada selisih antara angka di
+layar dan angka yang dihitung ulang di SQL. Konsekuensinya yang harus
+diterima: persentase yang tercetak di Proforma bisa berupa angka janggal
+(mis. 24,6239%) kalau produknya punya diskon berbeda-beda. Yang benar
+tetap totalnya. `diskonTertimbang` di `lib/clientPrice.ts` yang
+menghitungnya, dipakai dua layar: laporan laku per pengiriman
+(`ReportSaleForm`) dan catat laku per outlet (`OutletActions`).
+
+**Angka diskon di layar tidak boleh menimpa yang sudah diketik user.**
+Polanya sama dengan `hargaManual` di `InvoiceForm`: begitu kolom
+Discount disentuh, `diskonManual` menyala dan angka otomatis berhenti
+mengambil alih. Jangan menaruh ini di `useEffect` yang mengawasi qty,
+itu melanggar `react-hooks/set-state-in-effect` dan menambah satu render
+sesudah layar terlanjur dilukis.
 
 # Audit trail ditulis trigger, bukan aplikasi
 
@@ -397,6 +450,22 @@ discoverability.
 produk jadi punya satu baris per kombinasi produk × varian, jadi
 `<select>`-nya bisa ratusan baris. Keduanya membatasi jumlah saran yang
 dirender (30) supaya tetap ringan.
+
+**Nama produk jadi selalu dibuntuti brand-nya.** Satu pabrik maklon
+mengerjakan produk bernama mirip untuk brand yang berbeda, dan kode
+produk pun bisa kembar (`FP002` dipakai dua produk). Nama saja tidak
+cukup untuk memilih barang yang benar, dan salah pilih di konsinyasi
+atau opname baru ketahuan setelah stoknya bergerak. `lib/produkLabel.ts`
+yang merangkainya (`namaBrand`), brand ikut dicocokkan saat mengetik di
+pemilih, dan daftar sarannya diurutkan per brand dulu karena orang
+mengingat brand lebih dulu daripada kode.
+
+Layar yang sudah mengikutinya: pemilih produk (Invoice, POS, Konsinyasi,
+Harga Client), Finished Goods, Stock Opname (layar & lembar hitung),
+Konsinyasi (daftar outlet, laporan laku), QC Finished, QA Release,
+Production, dan laporan Koreksi Produk Jadi serta Product Margin.
+Dokumen cetak untuk pembeli (invoice, nota) sengaja tidak: di situ brand
+adalah milik pembelinya sendiri, jadi cuma jadi pengulangan.
 
 `ProductPicker` menandai baris **jasa** dengan pil, bukan angka stok.
 jasa tidak punya stok dan "stok 0" di sebelahnya menyesatkan. Prop

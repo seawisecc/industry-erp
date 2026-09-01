@@ -14,6 +14,8 @@ import {
   type SearchParams,
 } from "@/lib/pagination";
 import OutletActions, { type OutletProdItem } from "./OutletActions";
+import { clientPriceKey } from "@/lib/clientPrice";
+import { getClientDiscounts } from "@/lib/salesOptions";
 
 type ConsItem = {
   product_id: string;
@@ -22,7 +24,7 @@ type ConsItem = {
   qty_retur: number;
   harga_jual: number;
   varian_ukuran: string | null;
-  products: { nama_produk: string } | null;
+  products: { nama_produk: string; brand: string | null } | null;
 };
 
 type ConsRow = {
@@ -52,7 +54,7 @@ export default async function ConsignmentsPage({
 
   const sp = parseListQuery(await searchParams);
   const kolom =
-    "id, no_konsinyasi, tanggal_kirim, status, clients(id, company_brand), consignment_items(product_id, qty_kirim, qty_terjual, qty_retur, harga_jual, varian_ukuran, products(nama_produk))";
+    "id, no_konsinyasi, tanggal_kirim, status, clients(id, company_brand), consignment_items(product_id, qty_kirim, qty_terjual, qty_retur, harga_jual, varian_ukuran, products(nama_produk, brand))";
 
   // Nama client ada di tabel lain, cari id-nya dulu.
   let clientIds: string[] = [];
@@ -104,6 +106,11 @@ export default async function ConsignmentsPage({
     .eq("status", "Aktif");
   const aktifList = (aktif || []) as unknown as ConsRow[];
 
+  // Diskon khusus seluruh outlet, dibaca sekarang bukan dibekukan saat
+  // pengiriman: yang ditagihkan adalah kesepakatan yang berlaku hari ini.
+  const diskonSemua = await getClientDiscounts(organizationId!);
+  const diskonMap = new Map(Object.entries(diskonSemua));
+
   // ===== Rekap per outlet (client) untuk konsinyasi yang masih Aktif =====
   type Outlet = {
     clientId: string;
@@ -132,13 +139,17 @@ export default async function ConsignmentsPage({
       if (sisa <= 0) continue;
       o.totalSisa += sisa;
       const nama = it.products?.nama_produk || "-";
+      const brand = it.products?.brand || null;
       const varian = it.varian_ukuran || "-";
+      const diskon = diskonMap.get(clientPriceKey(cid, it.product_id, varian)) ?? 0;
       const key = `${it.product_id}|${varian}`;
       const p =
         o.produk.get(key) ||
         ({
           product_id: it.product_id,
           nama,
+          brand,
+          diskon_persen: diskon,
           varian,
           sisa: 0,
           harga: Number(it.harga_jual || 0),

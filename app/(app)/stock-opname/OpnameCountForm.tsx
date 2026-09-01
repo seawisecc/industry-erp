@@ -20,6 +20,8 @@ export type OpnameRow = {
   golongan: Golongan;
   kode: string;
   nama: string;
+  /** brand pemilik produk jadi; null untuk baris bahan */
+  brand: string | null;
   /** varian produk jadi ("-" bila tanpa varian); null untuk baris bahan */
   varian: string | null;
   satuan: string;
@@ -244,6 +246,7 @@ export default function OpnameCountForm({
                   <div className="text-[11px] text-muted font-mono">
                     {r.kode}
                     {r.varian && r.varian !== "-" ? ` · ${r.varian}` : ""}
+                    {r.brand ? ` · ${r.brand}` : ""}
                   </div>
                 </>
               ),
@@ -253,6 +256,7 @@ export default function OpnameCountForm({
                   <div className="text-[11px] text-muted font-mono font-normal">
                     {r.kode}
                     {r.varian && r.varian !== "-" ? ` · ${r.varian}` : ""}
+                    {r.brand ? ` · ${r.brand}` : ""}
                   </div>
                 </>
               ),

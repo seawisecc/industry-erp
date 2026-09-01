@@ -15,6 +15,7 @@ import {
 } from "@/lib/pagination";
 import { ClipboardList, Printer, Eye, Tags } from "lucide-react";
 
+import { namaBrand } from "@/lib/produkLabel";
 type BatchRow = {
   id: string;
   no_batch_produksi: string;
@@ -27,7 +28,7 @@ type BatchRow = {
     qty_hasil: number;
     satuan: string;
     varian_ukuran: string | null;
-    products: { kode: string | null; nama_produk: string } | null;
+    products: { kode: string | null; nama_produk: string; brand: string | null } | null;
   }[];
 };
 
@@ -52,7 +53,7 @@ export default async function QcFinishedPage({
 
   const kolom = `id, no_batch_produksi, tanggal_produksi, qa_status, qc_produk_selesai,
        qc_produk_tanggal_uji, qc_produk_oleh,
-       production_outputs(qty_hasil, satuan, varian_ukuran, products(kode, nama_produk))`;
+       production_outputs(qty_hasil, satuan, varian_ukuran, products(kode, nama_produk, brand))`;
 
   const sp = parseListQuery(await searchParams);
 
@@ -83,8 +84,12 @@ export default async function QcFinishedPage({
   const info = pageInfo(sp.page, count, list.length);
   const belum = info.total;
 
-  const produkOf = (b: BatchRow) =>
-    b.production_outputs?.[0]?.products?.nama_produk || "-";
+  // Brand ikut: satu pabrik maklon mengerjakan produk bernama mirip untuk
+  // brand berbeda, dan batch yang tertukar baru ketahuan setelah diluluskan.
+  const produkOf = (b: BatchRow) => {
+    const p = b.production_outputs?.[0]?.products;
+    return p ? namaBrand(p.nama_produk, p.brand) : "-";
+  };
   const hasilOf = (b: BatchRow) =>
     b.production_outputs
       .map(

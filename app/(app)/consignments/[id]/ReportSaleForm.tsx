@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { reportConsignmentSale, closeConsignment } from "../actions";
 import { computeTotals } from "@/lib/invoiceMath";
+import { diskonTertimbang } from "@/lib/clientPrice";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import NumberInput from "@/components/NumberInput";
@@ -11,11 +12,19 @@ import NumberInput from "@/components/NumberInput";
 export type ConsItem = {
   id: string;
   nama: string;
+  /** brand pemilik produk, ikut ditampilkan supaya dua produk mirip tidak tertukar */
+  brand: string | null;
   varian: string | null;
   qty_kirim: number;
   qty_terjual: number;
   qty_retur: number;
   harga_jual: number;
+  /**
+   * Diskon khusus outlet untuk produk ini, dalam persen. 0 kalau tidak
+   * ada kesepakatan. Dibaca SAAT laku dicatat, bukan dibekukan waktu
+   * pengiriman: yang ditagihkan adalah kesepakatan yang berlaku hari ini.
+   */
+  diskon_persen: number;
 };
 
 function parseNum(s: string) {
@@ -42,6 +51,13 @@ export default function ReportSaleForm({
   const konfirmasi = useConfirmSave();
   const [laku, setLaku] = useState<Record<string, string>>({});
   const [diskon, setDiskon] = useState("0");
+  /**
+   * Diskon yang sudah disentuh user tidak boleh tertimpa angka otomatis.
+   * Pola yang sama dengan `hargaManual` di InvoiceForm, dan sengaja BUKAN
+   * useEffect yang mengawasi qty: itu melanggar set-state-in-effect dan
+   * menambah satu render sesudah layar terlanjur dilukis.
+   */
+  const [diskonManual, setDiskonManual] = useState(false);
   const [pakaiTax, setPakaiTax] = useState(false);
   const [taxPercent, setTaxPercent] = useState("11");
   const [top, setTop] = useState("14");
@@ -49,10 +65,30 @@ export default function ReportSaleForm({
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState("");
 
-  const calcItems = items
-    .map((it) => ({ qty: parseNum(laku[it.id] || ""), harga: it.harga_jual }))
+  const barisLaku = items
+    .map((it) => ({
+      qty: parseNum(laku[it.id] || ""),
+      harga: it.harga_jual,
+      diskonPersen: it.diskon_persen,
+    }))
     .filter((c) => c.qty > 0);
-  const totals = computeTotals(calcItems, parseNum(diskon), pakaiTax, parseNum(taxPercent));
+  const calcItems = barisLaku.map((c) => ({ qty: c.qty, harga: c.harga }));
+
+  // Proforma menyimpan satu diskon per dokumen, jadi diskon per produk
+  // dirangkum jadi persentase tertimbang. Rupiah potongannya sama persis
+  // dengan menghitung baris per baris.
+  const diskonOtomatis = diskonTertimbang(barisLaku);
+  const adaDiskonKhusus = items.some((it) => it.diskon_persen > 0);
+  const diskonDipakai = diskonManual
+    ? diskon
+    : String(Math.round(diskonOtomatis * 10000) / 10000);
+
+  const totals = computeTotals(
+    calcItems,
+    parseNum(diskonDipakai),
+    pakaiTax,
+    parseNum(taxPercent)
+  );
   const adaLaku = calcItems.length > 0;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -64,6 +100,15 @@ export default function ReportSaleForm({
       pesan: "Barang yang laku keluar dari stok konsinyasi dan Proforma langsung terbit.",
       ringkasan: [
         { label: "Produk Laku", nilai: calcItems.length + " baris" },
+        {
+          label: "Diskon",
+          nilai:
+            parseNum(diskonDipakai) > 0
+              ? `${parseNum(diskonDipakai).toLocaleString("id-ID", {
+                  maximumFractionDigits: 2,
+                })}% · ${formatRupiah(totals.diskon)}`
+              : "tanpa diskon",
+        },
         { label: "Total Tagihan", nilai: formatRupiah(totals.total) },
       ],
       tombol: "Ya, Terbitkan Proforma",
@@ -80,7 +125,7 @@ export default function ReportSaleForm({
             consignment_item_id: it.id,
             qty_laku: parseNum(laku[it.id]),
           })),
-        diskon_percent: parseNum(diskon),
+        diskon_percent: parseNum(diskonDipakai),
         pakai_tax: pakaiTax,
         tax_percent: parseNum(taxPercent),
         top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
@@ -167,19 +212,17 @@ export default function ReportSaleForm({
                 cell: (it) => (
                   <>
                     <div className="font-medium">{it.nama}</div>
-                    {it.varian && (
-                      <div className="text-[11px] text-muted">{it.varian}</div>
-                    )}
+                    <div className="text-[11px] text-muted">
+                      {[it.varian, it.brand].filter(Boolean).join(" · ")}
+                    </div>
                   </>
                 ),
                 cardCell: (it) => (
                   <>
                     <div>{it.nama}</div>
-                    {it.varian && (
-                      <div className="text-[11px] text-muted font-normal">
-                        {it.varian}
-                      </div>
-                    )}
+                    <div className="text-[11px] text-muted font-normal">
+                      {[it.varian, it.brand].filter(Boolean).join(" · ")}
+                    </div>
                   </>
                 ),
               },
@@ -222,7 +265,23 @@ export default function ReportSaleForm({
                 role: "primary",
                 align: "right",
                 className: "whitespace-nowrap",
-                cell: (it) => formatRupiah(it.harga_jual),
+                cell: (it) => (
+                  <>
+                    <div>{formatRupiah(it.harga_jual)}</div>
+                    {it.diskon_persen > 0 && (
+                      <div className="text-[11px] text-botanical-700">
+                        diskon{" "}
+                        {it.diskon_persen.toLocaleString("id-ID", {
+                          maximumFractionDigits: 2,
+                        })}
+                        % jadi{" "}
+                        {formatRupiah(
+                          it.harga_jual - (it.harga_jual * it.diskon_persen) / 100
+                        )}
+                      </div>
+                    )}
+                  </>
+                ),
               },
               ...(aktif
                 ? [
@@ -270,9 +329,13 @@ export default function ReportSaleForm({
             <span className="text-muted flex items-center gap-1.5">
               Discount
               <NumberInput
-                value={diskon}
-                onChange={(nilai) => setDiskon(nilai)}
-                className="w-14 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                aria-label="Diskon persen"
+                value={diskonDipakai}
+                onChange={(nilai) => {
+                  setDiskonManual(true);
+                  setDiskon(nilai);
+                }}
+                className="w-16 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
               />
               %
             </span>
@@ -280,6 +343,23 @@ export default function ReportSaleForm({
               {totals.diskon > 0 ? `− ${formatRupiah(totals.diskon)}` : formatRupiah(0)}
             </span>
           </div>
+          {adaDiskonKhusus && !diskonManual && (
+            <p className="text-botanical-700 text-[11.5px] -mt-2">
+              Terisi otomatis dari diskon khusus outlet ini. Tetap bisa diubah.
+            </p>
+          )}
+          {adaDiskonKhusus && diskonManual && (
+            <p className="text-[11.5px] text-muted -mt-2">
+              Diikat manual.{" "}
+              <button
+                type="button"
+                onClick={() => setDiskonManual(false)}
+                className="text-botanical-700 font-medium hover:underline"
+              >
+                Pakai diskon khusus lagi
+              </button>
+            </p>
+          )}
           <div className="flex justify-between items-center text-[13.5px]">
             <label className="text-muted flex items-center gap-1.5 cursor-pointer">
               <input

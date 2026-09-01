@@ -6,13 +6,18 @@ import { useRouter } from "next/navigation";
 import { ShoppingBag, Undo2, X } from "lucide-react";
 import { reportOutletSale, returOutlet, type OutletLine } from "./actions";
 import NumberInput from "@/components/NumberInput";
+import { diskonTertimbang } from "@/lib/clientPrice";
 
 export type OutletProdItem = {
   product_id: string;
   nama: string;
+  /** brand pemilik produk; dua produk bisa bernama mirip antar brand */
+  brand: string | null;
   varian: string; // "-" bila tanpa varian
   sisa: number;
   harga: number;
+  /** diskon khusus outlet untuk produk ini, persen. 0 = tanpa kesepakatan */
+  diskon_persen: number;
 };
 
 function rupiah(n: number) {
@@ -67,10 +72,25 @@ export default function OutletActions({
       .filter(Boolean) as OutletLine[];
   }
 
-  const totalLaku = produk.reduce((s, p) => {
-    const n = Math.round(Number((qty[keyOf(p)] || "").replace(/[^\d]/g, "")));
-    return s + (n > 0 ? n * p.harga : 0);
-  }, 0);
+  const qtyOf = (p: OutletProdItem) =>
+    Math.round(Number((qty[keyOf(p)] || "").replace(/[^\d]/g, "")));
+
+  const barisLaku = produk
+    .map((p) => ({
+      qty: qtyOf(p),
+      harga: p.harga,
+      diskonPersen: p.diskon_persen,
+    }))
+    .filter((b) => b.qty > 0);
+
+  const subtotalLaku = barisLaku.reduce((s, b) => s + b.qty * b.harga, 0);
+  // Proforma menyimpan satu diskon per dokumen, jadi diskon per produk
+  // dirangkum jadi persentase tertimbang. Rupiahnya sama persis dengan
+  // menghitung baris per baris.
+  const diskonPersenDok = diskonTertimbang(barisLaku);
+  const potonganLaku = (subtotalLaku * diskonPersenDok) / 100;
+  const totalLaku = subtotalLaku - potonganLaku;
+  const adaDiskonKhusus = produk.some((p) => p.diskon_persen > 0);
 
   async function submit() {
     if (loading || !mode) return;
@@ -85,7 +105,7 @@ export default function OutletActions({
       const res =
         mode === "laku"
           ? await reportOutletSale(clientId, ls, {
-              diskon_percent: 0,
+              diskon_percent: diskonPersenDok,
               pakai_tax: pakaiTax,
               tax_percent: 11,
               top_days: top === "" ? null : Math.max(0, parseInt(top) || 0),
@@ -167,9 +187,22 @@ export default function OutletActions({
                     <div className="truncate">
                       {p.nama}
                       {p.varian !== "-" && <span className="text-muted"> · {p.varian}</span>}
+                      {p.brand && <span className="text-muted"> · {p.brand}</span>}
                       {mode === "laku" && (
                         <span className="block text-[11px] text-muted">
                           {rupiah(p.harga)}/pcs
+                          {p.diskon_persen > 0 && (
+                            <span className="text-botanical-700">
+                              {" · diskon "}
+                              {p.diskon_persen.toLocaleString("id-ID", {
+                                maximumFractionDigits: 2,
+                              })}
+                              % jadi{" "}
+                              {rupiah(
+                                p.harga - (p.harga * p.diskon_persen) / 100
+                              )}
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>
@@ -213,10 +246,30 @@ export default function OutletActions({
                     className="w-28 glass-input rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                   />
                 </label>
-                <div className="text-[13px] font-semibold text-ink ml-auto">
-                  Total: {rupiah(totalLaku)}
+                <div className="ml-auto text-right">
+                  {potonganLaku > 0 && (
+                    <div className="text-[11.5px] text-muted">
+                      Subtotal {rupiah(subtotalLaku)} · diskon{" "}
+                      <span className="text-botanical-700">
+                        {diskonPersenDok.toLocaleString("id-ID", {
+                          maximumFractionDigits: 2,
+                        })}
+                        % − {rupiah(potonganLaku)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="text-[13px] font-semibold text-ink">
+                    Total: {rupiah(totalLaku)}
+                  </div>
                 </div>
               </div>
+            )}
+
+            {mode === "laku" && adaDiskonKhusus && (
+              <p className="text-botanical-700 text-[11.5px] px-5 pb-1">
+                Diskon khusus outlet ini ikut terpasang di Proforma. Atur
+                angkanya di Clients, menu Harga &amp; Diskon Khusus.
+              </p>
             )}
 
             {error && <p className="text-clay-600 text-[12px] px-5 pt-1">{error}</p>}

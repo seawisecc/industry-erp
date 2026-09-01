@@ -7,6 +7,7 @@ import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
 import DataTable from "@/components/DataTable";
 import RowActions, { IconAction } from "@/components/RowActions";
+import { namaBrand } from "@/lib/produkLabel";
 import {
   ilikeOrWithIds,
   pageInfo,
@@ -21,7 +22,7 @@ type PlanRow = {
   tanggal_rencana: string;
   status: string;
   production_batch_id: string | null;
-  products: { kode: string | null; nama_produk: string } | null;
+  products: { kode: string | null; nama_produk: string; brand: string | null } | null;
 };
 
 type BatchRow = {
@@ -33,7 +34,7 @@ type BatchRow = {
     qty_hasil: number;
     satuan: string;
     varian_ukuran: string | null;
-    products: { nama_produk: string } | null;
+    products: { nama_produk: string; brand: string | null } | null;
   }[];
 };
 
@@ -83,7 +84,7 @@ export default async function ProductionPage({
   let planQuery = supabase
     .from("production_plans")
     .select(
-      "id, no_batch, jumlah_batch, tanggal_rencana, status, production_batch_id, products(kode, nama_produk)",
+      "id, no_batch, jumlah_batch, tanggal_rencana, status, production_batch_id, products(kode, nama_produk, brand)",
       { count: "exact" }
     )
     .eq("organization_id", organizationId);
@@ -99,7 +100,7 @@ export default async function ProductionPage({
     supabase
       .from("production_batches")
       .select(
-        "id, no_batch_produksi, tanggal_produksi, total_cost_bahan, production_outputs(qty_hasil, satuan, varian_ukuran, products(nama_produk))"
+        "id, no_batch_produksi, tanggal_produksi, total_cost_bahan, production_outputs(qty_hasil, satuan, varian_ukuran, products(nama_produk, brand))"
       )
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false })
@@ -109,6 +110,13 @@ export default async function ProductionPage({
   const planList = (plans || []) as unknown as PlanRow[];
   const info = pageInfo(sp.page, count, planList.length);
   const batchList = (batches || []) as unknown as BatchRow[];
+
+  // Brand ikut: produk bernama mirip milik brand berbeda gampang tertukar
+  // waktu menelusuri batch mana yang dimaksud.
+  const produkOf = (b: BatchRow) => {
+    const pr = b.production_outputs?.[0]?.products;
+    return pr ? namaBrand(pr.nama_produk, pr.brand) : "-";
+  };
 
   return (
     <ProdukShell>
@@ -180,6 +188,7 @@ export default async function ProductionPage({
                 </div>
                 <div className="text-[11px] text-muted font-mono">
                   {p.products?.kode}
+                  {p.products?.brand ? ` · ${p.products.brand}` : ""}
                 </div>
               </>
             ),
@@ -188,6 +197,7 @@ export default async function ProductionPage({
                 <div>{p.products?.nama_produk || "-"}</div>
                 <div className="text-[11px] text-muted font-mono font-normal">
                   {p.products?.kode}
+                  {p.products?.brand ? ` · ${p.products.brand}` : ""}
                 </div>
               </>
             ),
@@ -304,11 +314,10 @@ export default async function ProductionPage({
               role: "title",
               cell: (b) => (
                 <div className="max-w-[220px] truncate font-medium">
-                  {b.production_outputs?.[0]?.products?.nama_produk || "-"}
+                  {produkOf(b)}
                 </div>
               ),
-              cardCell: (b) =>
-                b.production_outputs?.[0]?.products?.nama_produk || "-",
+              cardCell: (b) => produkOf(b),
             },
             {
               key: "hasil",
