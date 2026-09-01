@@ -74,6 +74,7 @@ export async function getSalesOptions(
       supabase
         .from("client_prices")
         .select("client_id, product_id, varian, harga")
+        .not("harga", "is", null)
         .eq("organization_id", organizationId),
     ]);
 
@@ -180,8 +181,14 @@ export async function getSalesOptions(
     client_id: string;
     product_id: string;
     varian: string | null;
-    harga: number;
+    harga: number | null;
   }[]) {
+    // harga BOLEH null: satu baris kesepakatan bisa berisi diskon saja.
+    // Baris seperti itu tidak punya harga khusus, jadi tidak boleh masuk
+    // peta ini. `Number(null)` bernilai 0, dan nol yang menyelinap ke sini
+    // membuat form penjualan mengisi harga 0 untuk client yang sebenarnya
+    // cuma punya diskon.
+    if (h.harga == null) continue;
     clientPrices[clientPriceKey(h.client_id, h.product_id, h.varian)] = Number(
       h.harga
     );

@@ -223,8 +223,8 @@ export default async function ClientsPage({
                   icon={Tags}
                   label={
                     jumlahHarga.get(c.id)
-                      ? `Harga khusus (${jumlahHarga.get(c.id)} produk)`
-                      : "Atur harga khusus"
+                      ? `Harga & diskon khusus (${jumlahHarga.get(c.id)} produk)`
+                      : "Atur harga & diskon khusus"
                   }
                   href={`/clients/${c.id}/prices`}
                   tone={jumlahHarga.get(c.id) ? "primary" : "default"}
