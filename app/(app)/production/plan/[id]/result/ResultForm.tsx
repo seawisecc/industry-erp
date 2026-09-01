@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { finishProduction } from "../../../actions";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import NumberInput from "@/components/NumberInput";
 
 export type ResultVariant = {
   nama_varian: string;
@@ -159,13 +160,11 @@ export default function ResultForm({
               role: "primary",
               headClassName: "w-[150px]",
               cell: (v) => (
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   aria-label={`Hasil real ${v.nama_varian}`}
                   value={real[v.nama_varian] || ""}
-                  onChange={(e) =>
-                    setReal((s) => ({ ...s, [v.nama_varian]: e.target.value }))
+                  onChange={(nilai) =>
+                    setReal((s) => ({ ...s, [v.nama_varian]: nilai }))
                   }
                   className={inputCls}
                 />

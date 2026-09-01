@@ -6,6 +6,7 @@ import { X, Plus, Trash2 } from "lucide-react";
 import { createPO, updatePO, deletePO } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { klasSorot, tombolCombo, enterKeFieldBerikutnya } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 export type SupplierOption = { id: string; nama: string };
 
@@ -54,10 +55,11 @@ function moqIssue(row: Row): string | null {
   if (!moq || moq <= 0) return null;
   const qty = parseNum(row.qty);
   if (qty <= 0) return null;
-  if (qty < moq) return `Minimal ${moq} ${row.item!.satuan} (MOQ)`;
+  if (qty < moq)
+    return `Minimal ${moq.toLocaleString("id-ID")} ${row.item!.satuan} (MOQ)`;
   const ratio = qty / moq;
   if (Math.abs(ratio - Math.round(ratio)) > 1e-9)
-    return `Harus kelipatan ${moq} ${row.item!.satuan} (MOQ)`;
+    return `Harus kelipatan ${moq.toLocaleString("id-ID")} ${row.item!.satuan} (MOQ)`;
   return null;
 }
 
@@ -86,8 +88,8 @@ export default function POForm({ suppliers, items, po }: Props) {
       item: items.find((o) => o.id === it.item_id) || null,
       query: "",
       open: false,
-      qty: String(it.qty_pesan).replace(".", ","),
-      harga: String(it.harga_per_unit).replace(".", ","),
+      qty: String(it.qty_pesan),
+      harga: String(it.harga_per_unit),
     }));
   });
   const [loading, setLoading] = useState(false);
@@ -109,7 +111,7 @@ export default function POForm({ suppliers, items, po }: Props) {
       parseNum(row.harga) > 0
         ? row.harga
         : it.harga_terakhir != null
-          ? String(it.harga_terakhir).replace(".", ",")
+          ? String(it.harga_terakhir)
           : "";
     updateRow(idx, { item: it, query: "", open: false, harga: hargaPrefill });
   }
@@ -481,13 +483,13 @@ export default function POForm({ suppliers, items, po }: Props) {
                       Qty {row.item ? `(${row.item.satuan})` : ""}
                     </label>
                   )}
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     value={row.qty}
-                    onChange={(e) => updateRow(idx, { qty: e.target.value })}
+                    onChange={(nilai) => updateRow(idx, { qty: nilai })}
                     placeholder={
-                      row.item?.moq ? `MOQ ${row.item.moq}` : "0"
+                      row.item?.moq
+                        ? `MOQ ${row.item.moq.toLocaleString("id-ID")}`
+                        : "0"
                     }
                     className={`w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700 ${
                       moqIssue(row) ? "ring-2 ring-clay-500" : ""
@@ -506,14 +508,12 @@ export default function POForm({ suppliers, items, po }: Props) {
                       Harga / Unit (Rp)
                     </label>
                   )}
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     value={row.harga}
-                    onChange={(e) => updateRow(idx, { harga: e.target.value })}
+                    onChange={(nilai) => updateRow(idx, { harga: nilai })}
                     placeholder={
                       row.item?.harga_terakhir != null
-                        ? String(row.item.harga_terakhir)
+                        ? row.item.harga_terakhir.toLocaleString("id-ID")
                         : "0"
                     }
                     className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
@@ -524,7 +524,7 @@ export default function POForm({ suppliers, items, po }: Props) {
                         type="button"
                         onClick={() =>
                           updateRow(idx, {
-                            harga: String(row.item!.harga_terakhir).replace(".", ","),
+                            harga: String(row.item!.harga_terakhir),
                           })
                         }
                         className="text-[10.5px] text-botanical-700 hover:underline mt-0.5"
@@ -575,11 +575,9 @@ export default function POForm({ suppliers, items, po }: Props) {
         <div className="flex justify-between items-center text-[13.5px]">
           <span className="text-muted flex items-center gap-1.5">
             PPN
-            <input
-              type="text"
-              inputMode="decimal"
+            <NumberInput
               value={ppn}
-              onChange={(e) => setPpn(e.target.value)}
+              onChange={(nilai) => setPpn(nilai)}
               className="w-14 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
             />
             %

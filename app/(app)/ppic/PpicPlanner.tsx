@@ -11,6 +11,7 @@
 import { useState } from "react";
 import { Plus, Trash2, ShoppingCart, PackageSearch } from "lucide-react";
 import DataTable from "@/components/DataTable";
+import NumberInput from "@/components/NumberInput";
 
 export type PpicProduct = {
   id: string;
@@ -145,14 +146,12 @@ export default function PpicPlanner({
                   </option>
                 ))}
               </select>
-              <input
-                type="text"
-                inputMode="decimal"
+              <NumberInput
                 value={row.batches}
-                onChange={(e) =>
+                onChange={(nilai) =>
                   setRows((rs) =>
                     rs.map((r, i) =>
-                      i === idx ? { ...r, batches: e.target.value } : r
+                      i === idx ? { ...r, batches: nilai } : r
                     )
                   )
                 }

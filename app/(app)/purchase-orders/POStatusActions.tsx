@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Send } from "lucide-react";
 import { approvePO, markPOSent, setPOTop } from "./actions";
+import NumberInput from "@/components/NumberInput";
 
 const TOP_PRESETS = [
   { label: "Tunai / CIA", days: 0 },
@@ -139,12 +140,10 @@ export default function POStatusActions({
                 {p.label}
               </button>
             ))}
-            <input
-              type="number"
-              min={0}
-              max={365}
+            <NumberInput
+              bulat
               value={topInput}
-              onChange={(e) => setTopInput(e.target.value)}
+              onChange={(nilai) => setTopInput(nilai)}
               placeholder="hari"
               className="w-[70px] glass-input rounded-lg px-2 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-botanical-700"
             />

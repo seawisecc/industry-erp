@@ -6,6 +6,8 @@ import { X, Plus, Trash2 } from "lucide-react";
 import { createProduct, updateProduct } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
+import { keTampilan } from "@/lib/angka";
+import NumberInput from "@/components/NumberInput";
 
 export type ItemOption = {
   id: string;
@@ -60,7 +62,7 @@ function parseNum(s: string) {
 }
 
 function toStr(n: number | null | undefined) {
-  return n == null ? "" : String(n).replace(".", ",");
+  return n == null ? "" : String(n);
 }
 
 function emptyPackRow(): PackRow {
@@ -339,11 +341,9 @@ export default function ProductForm({ items, product }: Props) {
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
               Ukuran 1 Batch (kg bulk)
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
+            <NumberInput
               value={batchKg}
-              onChange={(e) => setBatchKg(e.target.value)}
+              onChange={(nilai) => setBatchKg(nilai)}
               placeholder="Misal: 100"
               className={inputCls}
             />
@@ -498,11 +498,9 @@ export default function ProductForm({ items, product }: Props) {
               />
 
               <div className="relative">
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   value={row.pct}
-                  onChange={(e) => updateFRow(idx, { pct: e.target.value })}
+                  onChange={(nilai) => updateFRow(idx, { pct: nilai })}
                   placeholder="0"
                   className={`${inputCls} pr-7`}
                 />
@@ -688,11 +686,9 @@ export default function ProductForm({ items, product }: Props) {
             <div className="flex items-end gap-3 flex-wrap">
               <div>
                 <label className="block text-[11.5px] text-muted mb-1">Netto</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   value={v.netto}
-                  onChange={(e) => updateVariant(vIdx, { netto: e.target.value })}
+                  onChange={(nilai) => updateVariant(vIdx, { netto: nilai })}
                   placeholder="30"
                   className={`${inputCls} w-24`}
                 />
@@ -712,17 +708,15 @@ export default function ProductForm({ items, product }: Props) {
                 <label className="block text-[11.5px] text-muted mb-1">
                   Harga Jual/pcs (Rp)
                 </label>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   value={v.harga}
-                  onChange={(e) => updateVariant(vIdx, { harga: e.target.value })}
-                  placeholder="Misal: 45000"
+                  onChange={(nilai) => updateVariant(vIdx, { harga: nilai })}
+                  placeholder="Misal: 45.000"
                   className={`${inputCls} w-36`}
                 />
               </div>
               <div className="flex-1 text-[12.5px] text-muted pb-2.5">
-                {v.netto ? `Varian: ${v.netto} ${v.satuan}` : ""}
+                {v.netto ? `Varian: ${keTampilan(v.netto)} ${v.satuan}` : ""}
               </div>
               <button
                 type="button"
@@ -853,11 +847,9 @@ export default function ProductForm({ items, product }: Props) {
                     )}
                   </div>
 
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     value={p.qty}
-                    onChange={(e) => updatePackRow(vIdx, pIdx, { qty: e.target.value })}
+                    onChange={(nilai) => updatePackRow(vIdx, pIdx, { qty: nilai })}
                     placeholder="Qty/pcs"
                     className={inputCls}
                   />

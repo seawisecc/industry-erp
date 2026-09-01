@@ -10,6 +10,7 @@ import ProductPicker from "@/components/ProductPicker";
 import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 /**
  * `hargaManual` menandai baris yang harganya sudah diketik user, supaya
@@ -211,20 +212,16 @@ export default function ConsignmentForm({
                   }}
                   placeholder="Ketik kode / nama produk..."
                 />
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   value={row.qty}
-                  onChange={(e) => updateRow(idx, { qty: e.target.value })}
+                  onChange={(nilai) => updateRow(idx, { qty: nilai })}
                   placeholder="Qty pcs"
                   className={`${inputCls} ${over ? "ring-2 ring-clay-500" : ""}`}
                 />
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   value={row.harga}
-                  onChange={(e) =>
-                    updateRow(idx, { harga: e.target.value, hargaManual: true })
+                  onChange={(nilai) =>
+                    updateRow(idx, { harga: nilai, hargaManual: true })
                   }
                   placeholder="Harga jual/pcs"
                   className={inputCls}

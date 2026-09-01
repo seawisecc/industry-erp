@@ -13,6 +13,7 @@ import { ShoppingCart, TriangleAlert } from "lucide-react";
 import { createPOsFromGuide, type GuideLine } from "./actions";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import NumberInput from "@/components/NumberInput";
 
 export type GuideItem = {
   id: string;
@@ -159,11 +160,9 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">
             PPN (%)
           </label>
-          <input
-            type="text"
-            inputMode="decimal"
+          <NumberInput
             value={ppn}
-            onChange={(e) => setPpn(e.target.value)}
+            onChange={(nilai) => setPpn(nilai)}
             className={inputCls}
           />
         </div>
@@ -261,13 +260,11 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
               const issue = moqIssue(it);
               return (
                 <>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     aria-label={`Qty order ${it.nama}`}
                     value={qty[it.id] || ""}
-                    onChange={(e) =>
-                      setQty((s) => ({ ...s, [it.id]: e.target.value }))
+                    onChange={(nilai) =>
+                      setQty((s) => ({ ...s, [it.id]: nilai }))
                     }
                     disabled={!it.supplier_id}
                     placeholder="0"

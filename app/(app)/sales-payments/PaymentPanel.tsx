@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Banknote, Trash2, X } from "lucide-react";
 import { recordSalesPayment, deleteSalesPayment } from "./actions";
+import NumberInput from "@/components/NumberInput";
 
 export type PaymentRow = {
   id: string;
@@ -53,7 +54,7 @@ export default function PaymentPanel({
     if (loading) return;
     const nilai = penuh
       ? sisa
-      : Math.round(Number(jumlah.replace(/[^\d]/g, "")));
+      : Math.round(Number(jumlah));
     if (!(nilai > 0)) {
       setError("Isi jumlah pembayaran dulu");
       return;
@@ -189,13 +190,10 @@ export default function PaymentPanel({
                     <label className="block text-[12px] font-medium text-muted mb-1.5">
                       Jumlah Bayar
                     </label>
-                    <input
-                      inputMode="numeric"
+                    <NumberInput
+                      bulat
                       value={jumlah}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/[^\d]/g, "");
-                        setJumlah(digits ? Number(digits).toLocaleString("id-ID") : "");
-                      }}
+                      onChange={setJumlah}
                       placeholder={sisa.toLocaleString("id-ID")}
                       className={inputCls}
                     />

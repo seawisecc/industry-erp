@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { createItemsFromMaterials } from "../actions";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import NumberInput from "@/components/NumberInput";
 
 export type MaterialRow = {
   id: string;
@@ -252,12 +253,10 @@ export default function FromMaterialForm({ materials }: { materials: MaterialRow
                 headClassName: "w-[110px]",
                 cell: (m) => (
                   <span onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <NumberInput
                       aria-label={`Stok minimum ${m.tradename}`}
                       value={rows[m.id]?.stokMin || ""}
-                      onChange={(e) => update(m.id, { stokMin: e.target.value })}
+                      onChange={(nilai) => update(m.id, { stokMin: nilai })}
                       disabled={!rows[m.id]?.checked}
                       placeholder="0"
                       className={`${inputCls} disabled:opacity-40`}

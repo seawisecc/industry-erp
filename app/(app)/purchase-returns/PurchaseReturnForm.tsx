@@ -7,6 +7,7 @@ import { ALASAN_RETUR } from "@/lib/purchaseReturn";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 export type ReturBatch = {
   id: string;
@@ -261,13 +262,11 @@ export default function PurchaseReturnForm({
               cell: (b) => {
                 const lebih = qtyOf(b.id) > b.maks + 0.000001;
                 return (
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     aria-label={`Qty retur ${b.item_nama}`}
                     value={qty[b.id] || ""}
-                    onChange={(e) =>
-                      setQty((s) => ({ ...s, [b.id]: e.target.value }))
+                    onChange={(nilai) =>
+                      setQty((s) => ({ ...s, [b.id]: nilai }))
                     }
                     placeholder="0"
                     disabled={b.maks <= 0}

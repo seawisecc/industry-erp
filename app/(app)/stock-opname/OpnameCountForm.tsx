@@ -7,6 +7,7 @@ import { saveOpnameCount, finishStockOpname } from "./actions";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { judulGolongan, type Golongan } from "./golongan";
+import NumberInput from "@/components/NumberInput";
 
 export type { Golongan };
 
@@ -34,7 +35,7 @@ function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
 }
 function toStr(n: number | null) {
-  return n == null ? "" : String(n).replace(".", ",");
+  return n == null ? "" : String(n);
 }
 function formatId(n: number) {
   return n.toLocaleString("id-ID", { maximumFractionDigits: 3 });
@@ -287,16 +288,13 @@ export default function OpnameCountForm({
               role: "primary",
               headClassName: "w-[130px]",
               cell: (r) => (
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   aria-label={`Hitung fisik ${r.nama}${
                     r.varian && r.varian !== "-" ? ` ${r.varian}` : ""
                   }`}
                   value={fisik[r.id] ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setFisik((s) => ({ ...s, [r.id]: v }));
+                  onChange={(nilai) => {
+                    setFisik((s) => ({ ...s, [r.id]: nilai }));
                     setSukses("");
                   }}
                   placeholder="-"

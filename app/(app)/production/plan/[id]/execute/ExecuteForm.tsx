@@ -16,6 +16,7 @@ import { gabungKebutuhan, hitungKekurangan } from "@/lib/stokCek";
 import { urutkanFormula, faseKey, faseLabel } from "@/lib/formulaOrder";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 /* ------------------------------------------------------------
    Draft otomatis di browser.
@@ -136,7 +137,7 @@ function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
 }
 function toStr(n: number) {
-  return String(Math.round(n * 10000) / 10000).replace(".", ",");
+  return String(Math.round(n * 10000) / 10000);
 }
 function formatId(n: number) {
   return n.toLocaleString("id-ID", { maximumFractionDigits: 3 });
@@ -814,13 +815,11 @@ export default function ExecuteForm({
                 const it = itemOf(f.item_id);
                 const real = parseNum(bahanReal[f.item_id] || "");
                 return (
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     aria-label={`Timbang real ${it?.nama ?? ""}`}
                     value={bahanReal[f.item_id] || ""}
-                    onChange={(e) =>
-                      setBahanReal((s) => ({ ...s, [f.item_id]: e.target.value }))
+                    onChange={(nilai) =>
+                      setBahanReal((s) => ({ ...s, [f.item_id]: nilai }))
                     }
                     className={`${inputCls} ${
                       it && real > it.stok ? "ring-2 ring-clay-500" : ""
@@ -1023,11 +1022,9 @@ export default function ExecuteForm({
                   </>
                 )}
               </div>
-              <input
-                type="text"
-                inputMode="decimal"
+              <NumberInput
                 value={row.qty}
-                onChange={(e) => updateAdjust(idx, { qty: e.target.value })}
+                onChange={(nilai) => updateAdjust(idx, { qty: nilai })}
                 placeholder={row.item ? `Qty (${row.item.satuan})` : "Qty"}
                 className={inputCls}
               />
@@ -1271,12 +1268,10 @@ export default function ExecuteForm({
             <label className="block text-[11.5px] text-muted mb-1">
               Ruahan Real (kg)
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
+            <NumberInput
               value={bulkReal}
-              onChange={(e) => setBulkReal(e.target.value)}
-              placeholder={toStr(plan.bulkKg)}
+              onChange={(nilai) => setBulkReal(nilai)}
+              placeholder={formatId(plan.bulkKg)}
               className={inputCls}
             />
           </div>
@@ -1328,12 +1323,10 @@ export default function ExecuteForm({
               <label className="block text-[11.5px] text-muted mb-1">
                 {v.nama_varian}
               </label>
-              <input
-                type="text"
-                inputMode="decimal"
+              <NumberInput
                 value={variantPcs[v.nama_varian] || ""}
-                onChange={(e) =>
-                  setVariantPcs((s) => ({ ...s, [v.nama_varian]: e.target.value }))
+                onChange={(nilai) =>
+                  setVariantPcs((s) => ({ ...s, [v.nama_varian]: nilai }))
                 }
                 placeholder="0 pcs"
                 className={inputCls}
@@ -1402,13 +1395,11 @@ export default function ExecuteForm({
                           ? toStr(teoritis)
                           : "";
                     return (
-                      <input
-                        type="text"
-                        inputMode="decimal"
+                      <NumberInput
                         aria-label={`Ambil real ${itemOf(id)?.nama ?? ""}`}
                         value={val}
-                        onChange={(e) =>
-                          setKemasanQty((s) => ({ ...s, [id]: e.target.value }))
+                        onChange={(nilai) =>
+                          setKemasanQty((s) => ({ ...s, [id]: nilai }))
                         }
                         className={inputCls}
                       />
@@ -1486,13 +1477,11 @@ export default function ExecuteForm({
                   role: "primary",
                   headClassName: "w-[120px]",
                   cell: (id) => (
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <NumberInput
                       aria-label={`Kemasan terpakai ${itemOf(id)?.nama ?? ""}`}
                       value={kemasanTerpakai[id] || ""}
-                      onChange={(e) =>
-                        setKemasanTerpakai((s) => ({ ...s, [id]: e.target.value }))
+                      onChange={(nilai) =>
+                        setKemasanTerpakai((s) => ({ ...s, [id]: nilai }))
                       }
                       placeholder="0"
                       className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
@@ -1505,13 +1494,11 @@ export default function ExecuteForm({
                   role: "primary",
                   headClassName: "w-[120px]",
                   cell: (id) => (
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <NumberInput
                       aria-label={`Kemasan rusak ${itemOf(id)?.nama ?? ""}`}
                       value={kemasanRusak[id] || ""}
-                      onChange={(e) =>
-                        setKemasanRusak((s) => ({ ...s, [id]: e.target.value }))
+                      onChange={(nilai) =>
+                        setKemasanRusak((s) => ({ ...s, [id]: nilai }))
                       }
                       placeholder="0"
                       className="w-full glass-input rounded-lg px-2.5 py-1.5 text-[13px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"

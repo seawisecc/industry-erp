@@ -7,6 +7,8 @@ import { createPlan } from "../../actions";
 import StokKurangAlert from "@/components/StokKurangAlert";
 import { gabungKebutuhan, hitungKekurangan, type ItemStok } from "@/lib/stokCek";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import { keTampilan } from "@/lib/angka";
+import NumberInput from "@/components/NumberInput";
 
 export type ProductOpt = {
   id: string;
@@ -73,7 +75,7 @@ export default function PlanForm({
       ringkasan: [
         { label: "Produk", nilai: product?.nama_produk || "-" },
         { label: "No. Batch", nilai: noBatch },
-        { label: "Jumlah Batch", nilai: jumlahBatch },
+        { label: "Jumlah Batch", nilai: keTampilan(jumlahBatch) },
         { label: "Tanggal Rencana", nilai: tanggal },
       ],
       tombol: "Ya, Simpan Plan",
@@ -148,11 +150,9 @@ export default function PlanForm({
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
               Jumlah Batch
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
+            <NumberInput
               value={jumlahBatch}
-              onChange={(e) => setJumlahBatch(e.target.value)}
+              onChange={(nilai) => setJumlahBatch(nilai)}
               required
               className={inputCls}
             />

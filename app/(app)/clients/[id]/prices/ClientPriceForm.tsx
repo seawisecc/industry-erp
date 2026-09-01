@@ -7,6 +7,7 @@ import { saveClientPrices } from "../../actions";
 import ProductPicker, { type ProductOption } from "@/components/ProductPicker";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 export type HargaOption = ProductOption & {
   product_id: string;
@@ -156,12 +157,10 @@ export default function ClientPriceForm({
                   placeholder="Ketik kode / nama produk..."
                   showStock={false}
                 />
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   aria-label="Harga khusus"
                   value={row.harga}
-                  onChange={(e) => updateRow(idx, { harga: e.target.value })}
+                  onChange={(nilai) => updateRow(idx, { harga: nilai })}
                   placeholder="Harga khusus (Rp)"
                   className={`${inputCls} text-right ${
                     dobel.has(row.key) ? "ring-2 ring-clay-500" : ""

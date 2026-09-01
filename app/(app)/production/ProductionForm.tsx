@@ -6,6 +6,7 @@ import { X, Plus, Trash2 } from "lucide-react";
 import { createProduction } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 export type ProductOption = {
   id: string;
@@ -44,7 +45,7 @@ function parseNum(s: string) {
 }
 
 function toStr(n: number) {
-  return String(Math.round(n * 10000) / 10000).replace(".", ",");
+  return String(Math.round(n * 10000) / 10000);
 }
 
 function formatId(n: number) {
@@ -349,11 +350,9 @@ export default function ProductionForm({
             )}
           </div>
 
-          <input
-            type="text"
-            inputMode="decimal"
+          <NumberInput
             value={row.qty}
-            onChange={(e) => updateIn(setter, idx, { qty: e.target.value })}
+            onChange={(nilai) => updateIn(setter, idx, { qty: nilai })}
             placeholder={row.item ? `Qty (${row.item.satuan})` : "Qty"}
             className={`w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${
               kurang ? "ring-2 ring-clay-500" : "focus:ring-botanical-700"
@@ -410,11 +409,9 @@ export default function ProductionForm({
               <label className="block text-[12.5px] font-medium text-muted mb-1.5">
                 Jumlah Batch
               </label>
-              <input
-                type="text"
-                inputMode="decimal"
+              <NumberInput
                 value={jumlahBatch}
-                onChange={(e) => handleJumlahBatchChange(e.target.value)}
+                onChange={(nilai) => handleJumlahBatchChange(nilai)}
                 placeholder="1"
                 className={inputCls}
               />
@@ -495,11 +492,9 @@ export default function ProductionForm({
                   <label className="block text-[11.5px] text-muted mb-1">
                     {v.nama_varian}
                   </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     value={variantQty[v.id] || ""}
-                    onChange={(e) => handleVariantQtyChange(v.id, e.target.value)}
+                    onChange={(nilai) => handleVariantQtyChange(v.id, nilai)}
                     placeholder="0 pcs"
                     className={inputCls}
                   />

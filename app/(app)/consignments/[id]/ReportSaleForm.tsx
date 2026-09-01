@@ -6,6 +6,7 @@ import { reportConsignmentSale, closeConsignment } from "../actions";
 import { computeTotals } from "@/lib/invoiceMath";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import NumberInput from "@/components/NumberInput";
 
 export type ConsItem = {
   id: string;
@@ -231,13 +232,11 @@ export default function ReportSaleForm({
                       role: "primary" as const,
                       headClassName: "w-[110px]",
                       cell: (it: ConsItem) => (
-                        <input
-                          type="text"
-                          inputMode="decimal"
+                        <NumberInput
                           aria-label={`Jumlah laku ${it.nama}`}
                           value={laku[it.id] || ""}
-                          onChange={(e) =>
-                            setLaku((s) => ({ ...s, [it.id]: e.target.value }))
+                          onChange={(nilai) =>
+                            setLaku((s) => ({ ...s, [it.id]: nilai }))
                           }
                           placeholder="0"
                           className={`${inputCls} ${
@@ -270,11 +269,9 @@ export default function ReportSaleForm({
           <div className="flex justify-between items-center text-[13.5px]">
             <span className="text-muted flex items-center gap-1.5">
               Discount
-              <input
-                type="text"
-                inputMode="decimal"
+              <NumberInput
                 value={diskon}
-                onChange={(e) => setDiskon(e.target.value)}
+                onChange={(nilai) => setDiskon(nilai)}
                 className="w-14 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
               />
               %
@@ -292,11 +289,9 @@ export default function ReportSaleForm({
                 className="accent-[#2f4f3e]"
               />
               Tax
-              <input
-                type="text"
-                inputMode="decimal"
+              <NumberInput
                 value={taxPercent}
-                onChange={(e) => setTaxPercent(e.target.value)}
+                onChange={(nilai) => setTaxPercent(nilai)}
                 disabled={!pakaiTax}
                 className="w-12 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700 disabled:opacity-40"
               />
@@ -307,11 +302,10 @@ export default function ReportSaleForm({
           <div className="flex justify-between items-center text-[13.5px]">
             <span className="text-muted flex items-center gap-1.5">
               TOP
-              <input
-                type="number"
-                min={0}
+              <NumberInput
+                bulat
                 value={top}
-                onChange={(e) => setTop(e.target.value)}
+                onChange={(nilai) => setTop(nilai)}
                 className="w-14 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
               />
               hari

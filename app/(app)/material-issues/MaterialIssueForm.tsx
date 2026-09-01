@@ -7,6 +7,7 @@ import { createMaterialIssue } from "./actions";
 import { TUJUAN_PEMAKAIAN } from "@/lib/materialIssue";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 export type IssueItem = {
   id: string;
@@ -291,11 +292,9 @@ export default function MaterialIssueForm({
                     </>
                   )}
                 </div>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   value={row.qty}
-                  onChange={(e) => updateRow(idx, { qty: e.target.value })}
+                  onChange={(nilai) => updateRow(idx, { qty: nilai })}
                   placeholder={row.item ? `Qty (${row.item.satuan})` : "Qty"}
                   className={`${inputCls} ${lebih ? "ring-2 ring-clay-500" : ""}`}
                 />

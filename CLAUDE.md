@@ -498,6 +498,68 @@ Shortcut yang tidak diketahui sama dengan tidak ada, karena itu kotak cari
 menampilkan lencana `/` selama masih kosong. Kalau menambah shortcut baru,
 pikirkan dulu di mana orang akan melihatnya.
 
+# Kolom angka: pemisah ribuan otomatis
+
+Setiap kotak isian angka memakai `components/NumberInput.tsx`. Jangan
+menulis `<input inputMode="decimal">` baru dari nol. Harga tujuh digit
+tanpa titik hampir tidak bisa dibaca ulang, dan salah satu nol di harga
+satuan adalah kesalahan yang paling mahal di aplikasi ini.
+
+Yang membuatnya bisa dipasang di mana-mana tanpa mengubah pemanggil:
+ada DUA bentuk angka, dan cuma komponen ini yang tahu keduanya.
+
+| Bentuk   | Contoh     | Ada di                          |
+| -------- | ---------- | ------------------------------- |
+| NILAI    | `1500.75`  | state React, payload ke server  |
+| TAMPILAN | `1.500,75` | yang dilihat & diketik user     |
+
+NILAI memakai titik desimal, jadi `parseFloat` / `Number` di server
+action maupun di penghitung total tetap jalan apa adanya. Rumusnya di
+`lib/angka.ts`, bersih dari import server.
+
+Kontraknya sengaja beda dengan `<input>` biasa, dan itu yang bikin
+migrasi ketahuan kalau ada yang terlewat:
+
+```tsx
+<NumberInput value={row.harga} onChange={(nilai) => updateRow(idx, { harga: nilai })} />
+```
+
+Lima aturan yang menentukan:
+
+- **State disimpan sebagai NILAI, bukan tampilan.** Isian awal dari
+  database ditulis `String(n)` saja. Dulu beberapa form menyediakannya
+  lewat `String(n).replace(".", ",")` supaya terbaca Indonesia; itu
+  sudah dihapus. Koma di state berarti ada dua sumber kebenaran dan
+  setiap pembaca harus ingat menormalkannya.
+- **Titik yang BARU diketik selalu berarti desimal.** Titik yang sudah
+  ada di layar cuma pemisah ribuan yang disisipkan komponen ini, jadi
+  yang baru ditekan orang ditandai dulu sebelum sisanya dibuang. Tanpa
+  itu "1.5" terbaca 15. Papan angka di keyboard cuma punya titik, jadi
+  memaksa orang mengetik koma bukan pilihan.
+- **Tebakan titik-desimal untuk TEMPELAN saja.** Titik yang tidak
+  diikuti tepat tiga angka tidak mungkin pemisah ribuan, jadi
+  `1500.75` dari spreadsheet ikut terbaca benar. Aturan itu TIDAK boleh
+  dipakai di jalur mengetik: "1.500" yang angka 5-nya baru dihapus
+  sempat berbentuk "1.00", dan menebaknya di situ mengubah 100 jadi 1.
+- **Kursor dipulihkan dengan menghitung angka, bukan karakter.**
+  Pemisah ribuan bergeser tiap ketikan, jadi menyimpan indeks mentah
+  akan melempar kursor ke ujung begitu ada titik baru muncul. Ini bukan
+  detail kosmetik: mengetik di tengah "1.500.000" adalah hal biasa.
+- **Backspace yang cuma kena titik ikut menghapus angka di
+  sebelahnya.** Kalau tidak, titiknya langsung muncul lagi dan
+  tombolnya terasa rusak.
+
+`bulat` untuk kolom yang tidak pernah pecahan (qty pcs, tempo hari):
+koma sama sekali ditolak. `negatif` untuk yang boleh minus.
+
+Pengecualian yang disengaja: kotak nomor halaman di
+`components/Pagination.tsx`. Itu penunjuk halaman, bukan jumlah, dan
+"halaman 1.024" salah baca.
+
+Placeholder dan ringkasan `ConfirmSave` yang memuat angka ikut
+diformat. Placeholder "45000" di sebelah kotak yang menampilkan
+"45.000" membuat orang ragu apakah titiknya ikut tersimpan.
+
 # Konfirmasi sebelum menyimpan
 
 Setiap layar yang MENULIS data bertanya dulu lewat `components/ConfirmSave.tsx`,

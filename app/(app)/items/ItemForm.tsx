@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { createItem, updateItem } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { klasSorot, tombolCombo } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 type MaterialOption = {
   id: string;
@@ -270,11 +271,9 @@ export default function ItemForm({ materials, item }: Props) {
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">
             Stok Minimum (alert)
           </label>
-          <input
-            type="text"
-            inputMode="decimal"
+          <NumberInput
             value={stokMinimum}
-            onChange={(e) => setStokMinimum(e.target.value)}
+            onChange={(nilai) => setStokMinimum(nilai)}
             placeholder="0"
             className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
           />
@@ -283,11 +282,9 @@ export default function ItemForm({ materials, item }: Props) {
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">
             MOQ <span className="font-normal text-muted/70">(opsional)</span>
           </label>
-          <input
-            type="text"
-            inputMode="decimal"
+          <NumberInput
             value={moq}
-            onChange={(e) => setMoq(e.target.value)}
+            onChange={(nilai) => setMoq(nilai)}
             placeholder="Misal: 25"
             className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
           />

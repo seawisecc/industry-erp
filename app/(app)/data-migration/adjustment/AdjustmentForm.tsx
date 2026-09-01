@@ -7,6 +7,7 @@ import { createStockAdjustment } from "./actions";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 export type AdjustItem = {
   id: string;
@@ -28,7 +29,7 @@ function parseNum(s: string) {
 }
 
 function toStr(n: number | null | undefined) {
-  return n == null ? "" : String(n).replace(".", ",");
+  return n == null ? "" : String(n);
 }
 
 function formatId(n: number) {
@@ -242,12 +243,10 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
               role: "primary",
               headClassName: "w-[130px]",
               cell: (it) => (
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   aria-label={`Stok aktual ${it.nama}`}
                   value={rows[it.id]?.qty ?? ""}
-                  onChange={(e) => updateRow(it.id, { qty: e.target.value })}
+                  onChange={(nilai) => updateRow(it.id, { qty: nilai })}
                   className={inputCls}
                 />
               ),
@@ -258,12 +257,10 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
               role: "primary",
               headClassName: "w-[150px]",
               cell: (it) => (
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   aria-label={`Harga per unit ${it.nama}`}
                   value={rows[it.id]?.harga ?? ""}
-                  onChange={(e) => updateRow(it.id, { harga: e.target.value })}
+                  onChange={(nilai) => updateRow(it.id, { harga: nilai })}
                   placeholder="0"
                   className={inputCls}
                 />

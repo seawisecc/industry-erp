@@ -11,6 +11,7 @@ import ProductPicker from "@/components/ProductPicker";
 import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -326,11 +327,10 @@ export default function InvoiceForm({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>TOP (hari)</label>
-              <input
-                type="number"
-                min={0}
+              <NumberInput
+                bulat
                 value={top}
-                onChange={(e) => setTop(e.target.value)}
+                onChange={(nilai) => setTop(nilai)}
                 placeholder="0 = tunai"
                 className={inputCls}
               />
@@ -392,20 +392,16 @@ export default function InvoiceForm({
                     placeholder="Ketik kode / nama produk..."
                   />
                 </div>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   value={row.qty}
-                  onChange={(e) => updateRow(idx, { qty: e.target.value })}
+                  onChange={(nilai) => updateRow(idx, { qty: nilai })}
                   placeholder="Qty"
                   className={`${inputCls} ${over ? "ring-2 ring-clay-500" : ""}`}
                 />
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <NumberInput
                   value={row.harga}
-                  onChange={(e) =>
-                    updateRow(idx, { harga: e.target.value, hargaManual: true })
+                  onChange={(nilai) =>
+                    updateRow(idx, { harga: nilai, hargaManual: true })
                   }
                   placeholder="Harga/pcs (Rp)"
                   className={inputCls}
@@ -456,11 +452,9 @@ export default function InvoiceForm({
         <div className="flex justify-between items-center">
           <span className="text-muted flex items-center gap-1.5">
             Discount
-            <input
-              type="text"
-              inputMode="decimal"
+            <NumberInput
               value={diskon}
-              onChange={(e) => setDiskon(e.target.value)}
+              onChange={(nilai) => setDiskon(nilai)}
               className="w-14 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
             />
             %
@@ -478,11 +472,9 @@ export default function InvoiceForm({
               className="accent-[#2f4f3e]"
             />
             Tax
-            <input
-              type="text"
-              inputMode="decimal"
+            <NumberInput
               value={taxPercent}
-              onChange={(e) => setTaxPercent(e.target.value)}
+              onChange={(nilai) => setTaxPercent(nilai)}
               disabled={!pakaiTax}
               className="w-12 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700 disabled:opacity-40"
             />

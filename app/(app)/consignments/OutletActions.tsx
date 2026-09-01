@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ShoppingBag, Undo2, X } from "lucide-react";
 import { reportOutletSale, returOutlet, type OutletLine } from "./actions";
+import NumberInput from "@/components/NumberInput";
 
 export type OutletProdItem = {
   product_id: string;
@@ -174,12 +175,12 @@ export default function OutletActions({
                     </div>
                     <div className="text-right text-muted whitespace-nowrap">{p.sisa} pcs</div>
                     <div className="text-right">
-                      <input
-                        inputMode="numeric"
+                      <NumberInput
+                        bulat
                         value={qty[keyOf(p)] || ""}
-                        onChange={(e) => {
-                          const d = e.target.value.replace(/[^\d]/g, "");
-                          const n = Math.min(p.sisa, Number(d) || 0);
+                        onChange={(nilai) => {
+                          // qty di outlet tidak pernah boleh melebihi sisa titipan
+                          const n = Math.min(p.sisa, Number(nilai) || 0);
                           setQty((q) => ({ ...q, [keyOf(p)]: n ? String(n) : "" }));
                         }}
                         placeholder="0"
@@ -204,10 +205,10 @@ export default function OutletActions({
                 </label>
                 <label className="inline-flex items-center gap-2 text-[12.5px]">
                   Tempo (hari)
-                  <input
-                    inputMode="numeric"
+                  <NumberInput
+                    bulat
                     value={top}
-                    onChange={(e) => setTop(e.target.value.replace(/[^\d]/g, ""))}
+                    onChange={setTop}
                     placeholder="0 = tanpa tempo"
                     className="w-28 glass-input rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                   />

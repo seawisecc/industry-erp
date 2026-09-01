@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createReceiving } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 export type POOption = {
   id: string;
@@ -82,8 +83,8 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
             nama: it.nama,
             satuan: it.satuan,
             sisa,
-            qty: String(sisa).replace(".", ","),
-            harga: String(it.harga_per_unit).replace(".", ","),
+            qty: String(sisa),
+            harga: String(it.harga_per_unit),
             noLot: "",
             expDate: "",
           };
@@ -213,11 +214,9 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
               PPN (%)
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
+            <NumberInput
               value={ppn}
-              onChange={(e) => setPpn(e.target.value)}
+              onChange={(nilai) => setPpn(nilai)}
               className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
             />
           </div>
@@ -225,12 +224,10 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
               TOP (hari)
             </label>
-            <input
-              type="number"
-              min={0}
-              max={365}
+            <NumberInput
+              bulat
               value={top}
-              onChange={(e) => setTop(e.target.value)}
+              onChange={(nilai) => setTop(nilai)}
               placeholder="30"
               className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
             />
@@ -290,11 +287,9 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
                   <label className="block text-[11.5px] text-muted mb-1">
                     Qty Masuk ({row.satuan})
                   </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     value={row.qty}
-                    onChange={(e) => updateRow(idx, { qty: e.target.value })}
+                    onChange={(nilai) => updateRow(idx, { qty: nilai })}
                     className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                   />
                 </div>
@@ -302,11 +297,9 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
                   <label className="block text-[11.5px] text-muted mb-1">
                     Harga Aktual / Unit (Rp)
                   </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     value={row.harga}
-                    onChange={(e) => updateRow(idx, { harga: e.target.value })}
+                    onChange={(nilai) => updateRow(idx, { harga: nilai })}
                     className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                   />
                 </div>

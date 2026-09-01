@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveService } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import NumberInput from "@/components/NumberInput";
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
@@ -106,13 +107,11 @@ export default function ServiceForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelCls}>Biaya (Rp)</label>
-          <input
-            type="text"
-            inputMode="decimal"
+          <NumberInput
             value={biaya}
-            onChange={(e) => setBiaya(e.target.value)}
+            onChange={(nilai) => setBiaya(nilai)}
             required
-            placeholder="Misal: 5000000"
+            placeholder="Misal: 5.000.000"
             className={inputCls}
           />
         </div>

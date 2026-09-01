@@ -6,6 +6,7 @@ import { Plus, X } from "lucide-react";
 import { createMaterial, updateMaterial, type InciRow } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
+import NumberInput from "@/components/NumberInput";
 
 type SupplierOption = { id: string; nama: string };
 type InciOption = { id: string; inci_name: string; cas_number: string | null };
@@ -263,11 +264,9 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
                       </div>
                     )}
                   </div>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <NumberInput
                     value={row.percentage}
-                    onChange={(e) => updateRow(i, { percentage: e.target.value })}
+                    onChange={(nilai) => updateRow(i, { percentage: nilai })}
                     placeholder="%"
                     className="w-24 glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
                   />
