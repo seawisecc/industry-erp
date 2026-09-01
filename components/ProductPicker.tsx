@@ -27,6 +27,12 @@ export type ProductOption = {
   label: string;
   /** brand pemilik produk, dirender lebih redup di ekor label */
   brand?: string | null;
+  /**
+   * false = varian ini tidak ada lagi di master produk. Stoknya nyata
+   * (dihitung dari mutasi yang pernah terjadi) tapi tidak punya harga
+   * jual, dan itu harus kelihatan SEBELUM dipilih, bukan sesudah.
+   */
+  varianTerdaftar?: boolean;
   /** "-" bila produk tanpa varian */
   varian: string;
   available: number;
@@ -36,6 +42,17 @@ export type ProductOption = {
 
 /** Maksimal saran yang dirender, supaya daftar panjang tetap ringan. */
 const MAX_SARAN = 30;
+
+function VarianYatim() {
+  return (
+    <span
+      className="inline-flex px-1.5 py-0.5 rounded-full text-[10.5px] font-medium bg-clay-100 text-clay-600 flex-shrink-0"
+      title="Varian ini tidak ada lagi di master produk, jadi tidak punya harga jual"
+    >
+      varian lama
+    </span>
+  );
+}
 
 function StokInfo({ o }: { o: ProductOption }) {
   if (o.service_id) {
@@ -88,6 +105,7 @@ export default function ProductPicker({
           {selected.label}
           {selected.brand && <span className="text-muted"> · {selected.brand}</span>}
         </span>
+        {selected.varianTerdaftar === false && <VarianYatim />}
         {showStock && <StokInfo o={selected} />}
         <button
           type="button"
@@ -183,6 +201,7 @@ export default function ProductPicker({
                 {o.label}
                 {o.brand && <span className="text-muted"> · {o.brand}</span>}
               </span>
+              {o.varianTerdaftar === false && <VarianYatim />}
               {showStock && <StokInfo o={o} />}
             </button>
           ))}

@@ -15,6 +15,16 @@ export type ProductVariantOpt = {
   label: string;
   /** brand pemilik produk, dipisah dari label supaya bisa ditampilkan lebih redup */
   brand: string | null;
+  /**
+   * Varian ini punya baris di master produk. Bisa false: stok produk jadi
+   * dihitung dari mutasi yang PERNAH terjadi, jadi barang yang tercatat
+   * dengan nama varian lama tetap muncul walau variannya sudah diganti
+   * namanya di master. Barangnya nyata ada di gudang, tapi tidak ada
+   * harga jual yang bisa diambil untuknya.
+   */
+  varianTerdaftar: boolean;
+  /** nama varian yang terdaftar di master, untuk menyebutkan yang benar */
+  varianMaster: string[];
   available: number;
   harga_jual: number | null;
   service_id: string | null; // terisi bila baris ini layanan jasa
@@ -69,6 +79,9 @@ export async function getSalesOptions(
 
   // Harga jual per (produk|varian) dari master produk
   const hargaMap = new Map<string, number>();
+  // Varian yang TERDAFTAR di master, terlepas dari harganya sudah diisi
+  // atau belum. Dua hal yang berbeda dan pesannya ke user juga berbeda.
+  const varianMasterMap = new Map<string, string[]>();
   for (const v of (variants || []) as {
     product_id: string;
     nama_varian: string;
@@ -77,6 +90,9 @@ export async function getSalesOptions(
     if (v.harga_jual != null) {
       hargaMap.set(`${v.product_id}|${v.nama_varian}`, Number(v.harga_jual));
     }
+    const daftar = varianMasterMap.get(v.product_id) || [];
+    daftar.push(v.nama_varian);
+    varianMasterMap.set(v.product_id, daftar);
   }
 
   const productMap = new Map(
@@ -94,12 +110,30 @@ export async function getSalesOptions(
   for (const s of stock.values()) {
     const p = productMap.get(s.product_id);
     if (!p) continue;
+
+    const terdaftar =
+      s.varian === "-"
+        ? !varianMasterMap.has(s.product_id)
+        : (varianMasterMap.get(s.product_id) || []).includes(s.varian);
+
+    // Varian yang sudah tidak ada di master DAN stoknya sudah habis cuma
+    // sisa riwayat: dia muncul karena stok produk jadi dihitung dari
+    // mutasi, bukan disimpan. Barisnya tidak bisa dijual (tidak punya
+    // harga) dan namanya mirip dengan varian yang benar, jadi satu-satunya
+    // gunanya adalah membuat orang salah pilih.
+    //
+    // Yang masih ADA stoknya tetap ditampilkan: barangnya nyata di gudang
+    // dan harus bisa dikeluarkan, itu sebabnya fg_stock_calc menyimpannya.
+    if (!terdaftar && s.available <= 0) continue;
+
     options.push({
       key: `${s.product_id}|${s.varian}`,
       product_id: s.product_id,
       varian: s.varian,
       label: `${p.kode || ""}, ${p.nama_produk}${s.varian !== "-" ? ` (${s.varian})` : ""}`,
       brand: p.brand,
+      varianTerdaftar: terdaftar,
+      varianMaster: varianMasterMap.get(s.product_id) || [],
       available: s.available,
       harga_jual: hargaMap.get(`${s.product_id}|${s.varian}`) ?? null,
       service_id: null,
@@ -132,6 +166,8 @@ export async function getSalesOptions(
         varian: "-",
         label: `${s.kode || "JASA"}, ${s.nama_jasa} (Jasa)`,
         brand: null,
+        varianTerdaftar: true,
+        varianMaster: [],
         available: 0,
         harga_jual: s.biaya == null ? null : Number(s.biaya),
         service_id: s.id,

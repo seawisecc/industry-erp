@@ -63,14 +63,25 @@ export default function ConsignmentForm({
   };
 
   /**
-   * Produk terpilih yang harga jualnya belum pernah diisi di master.
-   * Tanpa penanda ini kolom harganya cuma diam kosong, dan orang mengira
-   * fitur isi-otomatisnya rusak padahal angkanya memang belum ada.
+   * Kenapa harga tidak terisi otomatis. Dua sebab yang KELIHATANNYA sama
+   * di layar tapi perbaikannya berbeda jauh, jadi tidak boleh digabung
+   * jadi satu pesan:
+   *
+   * - "varian-yatim": stoknya tercatat dengan nama varian yang sudah
+   *   tidak ada di master. Terjadi kalau varian diganti namanya sesudah
+   *   stoknya bergerak; barangnya nyata ada, tapi tidak ada baris master
+   *   yang bisa dimintai harga. Yang harus dibetulkan datanya, bukan
+   *   harganya.
+   * - "harga-kosong": variannya benar, harga jualnya saja yang belum
+   *   pernah diisi.
    */
-  const hargaMasterKosong = (key: string) => {
+  function sebabHargaKosong(key: string): "varian-yatim" | "harga-kosong" | null {
     const o = optOf(key);
-    return !!o && o.harga_jual == null && !punyaHargaKhusus(key);
-  };
+    if (!o || punyaHargaKhusus(key)) return null;
+    if (!o.varianTerdaftar) return "varian-yatim";
+    if (o.harga_jual == null) return "harga-kosong";
+    return null;
+  }
 
   function gantiClient(id: string) {
     setClientId(id);
@@ -255,9 +266,20 @@ export default function ConsignmentForm({
                   Harga khusus outlet dipakai
                 </p>
               )}
-              {hargaMasterKosong(row.key) && (
+              {sebabHargaKosong(row.key) === "varian-yatim" && (
                 <p className="text-clay-600 text-[11.5px]">
-                  Harga jual produk ini belum diisi di master, jadi tidak bisa
+                  Varian &quot;{o!.varian}&quot; tidak ada di master produk ini
+                  {o!.varianMaster.length > 0
+                    ? ` (yang terdaftar: ${o!.varianMaster.join(", ")})`
+                    : ""}
+                  . Stoknya tercatat dengan nama varian lama, jadi tidak ada
+                  harga jual yang bisa diambil. Betulkan dulu nama variannya di
+                  menu Products, atau pindahkan stoknya lewat Stock Opname.
+                </p>
+              )}
+              {sebabHargaKosong(row.key) === "harga-kosong" && (
+                <p className="text-clay-600 text-[11.5px]">
+                  Harga jual varian ini belum diisi di master, jadi tidak bisa
                   terisi otomatis. Isi manual di sini, atau lengkapi dulu di menu
                   Products.
                 </p>
