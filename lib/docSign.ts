@@ -12,6 +12,7 @@ export const DOC_TYPES = [
   { key: "purchase-return", label: "Retur Pembelian" },
   { key: "production", label: "Produksi" },
   { key: "invoice", label: "Invoice Penjualan" },
+  { key: "konsinyasi", label: "Tanda Terima Konsinyasi" },
   { key: "qc", label: "Lembar Pengujian QC" },
   { key: "qa", label: "Sertifikat Analisa (QA)" },
 ] as const;

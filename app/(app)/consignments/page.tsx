@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus, Store, Eye } from "lucide-react";
+import { Plus, Store, Eye, Printer } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
@@ -364,6 +364,11 @@ export default async function ConsignmentsPage({
             align: "right",
             cell: (c) => (
               <RowActions>
+                <IconAction
+                  icon={Printer}
+                  label="Cetak tanda terima konsinyasi"
+                  href={`/print/konsinyasi/${c.id}`}
+                />
                 <IconAction
                   icon={Eye}
                   label="Lihat detail konsinyasi"

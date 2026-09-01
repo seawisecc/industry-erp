@@ -54,6 +54,11 @@ export const SUMBER_DOKUMEN: Record<
     tanggal: "tanggal_produksi",
   },
   invoice: { tabel: "sales_invoices", nomor: "no_invoice", tanggal: "tanggal" },
+  konsinyasi: {
+    tabel: "consignments",
+    nomor: "no_konsinyasi",
+    tanggal: "tanggal_kirim",
+  },
   qc: {
     tabel: "purchase_batches",
     nomor: "no_lot_supplier",

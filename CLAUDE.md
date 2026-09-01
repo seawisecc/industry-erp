@@ -510,6 +510,41 @@ daripada kartu di bawahnya.** Efek `.glass` membentuk stacking context,
 jadi tanpa itu daftar sarannya tertimbun panel berikutnya. Lihat
 `InvoiceForm` (`z-40` untuk kartu header, `z-10` untuk kartu item).
 
+# Dokumen cetak: menambah jenis baru
+
+Satu jenis dokumen hidup di empat tempat, dan TypeScript memaksa
+ketiganya yang terakhir ikut diisi karena bertipe `Record<VerifyKey, ...>`:
+
+| Berkas | Isinya |
+| --- | --- |
+| `lib/docSign.ts` `DOC_TYPES` | nama jenisnya di layar Document Signing |
+| `lib/qrSign.ts` `JUDUL_DOKUMEN` | nama yang tampil di halaman verifikasi QR |
+| `lib/qrSignServer.ts` `SUMBER_DOKUMEN` | tabel, kolom nomor, kolom tanggal |
+| `app/print/<jenis>/[id]/page.tsx` | halamannya sendiri |
+
+`doc_type` di `doc_sign_settings` cuma teks tanpa constraint, jadi jenis
+baru TIDAK butuh migrasi. Barisnya juga tidak perlu ada: kalau belum
+pernah diatur, `getDocSignConfig` jatuh ke tiga key person lama dan
+dokumennya tetap terbit dengan kolom tanda tangan yang benar.
+
+## Tanda tangan penerima bukan tanda tangan pengesahan
+
+`getDocSigners` mengembalikan daftar kosong kalau dokumennya disahkan
+lewat QR, dan itu memang aturannya: dokumen ditandatangani basah ATAU
+elektronik, tidak dua-duanya.
+
+Aturan itu berlaku untuk pengesahan INTERNAL saja. Kolom "Diterima oleh"
+di Tanda Terima Konsinyasi berdiri di luar mekanisme itu dan SELALU
+dicetak: dia bukan pengesahan perusahaan, melainkan bukti bahwa orang di
+seberang sudah menerima barangnya. Menyembunyikannya waktu QR menyala
+akan menghasilkan tanda terima yang tidak bisa diminta tanda tangan,
+yaitu satu-satunya alasan dokumen itu ada.
+
+Sebab yang sama membuat dokumennya wajib memuat kalimat kepemilikan.
+Kertas yang mencantumkan nilai rupiah dan ditandatangani penerima
+gampang dibaca sebagai bukti jual beli, padahal barang konsinyasi belum
+berpindah pemilik sampai laku.
+
 # Bahasa antarmuka
 
 Aplikasinya dwibahasa dengan pembagian yang tegas. Kalau menambah layar

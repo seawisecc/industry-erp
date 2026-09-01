@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 import ReportSaleForm, { ConsItem } from "./ReportSaleForm";
 import { clientPriceKey } from "@/lib/clientPrice";
 
@@ -108,6 +108,12 @@ export default async function ConsignmentDetailPage({
         >
           {cons.status}
         </span>
+        <Link
+          href={`/print/konsinyasi/${cons.id}`}
+          className="ml-auto flex items-center gap-1.5 bg-botanical-700 text-white text-[13px] font-medium px-3.5 py-2 rounded-lg hover:bg-botanical-800 transition-colors whitespace-nowrap"
+        >
+          <Printer size={15} /> Cetak Tanda Terima
+        </Link>
       </div>
       <p className="text-muted text-sm mb-6">
         {cons.clients?.company_brand}

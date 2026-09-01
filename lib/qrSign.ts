@@ -43,6 +43,7 @@ export const JUDUL_DOKUMEN: Record<VerifyKey, string> = {
   "purchase-return": "Nota Retur Pembelian",
   production: "Batch Record Produksi",
   invoice: "Invoice Penjualan",
+  konsinyasi: "Tanda Terima Konsinyasi",
   qc: "Lembar Pengujian QC",
   qa: "Sertifikat Analisa (CoA)",
   "qc-produk": "Lembar Uji Produk Jadi",
