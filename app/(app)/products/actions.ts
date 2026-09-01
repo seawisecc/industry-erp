@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import { toResult, type ActionResult } from "@/lib/actionResult";
+import { getFinishedStock } from "@/lib/salesStock";
 
 export type FormulaInput = {
   item_id: string;
@@ -69,6 +70,63 @@ async function assertKodeUnik(
   if (dup && dup.length > 0) {
     throw new Error(`Kode produk "${kode}" sudah dipakai`);
   }
+}
+
+/**
+ * Varian yang masih punya stok tidak boleh hilang dari master.
+ *
+ * Stok produk jadi TIDAK disimpan sebagai baris yang bisa ikut berpindah:
+ * angkanya dihitung dari mutasi (produksi, konsinyasi, penjualan, koreksi
+ * opname), dan tiap mutasi menyimpan NAMA variannya. Jadi mengganti nama
+ * varian tidak memindahkan stoknya, cuma memutus stok itu dari master.
+ * Akibatnya barangnya tetap terhitung ada di gudang tapi tidak punya harga
+ * jual, tidak bisa dipilih dengan benar, dan baru ketahuan berminggu-minggu
+ * kemudian waktu orang mau menjualnya.
+ *
+ * Ini pernah terjadi dan menyentuh tujuh produk sekaligus. Karena itu
+ * penjaganya di server, bukan cuma peringatan di layar: alurnya bisa
+ * dipanggil dari mana saja dan kerusakannya tidak kelihatan saat terjadi.
+ *
+ * Yang dijaga cuma varian yang stoknya BUKAN nol. Varian lama yang sudah
+ * habis boleh dihapus, memang itu cara membersihkannya.
+ */
+async function assertVarianBerstokTidakHilang(
+  organizationId: string,
+  productId: string,
+  variants: VariantInput[]
+) {
+  const stok = await getFinishedStock(organizationId);
+  const bersisa = Array.from(stok.values()).filter(
+    (s) => s.product_id === productId && Math.abs(s.available) > 0.000001
+  );
+  if (bersisa.length === 0) return;
+
+  // Produk tanpa varian menyimpan stoknya di kunci "-"
+  const namaBaru = new Set(
+    variants.length === 0
+      ? ["-"]
+      : variants.map((v) => v.nama_varian.trim()).filter(Boolean)
+  );
+
+  const hilang = bersisa.filter((s) => !namaBaru.has(s.varian));
+  if (hilang.length === 0) return;
+
+  const daftar = hilang
+    .map(
+      (s) =>
+        `"${s.varian}" (${s.available.toLocaleString("id-ID")} pcs)`
+    )
+    .join(", ");
+
+  throw new Error(
+    `Varian ${daftar} masih punya stok, jadi namanya tidak bisa diganti atau ` +
+      `dihapus dari sini. Stok produk jadi menempel pada nama variannya, dan ` +
+      `kalau namanya berubah stok itu terputus dari master lalu tidak bisa ` +
+      `dijual lagi. Urutan yang benar: (1) tambahkan varian barunya di sini ` +
+      `tanpa menghapus yang lama, simpan; (2) buka Stock Opname produk jadi, ` +
+      `hitung varian lama jadi 0 dan varian baru sejumlah stok itu, lalu tutup ` +
+      `opnamenya; (3) baru hapus varian lama di sini.`
+  );
 }
 
 function validateProduct(data: ProductInput) {
@@ -231,6 +289,11 @@ async function updateProductImpl(id: string, data: ProductInput) {
   const kode = data.kode?.trim();
   if (!kode) throw new Error("Kode produk wajib diisi");
   await assertKodeUnik(organizationId, kode, id);
+
+  // Dicek SEBELUM tulisan pertama. supabase-js tidak punya transaksi, jadi
+  // penjaga yang dipasang di tengah akan meninggalkan header produk yang
+  // sudah terlanjur berubah sementara variannya batal disimpan.
+  await assertVarianBerstokTidakHilang(organizationId, id, data.variants);
 
   const { error } = await supabase
     .from("products")

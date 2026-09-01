@@ -217,6 +217,39 @@ ada `fg_stock_calc`; dua fungsi lainnya membungkusnya. Salinan TypeScript
 tetap ada karena dipakai kalau RPC belum terpasang, dan wajib ikut diubah
 setiap rumusnya bergerak.
 
+## Nama varian adalah kunci stok, jadi tidak boleh diganti diam-diam
+
+Stok produk jadi menempel pada NAMA variannya: tiap mutasi (produksi,
+konsinyasi, penjualan, koreksi opname) menyimpan `varian_ukuran` sebagai
+teks, bukan foreign key ke `product_variants`. Konsekuensinya keras dan
+tidak kelihatan waktu terjadi: **mengganti nama varian tidak memindahkan
+stoknya.** Stok lama tetap terhitung ada, tapi kehilangan pasangannya di
+master, jadi tidak punya harga jual dan tidak bisa dijual.
+
+Ini bukan skenario karangan. Pernah terjadi ke tujuh produk sekaligus:
+opname dibuat saat varian bernama `250 ml`, tiga belas menit kemudian
+produknya disunting jadi `220 ml`, lalu opname ditutup dan menulis
+koreksinya ke nama lama. Ketahuannya berminggu-minggu kemudian waktu
+harga tidak mau terisi di form konsinyasi.
+
+Penjaganya di `updateProduct` (`assertVarianBerstokTidakHilang`), BUKAN
+cuma di layar: alurnya bisa dipanggil dari mana saja dan kerusakannya
+tidak menimbulkan error apa pun saat terjadi. Dia menolak simpan kalau
+ada varian yang stoknya bukan nol hilang dari daftar. Dipanggil SEBELUM
+tulisan pertama, karena `supabase-js` tidak punya transaksi dan penjaga
+di tengah akan meninggalkan header produk yang sudah terlanjur berubah.
+
+Jalan keluarnya sengaja tiga langkah, dan itu yang ditulis di pesan
+errornya: tambah varian baru tanpa menghapus yang lama, pindahkan stoknya
+lewat Stock Opname produk jadi, baru hapus varian lamanya. Semuanya lewat
+dokumen yang tercatat, tidak ada perpindahan stok yang lahir diam-diam
+dari penyuntingan master.
+
+**Varian lama yang stoknya sudah habis boleh dihapus**, memang begitu
+cara membersihkannya. Dia juga tidak lagi muncul sebagai pilihan di form
+penjualan (`getSalesOptions` menyaringnya), karena baris tanpa harga yang
+namanya mirip dengan varian yang benar cuma jadi jebakan salah pilih.
+
 Konsekuensinya kalau menambah jalur keluar-masuk produk jadi yang baru:
 tambahkan sebagai `union all` di `fg_stock_calc`, lalu cerminkan di
 fallback `lib/salesStock.ts`. Jangan menambahkan penyesuaian di pemanggil.

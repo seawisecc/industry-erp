@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import ProductForm, { ItemOption } from "../../ProductForm";
+import { getFinishedStock } from "@/lib/salesStock";
 
 type ProductRaw = {
   id: string;
@@ -62,6 +63,18 @@ export default async function EditProductPage({
   if (!data) notFound();
   const product = data as unknown as ProductRaw;
 
+  // Stok per varian, supaya form bisa memperingatkan SEBELUM disimpan kalau
+  // varian yang masih bawa stok mau diganti nama atau dihapus. Penjaga
+  // sebenarnya ada di server (updateProduct); ini supaya orang tahu lebih
+  // dulu, bukan ditolak sesudah mengetik panjang.
+  const stok = await getFinishedStock(organizationId!);
+  const stokVarian: Record<string, number> = {};
+  for (const s of stok.values()) {
+    if (s.product_id !== product.id) continue;
+    if (Math.abs(s.available) <= 0.000001) continue;
+    stokVarian[s.varian] = s.available;
+  }
+
   return (
     <div className="max-w-5xl">
       <Link
@@ -80,6 +93,7 @@ export default async function EditProductPage({
 
       <ProductForm
         items={(items || []) as ItemOption[]}
+        stokVarian={stokVarian}
         product={{
           id: product.id,
           kode: product.kode,

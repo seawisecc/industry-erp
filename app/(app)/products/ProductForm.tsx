@@ -30,6 +30,13 @@ type VariantDraft = { netto: string; satuan: string; harga: string; packaging: P
 
 type Props = {
   items: ItemOption[];
+  /**
+   * Stok produk jadi per nama varian, cuma yang bukan nol. Dipakai untuk
+   * memperingatkan sebelum varian yang masih bawa stok diganti nama atau
+   * dihapus: stok produk jadi menempel pada NAMA variannya, jadi namanya
+   * berubah berarti stoknya terputus dari master.
+   */
+  stokVarian?: Record<string, number>;
   product?: {
     id: string;
     kode: string | null;
@@ -73,7 +80,12 @@ function emptyVariant(): VariantDraft {
   return { netto: "", satuan: "g", harga: "", packaging: [emptyPackRow()] };
 }
 
-export default function ProductForm({ items, product }: Props) {
+/** Nama varian dibentuk dari netto + satuan; harus sama persis dengan yang dikirim ke server. */
+function namaVarian(netto: string, satuan: string) {
+  return `${netto.replace(".", ",")} ${satuan}`.trim();
+}
+
+export default function ProductForm({ items, product, stokVarian = {} }: Props) {
   const router = useRouter();
   const konfirmasi = useConfirmSave();
   const isEdit = !!product;
@@ -190,6 +202,22 @@ export default function ProductForm({ items, product }: Props) {
       .slice(0, 8);
   }
 
+  /**
+   * Varian yang masih punya stok tapi sudah tidak ada lagi di daftar layar,
+   * entah karena namanya diganti atau barisnya dihapus. Menyimpan dalam
+   * keadaan ini akan memutus stok itu dari master, jadi server menolaknya.
+   * Dihitung di sini juga supaya ketahuan sambil mengetik, bukan sesudah
+   * menekan Simpan.
+   */
+  const namaVarianSekarang = new Set(
+    variants.length === 0
+      ? ["-"]
+      : variants.map((v) => namaVarian(v.netto, v.satuan)).filter((n) => n !== "")
+  );
+  const varianHilang = Object.entries(stokVarian).filter(
+    ([nama]) => !namaVarianSekarang.has(nama)
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
@@ -238,7 +266,7 @@ export default function ProductForm({ items, product }: Props) {
             durasi: s.durasi.trim() || null,
           })),
         variants: variants.map((v) => ({
-          nama_varian: `${v.netto.replace(".", ",")} ${v.satuan}`.trim(),
+          nama_varian: namaVarian(v.netto, v.satuan),
           netto: parseNum(v.netto),
           satuan_netto: v.satuan,
           harga_jual: v.harga ? parseNum(v.harga) : null,
@@ -674,6 +702,29 @@ export default function ProductForm({ items, product }: Props) {
           </button>
         </div>
 
+        {varianHilang.length > 0 && (
+          <div className="rounded-xl border border-clay-500/40 bg-clay-100/40 px-4 py-3 text-[12.5px] text-clay-600 flex flex-col gap-1">
+            <span className="font-medium">
+              Varian yang masih punya stok tidak ada lagi di daftar ini:
+            </span>
+            <span>
+              {varianHilang
+                .map(
+                  ([nama, qty]) =>
+                    `"${nama}" (${qty.toLocaleString("id-ID")} pcs)`
+                )
+                .join(", ")}
+            </span>
+            <span>
+              Stok produk jadi menempel pada nama variannya. Kalau disimpan
+              begini, stok itu terputus dari master lalu tidak bisa dijual.
+              Urutannya: tambahkan varian barunya tanpa menghapus yang lama,
+              simpan, pindahkan stoknya lewat Stock Opname produk jadi, baru
+              hapus varian lamanya di sini.
+            </span>
+          </div>
+        )}
+
         {variants.length === 0 && (
           <p className="text-muted text-[13px]">
             Belum ada varian. Tambahkan minimal satu supaya produk bisa dipilih di
@@ -717,6 +768,17 @@ export default function ProductForm({ items, product }: Props) {
               </div>
               <div className="flex-1 text-[12.5px] text-muted pb-2.5">
                 {v.netto ? `Varian: ${keTampilan(v.netto)} ${v.satuan}` : ""}
+                {/* Stok ditempel di sini supaya orang tahu varian mana yang
+                    tidak boleh diganti namanya SEBELUM dia mengetik. */}
+                {stokVarian[namaVarian(v.netto, v.satuan)] != null && (
+                  <span className="block text-botanical-700 font-medium">
+                    stok{" "}
+                    {stokVarian[namaVarian(v.netto, v.satuan)].toLocaleString(
+                      "id-ID"
+                    )}{" "}
+                    pcs, nama varian ini sedang dipakai stok
+                  </span>
+                )}
               </div>
               <button
                 type="button"
@@ -879,7 +941,7 @@ export default function ProductForm({ items, product }: Props) {
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || varianHilang.length > 0}
         className="bg-botanical-700 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-botanical-800 transition-all shadow-sm disabled:opacity-60"
       >
         {loading ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Simpan"}
