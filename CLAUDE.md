@@ -443,11 +443,20 @@ sementara kolomnya tertulis aturan baru.
 
 ## Panel rekap penjualan cuma satu komponen
 
-`components/InvoiceTotals.tsx` merender Sub-Total, Discount, Sub Total,
-Sub Total Exc Tax, DPP, PPN, dan TOTAL untuk semua form yang menerbitkan
-invoice (Invoice, POS, laku per pengiriman konsinyasi). Dulu markup-nya
-disalin di tiap layar, jadi tiap penambahan baris rekap harus diingat di
-tiga tempat.
+`components/InvoiceTotals.tsx` merender seluruh barisnya untuk semua form
+yang menerbitkan invoice (Invoice, POS, laku per pengiriman konsinyasi):
+`Sub-Total` (jumlah baris item apa adanya), `Discount`, `Sub Total`
+(sesudah diskon), `Sub Total Exc Tax`, `DPP`, `PPN`, `TOTAL`. Dua baris
+pertama yang namanya mirip itu memang angka yang berbeda, dan urutannya
+mengikuti faktur yang dipakai di lapangan.
+
+Dulu markup-nya disalin di tiap layar, jadi tiap penambahan baris rekap
+harus diingat di tiga tempat.
+
+**Tarif pajaknya tidak bisa diketik di form.** PPN itu angka regulasi,
+bukan angka yang dinegosiasikan per transaksi, jadi yang tersisa di layar
+cuma centang kena pajak atau tidak. Tarif dan aturan DPP-nya datang dari
+Settings.
 
 Layar yang berbentuk dialog sempit (`OutletActions`) sengaja tidak memakai
 komponen ini, tapi tetap memanggil `computeTotals`. Sebelumnya dia
@@ -464,6 +473,9 @@ berubah cuma rincian DPP yang tercetak.
 
 Migrasi `20260818_tax_mode.sql` ikut mengubah Proforma DNAlab yang belum
 pernah dibayar sepeser pun agar totalnya berhenti di nilai setelah diskon.
+Yang kena satu dokumen, INV.202609002: subtotal 125.000, diskon 20%, dan
+totalnya turun dari 111.000 ke 100.000 dengan DPP 82.582,58 + PPN
+9.909,91 di dalamnya.
 **Dokumen yang sudah punya baris `sales_payments` sengaja tidak
 disentuh**: totalnya adalah angka yang sudah dipakai orang untuk membayar,
 dan mengubahnya membuat ledger cicilan tidak cocok lagi dengan tagihannya.
@@ -531,6 +543,12 @@ catatan asal lebih berbahaya daripada tidak ada, karena pembatalannya
 akan mengembalikan sebagian qty saja tanpa memberi tahu siapa pun.
 Invoice yang tidak ter-backfill ditolak dengan pesan yang menyebutkan
 alasannya dan menunjuk ke Stock Opname produk jadi.
+
+Waktu dijalankan, kesepuluh invoice konsinyasi yang ada semuanya
+ter-backfill, menghasilkan 16 baris alokasi. Angka itu sendiri yang
+membuktikan kenapa tabel ini perlu ada: satu invoice ternyata mengambil
+dari ENAM pengiriman berbeda sekaligus. Tebakan lewat product+varian akan
+mengembalikan seluruh qty-nya ke satu pengiriman saja.
 
 ## Di mana tombolnya
 
@@ -1322,7 +1340,9 @@ kalau ada produk yang dihitung dalam satuan lain.
 Dia sudah disaring dari pemilih produk penjualan, tapi layar stok tetap
 menampilkannya sebagai baris nol. Di situ memang lebih berguna terlihat
 (riwayatnya jelas: masuk sekian, keluar sekian), tapi kalau daftarnya
-jadi panjang, penyaringannya perlu dipikirkan ulang.
+jadi panjang, penyaringannya perlu dipikirkan ulang. Sejak kolom Harga
+Jual ada, barisnya jadi lebih gampang dikenali: varian yatim yang
+kehilangan pasangannya di master tampil berharga `-`.
 
 **Tanda Terima Konsinyasi = satu dokumen per pengiriman.** Kurir yang
 mengantar beberapa CSG sekaligus ke satu outlet membawa beberapa lembar.
@@ -1332,3 +1352,35 @@ sekaligus, dan nomor dokumennya sendiri.
 **Tanda Terima Konsinyasi belum punya kolom kondisi barang.** Penerima
 bisa tanda tangan tapi tidak punya tempat mencatat "1 botol penyok" di
 kertas yang sama, jadi keberatan seperti itu tercatat di luar sistem.
+
+**Sisi PEMBELIAN masih memakai PPN 11% datar.** PO dan Penerimaan
+menghitung `subtotal * ppn_percent / 100` dengan bawaan `11`, tidak lewat
+`invoice_tax_calc` dan tidak membaca pengaturan Pajak perusahaan.
+Rupiahnya kebetulan sama (11% dari subtotal = 12% x 11/12), jadi tidak
+ada angka yang salah, tapi dua hal belum benar: fakturnya tidak memuat
+rincian DPP seperti sisi penjualan, dan mengganti tarif di Settings tidak
+berpengaruh apa pun di situ. Kalau nanti disatukan, ingat bahwa
+`purchase_orders.ppn_percent` dan `receivings.ppn_percent` juga dibekukan
+per dokumen dan tidak boleh ikut bergeser.
+
+**Retur konsinyasi tidak mencatat asal stoknya, jadi tidak bisa
+dibatalkan.** `retur_outlet_tx` memanggil `consignment_take` tapi sengaja
+tidak menulis `consignment_sale_lines`: barangnya sudah kembali ke gudang
+dan tidak ada dokumen yang bisa dibatalkan sesudahnya. Kalau nanti retur
+konsinyasi diberi dokumennya sendiri, catatan asalnya harus ikut ditulis,
+persis alasan yang sama dengan penjualannya.
+
+**Kolom yang nilainya dihitung di TypeScript belum bisa diurutkan.**
+"Harga Terakhir" dan "Stok Sisa" di Stock Items, "Total" di PO, "Sisa
+Bayar" di Payments: angkanya lahir dari query kedua yang cuma mengambil
+baris halaman yang sedang tampil. Memberi tombol urut di situ akan
+mengurutkan satu halaman saja, dan hasilnya kelihatan benar padahal
+bukan. Perbaikan sebenarnya: pindahkan perhitungannya ke database (view
+atau kolom turunan) supaya bisa masuk `.order()`. Kolom relasi
+(`suppliers(nama)`, `clients(company_brand)`) juga belum, karena urutannya
+harus dikerjakan PostgREST lewat embed dan itu perlu diuji tersendiri.
+
+**Logo perusahaan tidak tercetak di nota 58 mm.** Kertas thermal cuma
+punya satu warna dan logo berwarna lebih sering keluar jadi blok hitam
+daripada terbaca. Kalau nanti diinginkan, yang dibutuhkan bukan logo yang
+sama melainkan versi 1-bit hitam-putih tersendiri.
