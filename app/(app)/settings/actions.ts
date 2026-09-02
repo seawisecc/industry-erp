@@ -6,6 +6,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import { toResult, type ActionResult } from "@/lib/actionResult";
 import { type TaxMode } from "@/lib/invoiceMath";
+import { validasiLogo } from "@/lib/logo";
 
 export async function updateAccount(data: {
   company_nama: string;
@@ -49,6 +50,8 @@ export async function updateAccount(data: {
 }
 
 export type SettingsInput = {
+  /** Logo perusahaan sebagai data URI. Null = tanpa logo. */
+  logo: string | null;
   alamat: string | null;
   no_telp: string | null;
   email: string | null;
@@ -90,7 +93,15 @@ async function saveSettingsImpl(data: SettingsInput) {
 
   // tax_mode & tax_percent bukan teks, jadi dipisahkan sebelum kolom
   // lainnya di-trim jadi null.
-  const { tax_mode, tax_percent, tax_dpp_nilai_lain, ...teks } = data;
+  const { tax_mode, tax_percent, tax_dpp_nilai_lain, logo, ...teks } = data;
+
+  // Logonya dikecilkan di layar sebelum dikirim, tapi yang menentukan
+  // tetap penjaga di sini: server action bisa dipanggil dari mana saja.
+  const logoBersih = logo?.trim() || null;
+  if (logoBersih) {
+    const salah = validasiLogo(logoBersih);
+    if (salah) throw new Error(salah);
+  }
 
   const clean = Object.fromEntries(
     Object.entries(teks).map(([k, v]) => [k, (v as string | null)?.trim() || null])
@@ -106,6 +117,7 @@ async function saveSettingsImpl(data: SettingsInput) {
     {
       organization_id: organizationId,
       ...clean,
+      logo: logoBersih,
       tax_mode: mode,
       tax_percent: persen,
       tax_dpp_nilai_lain: tax_dpp_nilai_lain !== false,

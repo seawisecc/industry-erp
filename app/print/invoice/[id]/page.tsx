@@ -137,8 +137,22 @@ export default async function PrintInvoicePage({
 
       <div className="bg-white text-[#1a1a1a] a4-sheet max-w-[210mm] mx-auto shadow-xl print:shadow-none rounded-sm print:rounded-none text-[12px] leading-relaxed overflow-hidden">
         {/* ===== KOP (banner) ===== */}
-        <div className="bg-botanical-100/60 px-[12mm] py-5 flex justify-between items-center border-b border-neutral-300">
-          <div />
+        <div className="bg-botanical-100/60 px-[12mm] py-5 flex justify-between items-center gap-4 border-b border-neutral-300">
+          {/* Sisi kiri banner ini memang disediakan untuk logo sejak
+              awal. Tanpa logo dia tetap kosong dan identitas perusahaan
+              tetap rata kanan seperti template aslinya. */}
+          {settings?.logo ? (
+            /* Sengaja <img> biasa, bukan next/image: isinya data URI dan
+               halaman cetak harus utuh sekali render. */
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={settings.logo}
+              alt=""
+              className="h-[18mm] w-auto max-w-[45mm] object-contain shrink-0"
+            />
+          ) : (
+            <div />
+          )}
           <div className="text-right">
             <div className="font-display text-[20px] font-bold leading-tight">
               {org?.nama}

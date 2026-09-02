@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveSettings, SettingsInput } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import NumberInput from "@/components/NumberInput";
+import {
+  bytesDataUrl,
+  formatBytes,
+  siapkanLogo,
+  LOGO_MAX_PX,
+  type HasilLogo,
+} from "@/lib/logo";
 import {
   parseTaxSettings,
   penjelasanTaxMode,
@@ -37,6 +44,14 @@ export default function SettingsForm({ initial }: Props) {
   const [taxMode, setTaxMode] = useState<TaxMode>(awalPajak.taxMode);
   const [taxPercent, setTaxPercent] = useState(String(awalPajak.taxPercent));
   const [dppNilaiLain, setDppNilaiLain] = useState(awalPajak.dppNilaiLain);
+
+  const [logo, setLogo] = useState<string | null>(initial?.logo || null);
+  /** Terisi hanya untuk logo yang BARU dipilih, jadi ukurannya bisa disebut. */
+  const [logoBaru, setLogoBaru] = useState<HasilLogo | null>(null);
+  const [logoError, setLogoError] = useState("");
+  const [logoSibuk, setLogoSibuk] = useState(false);
+  const logoInput = useRef<HTMLInputElement>(null);
+  const logoAwal = initial?.logo || null;
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -46,6 +61,36 @@ export default function SettingsForm({ initial }: Props) {
   const efektif = tarifEfektif(tarif, dppNilaiLain);
   const persenStr = (n: number) =>
     n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+
+  async function pilihLogo(file: File | undefined) {
+    if (!file) return;
+    setLogoError("");
+    setLogoSibuk(true);
+    try {
+      const hasil = await siapkanLogo(file);
+      setLogo(hasil.dataUrl);
+      setLogoBaru(hasil);
+      setSaved(false);
+    } catch (err) {
+      setLogoError(
+        err instanceof Error ? err.message : "Gambarnya tidak bisa diproses."
+      );
+    } finally {
+      setLogoSibuk(false);
+      // Supaya memilih berkas yang sama dua kali tetap memicu onChange.
+      if (logoInput.current) logoInput.current.value = "";
+    }
+  }
+
+  function hapusLogo() {
+    setLogo(null);
+    setLogoBaru(null);
+    setLogoError("");
+    setSaved(false);
+  }
+
+  const logoBytes = logoBaru?.bytes ?? (logo ? bytesDataUrl(logo) : 0);
+  const logoBerubah = logo !== logoAwal;
 
   function set(key: string, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -63,6 +108,16 @@ export default function SettingsForm({ initial }: Props) {
         { label: "Alamat", nilai: form.alamat || "-" },
         { label: "No. Telp", nilai: form.no_telp || "-" },
         { label: "Email", nilai: form.email || "-" },
+        {
+          label: "Logo",
+          nilai: !logoBerubah
+            ? logo
+              ? "tidak diubah"
+              : "belum ada"
+            : logo
+              ? `logo baru, ${formatBytes(logoBytes)}`
+              : "dihapus",
+        },
         {
           label: "Model PPN",
           nilai: `${
@@ -82,6 +137,7 @@ export default function SettingsForm({ initial }: Props) {
     try {
       const result = await saveSettings({
         ...(form as unknown as SettingsInput),
+        logo,
         tax_mode: taxMode,
         tax_percent: tarif,
         tax_dpp_nilai_lain: dppNilaiLain,
@@ -112,6 +168,89 @@ export default function SettingsForm({ initial }: Props) {
         <p className="text-muted text-[12.5px] -mt-3">
           Muncul di kop dokumen cetak (PO, dsb).
         </p>
+
+        {/* ===== Logo =====
+            Gambarnya dikecilkan di browser sebelum dikirim, jadi berkas
+            10 MB dari kamera pun berakhir sebagai data URI ~100 KB.
+            Yang disimpan cuma satu kolom teks, tidak ada berkas terpisah
+            yang bisa hilang atau gagal diambil saat dokumen dicetak. */}
+        <div>
+          <label className="block text-[12.5px] font-medium text-muted mb-1.5">
+            Logo Perusahaan{" "}
+            <span className="font-normal text-muted/70">(opsional)</span>
+          </label>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="w-[104px] h-[104px] shrink-0 rounded-xl border border-line bg-white flex items-center justify-center overflow-hidden">
+              {logo ? (
+                /* data URI, tidak ada yang bisa dioptimalkan next/image */
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logo}
+                  alt="Logo perusahaan"
+                  className="max-w-[88px] max-h-[88px] object-contain"
+                />
+              ) : (
+                <span className="text-[11.5px] text-muted/70 text-center px-2">
+                  Belum ada logo
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  ref={logoInput}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(e) => pilihLogo(e.target.files?.[0])}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  disabled={logoSibuk}
+                  onClick={() => logoInput.current?.click()}
+                  className="bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 py-1.5 rounded-lg hover:bg-white transition-colors disabled:opacity-60"
+                >
+                  {logoSibuk
+                    ? "Memproses..."
+                    : logo
+                      ? "Ganti Logo"
+                      : "Pilih Logo"}
+                </button>
+                {logo && (
+                  <button
+                    type="button"
+                    onClick={hapusLogo}
+                    className="text-clay-600 text-[12.5px] font-medium px-2 py-1.5 hover:underline"
+                  >
+                    Hapus
+                  </button>
+                )}
+              </div>
+
+              <p className="text-[11.5px] text-muted leading-snug max-w-[42ch]">
+                PNG atau JPG. Otomatis dikecilkan ke maksimal {LOGO_MAX_PX} px
+                dan tercetak setinggi 16 mm di kop dokumen A4, jadi tidak perlu
+                mengecilkannya sendiri. Latar transparan PNG dipertahankan.
+              </p>
+
+              {logo && (
+                <p className="text-[11.5px] text-muted/80">
+                  {logoBaru
+                    ? `Hasil: ${logoBaru.lebar} x ${logoBaru.tinggi} px · ${formatBytes(logoBaru.bytes)}${
+                        logoBaru.diratakan
+                          ? " · transparansi diratakan ke putih"
+                          : ""
+                      }`
+                    : `Tersimpan · ${formatBytes(logoBytes)}`}
+                </p>
+              )}
+              {logoError && (
+                <p className="text-clay-600 text-[11.5px]">{logoError}</p>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">

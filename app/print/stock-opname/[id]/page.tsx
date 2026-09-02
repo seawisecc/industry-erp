@@ -7,6 +7,7 @@ import {
   URUT_GOLONGAN,
   type Golongan,
 } from "@/app/(app)/stock-opname/golongan";
+import PrintKop from "@/components/PrintKop";
 
 type OpnamePrint = {
   id: string;
@@ -61,7 +62,7 @@ export default async function PrintOpnameSheetPage({
     supabase.from("organizations").select("nama").eq("id", organizationId).single(),
     supabase
       .from("organization_settings")
-      .select("alamat, no_telp, email")
+      .select("alamat, no_telp, email, logo")
       .eq("organization_id", organizationId)
       .maybeSingle(),
   ]);
@@ -135,33 +136,26 @@ export default async function PrintOpnameSheetPage({
 
       <div className="bg-white text-[#1a1a1a] a4-sheet max-w-[210mm] mx-auto shadow-xl print:shadow-none rounded-sm print:rounded-none p-[15mm] print:p-0 text-[12.5px] leading-relaxed">
         {/* ===== KOP ===== */}
-        <div className="flex justify-between items-start border-b-2 border-[#1a1a1a] pb-4">
-          <div>
-            <div className="font-display text-[22px] font-bold leading-tight">
-              {org?.nama}
-            </div>
-            {settings?.alamat && (
-              <div className="text-[11.5px] text-neutral-600 mt-1 max-w-[90mm] whitespace-pre-line">
-                {settings.alamat}
+        <PrintKop
+          nama={org?.nama || ""}
+          alamat={settings?.alamat}
+          kontak={kontakLine}
+          logo={settings?.logo}
+          kanan={
+            <>
+              <div className="text-[19px] font-bold tracking-wide">
+                LEMBAR HITUNG STOK
               </div>
-            )}
-            {kontakLine && (
-              <div className="text-[11px] text-neutral-600 mt-0.5">{kontakLine}</div>
-            )}
-          </div>
-          <div className="text-right">
-            <div className="text-[19px] font-bold tracking-wide">
-              LEMBAR HITUNG STOK
-            </div>
-            <div className="font-mono text-[13px] mt-1">{op.no_opname}</div>
-            <div className="text-[11.5px] text-neutral-600 mt-0.5">
-              Tanggal: {formatTanggal(op.tanggal)}
-            </div>
-            <div className="text-[11.5px] text-neutral-600">
-              Cakupan: {op.kategori || "Semua golongan"}
-            </div>
-          </div>
-        </div>
+              <div className="font-mono text-[13px] mt-1">{op.no_opname}</div>
+              <div className="text-[11.5px] text-neutral-600 mt-0.5">
+                Tanggal: {formatTanggal(op.tanggal)}
+              </div>
+              <div className="text-[11.5px] text-neutral-600">
+                Cakupan: {op.kategori || "Semua golongan"}
+              </div>
+            </>
+          }
+        />
 
         {/* ===== PETUGAS ===== */}
         <div className="mt-4 grid grid-cols-3 gap-6 text-[11.5px]">

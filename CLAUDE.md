@@ -703,6 +703,69 @@ Kertas yang mencantumkan nilai rupiah dan ditandatangani penerima
 gampang dibaca sebagai bukti jual beli, padahal barang konsinyasi belum
 berpindah pemilik sampai laku.
 
+# Logo perusahaan: satu kolom teks, bukan berkas
+
+Logo diunggah di Settings, Company Profile, lalu tercetak di kop dokumen
+A4. Disimpan sebagai **data URI di `organization_settings.logo`**, bukan
+sebagai berkas di Supabase Storage. Tiga alasan, dan semuanya soal
+dokumen cetak:
+
+- **Dokumen cetak harus utuh sekali render.** Logo yang diambil lewat URL
+  bisa gagal atau baru datang sesudah dialog Print terbuka, dan yang
+  tercetak adalah kop tanpa logo tanpa error apa pun.
+- **Service worker aplikasi ini sengaja tidak menyimpan apa pun** (lihat
+  bab PWA), jadi tidak ada jaring pengaman untuk berkas yang gagal
+  diambil.
+- **Bucket Storage beserta policy-nya tidak bisa di-track di repo**,
+  persis masalah yang sama dengan RPC lama yang definisinya cuma ada di
+  project Supabase.
+
+Harganya satu baris pengaturan jadi lebih besar, dan itu dibatasi di DUA
+sisi. `lib/logo.ts` mengecilkan gambarnya di browser sebelum dikirim
+(sisi terpanjang `LOGO_MAX_PX` = 400 px), dan `saveSettings` menolak yang
+melebihi `LOGO_MAX_BYTES` = 200 KB. Penjaga di server bukan hiasan:
+server action bisa dipanggil dari mana saja, bukan cuma dari layar yang
+sudah mengecilkan gambarnya.
+
+Kenapa 400 px: logo tercetak setinggi 16 mm, dan pada 300 dpi itu cuma
+sekitar 190 px. 400 px sudah lebih dari cukup untuk tetap tajam di kertas
+sekaligus tidak membuat barisnya membengkak.
+
+**Urutan penyandiannya PNG dulu, JPEG belakangan.** Logo biasanya bidang
+warna rata, jadi PNG-nya kecil sekaligus mempertahankan latar transparan
+yang membuatnya menyatu dengan kertas. PNG dicoba di tiga ukuran (400,
+320, 256) sebelum menyerah ke JPEG, dan di JPEG transparansinya diratakan
+ke PUTIH lewat `destination-over`, bukan dibiarkan: tanpa alas, bagian
+transparan keluar jadi hitam di kertas.
+
+**SVG ditolak dengan pesan yang jelas.** SVG tanpa `width`/`height`
+intrinsik terbaca `naturalWidth = 0` dan tidak bisa digambar ke canvas.
+Membiarkannya lolos menghasilkan kotak kosong di kop dokumen, dan itu
+baru ketahuan sesudah kertasnya keluar dari printer.
+
+## Kop dokumen A4 cuma satu komponen
+
+`components/PrintKop.tsx`. Sembilan dokumen (PO, Penerimaan, Retur
+Pembelian, Produksi, QC, QC Produk Jadi, QA, Stock Opname, Tanda Terima
+Konsinyasi) dulu menyalin markup kop yang sama persis. Sembilan salinan
+berarti sembilan kesempatan untuk lupa, dan waktu logo ditambahkan
+delapan di antaranya akan tetap tercetak tanpa logo tanpa error apa pun.
+
+Dua dokumen sengaja TIDAK memakainya:
+
+- **Invoice** kopnya berbentuk banner berwarna dengan identitas
+  perusahaan di kanan, bukan kiri. Sisi kirinya memang sudah disediakan
+  untuk logo sejak awal (dulu berisi `<div />` kosong), dan sisi
+  kanannya harus sejajar dengan blok nomor & tanggal di bawahnya.
+- **Nota 58 mm** tidak memuat logo sama sekali. Kertas thermal cuma punya
+  satu warna, dan logo di situ lebih sering keluar jadi blok hitam
+  daripada terbaca.
+
+Halaman cetak memakai `<img>` biasa, bukan `next/image`. Isinya data URI
+yang tidak ada yang bisa dioptimalkan, dan `next/image` menambah satu
+lapis yang justru bisa membuat gambarnya belum siap saat dialog Print
+terbuka.
+
 # Bahasa antarmuka
 
 Aplikasinya dwibahasa dengan pembagian yang tegas. Kalau menambah layar

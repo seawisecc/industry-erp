@@ -96,6 +96,9 @@ export default async function PrintNotaPage({
     supabase.from("organizations").select("nama").eq("id", organizationId).single(),
     supabase
       .from("organization_settings")
+      // Logo sengaja tidak ikut diambil: nota thermal 58 mm tidak
+      // memuatnya (lihat bab Logo perusahaan di CLAUDE.md), dan data URI
+      // ratusan KB tidak perlu melintas untuk tiap struk kasir.
       .select("alamat, no_telp, email")
       .eq("organization_id", organizationId)
       .maybeSingle(),
