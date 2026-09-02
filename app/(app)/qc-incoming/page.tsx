@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import Link from "next/link";
 import { ClipboardList, Printer, Eye, Tags } from "lucide-react";
@@ -46,6 +47,14 @@ function formatTanggal(iso: string | null) {
   });
 }
 
+const SORT: Record<string, string> = {
+  lot: "no_lot_supplier",
+  diterima: "tanggal_terima",
+  exp: "exp_date",
+  qty: "qty_karantina",
+  supplier: "supplier_nama",
+};
+
 export default async function QcIncomingPage({
   searchParams,
 }: {
@@ -57,6 +66,8 @@ export default async function QcIncomingPage({
   if (!(features.qc)) redirect("/items");
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "tanggal_terima", ascending: true });
 
   // Kode/nama item ada di tabel items, cari id-nya dulu supaya pencarian
   // lewat nama item tetap jalan.
@@ -91,7 +102,9 @@ export default async function QcIncomingPage({
     );
 
   const [{ data: karantina, count }, { data: history }] = await Promise.all([
-    karantinaQuery.order("tanggal_terima").range(sp.from, sp.to),
+    karantinaQuery
+      .order(ord.column, { ascending: ord.ascending })
+      .range(sp.from, sp.to),
     supabase
       .from("purchase_batches")
       .select(
@@ -158,6 +171,7 @@ export default async function QcIncomingPage({
           {
             key: "lot",
             header: "Lot Supplier",
+            sort: "lot",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (b) => (
@@ -169,6 +183,7 @@ export default async function QcIncomingPage({
           {
             key: "diterima",
             header: "Diterima",
+            sort: "diterima",
             cardLabel: "Tanggal Terima",
             role: "secondary",
             className: "whitespace-nowrap",
@@ -177,6 +192,7 @@ export default async function QcIncomingPage({
           {
             key: "exp",
             header: "Exp",
+            sort: "exp",
             cardLabel: "Kedaluwarsa",
             role: "secondary",
             className: "whitespace-nowrap text-[12.5px]",
@@ -191,6 +207,7 @@ export default async function QcIncomingPage({
           {
             key: "qty",
             header: "Qty",
+            sort: "qty",
             cardLabel: "Qty Karantina",
             role: "primary",
             align: "right",
@@ -201,6 +218,7 @@ export default async function QcIncomingPage({
           {
             key: "supplier",
             header: "Supplier",
+            sort: "supplier",
             role: "secondary",
             cell: (b) => (
               <div

@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import { localDateStr } from "@/lib/dates";
 
@@ -40,6 +41,13 @@ function formatTanggal(iso: string) {
   });
 }
 
+const SORT: Record<string, string> = {
+  no: "no_invoice",
+  tanggal: "tanggal",
+  tempo: "jatuh_tempo",
+  total: "total",
+};
+
 export default async function SalesPaymentsPage({
   searchParams,
 }: {
@@ -51,6 +59,7 @@ export default async function SalesPaymentsPage({
   // Yang butuh pelunasan: dokumen belum lunas (Proforma / cicilan berjalan).
   // POS cash sudah lunas seketika → tidak muncul di sini.
   const sp = parseListQuery(await searchParams);
+  const ord = orderFor(sp, SORT, { column: "jatuh_tempo", ascending: true });
 
   // Nama client ada di tabel lain, cari id-nya dulu supaya dokumen tetap
   // bisa dicari lewat nama client, bukan cuma nomor dokumen.
@@ -85,7 +94,7 @@ export default async function SalesPaymentsPage({
     );
 
   const { data: invoices, count } = await query
-    .order("jatuh_tempo", { ascending: true, nullsFirst: false })
+    .order(ord.column, { ascending: ord.ascending, nullsFirst: false })
     .range(sp.from, sp.to);
 
   const list = (invoices || []) as unknown as InvRow[];
@@ -229,6 +238,7 @@ export default async function SalesPaymentsPage({
           {
             key: "no",
             header: "No. PI",
+            sort: "no",
             role: "subtitle",
             className: "whitespace-nowrap",
             cell: (inv) => {
@@ -271,6 +281,7 @@ export default async function SalesPaymentsPage({
           {
             key: "tanggal",
             header: "Tanggal",
+            sort: "tanggal",
             role: "secondary",
             className: "whitespace-nowrap",
             cell: (inv) => formatTanggal(inv.tanggal),
@@ -278,6 +289,7 @@ export default async function SalesPaymentsPage({
           {
             key: "tempo",
             header: "Jatuh Tempo",
+            sort: "tempo",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (inv) =>
@@ -301,6 +313,7 @@ export default async function SalesPaymentsPage({
           {
             key: "total",
             header: "Total",
+            sort: "total",
             role: "secondary",
             align: "right",
             className: "whitespace-nowrap",

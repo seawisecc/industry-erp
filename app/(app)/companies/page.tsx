@@ -10,6 +10,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import { localDateStr } from "@/lib/dates";
 import StorageBar from "@/components/StorageBar";
@@ -34,6 +35,12 @@ function formatTanggal(iso: string) {
   });
 }
 
+const SORT: Record<string, string> = {
+  company: "nama",
+  status: "aktif",
+  valid: "aktif_sampai",
+};
+
 export default async function CompaniesPage({
   searchParams,
 }: {
@@ -47,6 +54,7 @@ export default async function CompaniesPage({
 
   const admin = createAdminClient();
   const sp = parseListQuery(await searchParams);
+  const ord = orderFor(sp, SORT, { column: "aktif", ascending: true });
   const todayStr = localDateStr();
 
   // Nama/email admin ada di tabel profiles, cari org-nya lewat situ.
@@ -89,7 +97,9 @@ export default async function CompaniesPage({
     query = query.eq("aktif", true).lt("aktif_sampai", todayStr);
 
   const { data: orgs, count } = await query
-    .order("aktif", { ascending: true })
+    .order(ord.column, { ascending: ord.ascending })
+    // Penyeimbang: perusahaan aktif tetap berkelompok rapi menurut nama
+    // waktu urutan bawaan dipakai, dan tidak mengganggu saat disortir.
     .order("nama")
     .range(sp.from, sp.to);
 
@@ -176,6 +186,7 @@ export default async function CompaniesPage({
           {
             key: "company",
             header: "Company",
+            sort: "company",
             role: "title",
             cell: (o) => (
               <>
@@ -233,6 +244,7 @@ export default async function CompaniesPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (o) => {
               const s = statusOrg(o);
@@ -248,6 +260,7 @@ export default async function CompaniesPage({
           {
             key: "valid",
             header: "Valid Sampai",
+            sort: "valid",
             role: "secondary",
             className: "whitespace-nowrap",
             cell: (o) =>

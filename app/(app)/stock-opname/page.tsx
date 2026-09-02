@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type OpnameRow = {
@@ -36,6 +37,14 @@ function formatTanggal(iso: string | null) {
   });
 }
 
+const SORT: Record<string, string> = {
+  no: "no_opname",
+  tanggal: "tanggal",
+  status: "status",
+  cakupan: "kategori",
+  selesai: "tanggal_selesai",
+};
+
 export default async function StockOpnamePage({
   searchParams,
 }: {
@@ -45,6 +54,8 @@ export default async function StockOpnamePage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "tanggal", ascending: false });
 
   let query = supabase
     .from("stock_opnames")
@@ -58,7 +69,9 @@ export default async function StockOpnamePage({
   if (sp.filter("status")) query = query.eq("status", sp.filter("status"));
 
   const [{ data, count }, { data: profiles }] = await Promise.all([
-    query.order("tanggal", { ascending: false }).range(sp.from, sp.to),
+    query
+      .order(ord.column, { ascending: ord.ascending })
+      .range(sp.from, sp.to),
     supabase
       .from("profiles")
       .select("id, nama")
@@ -132,6 +145,7 @@ export default async function StockOpnamePage({
           {
             key: "no",
             header: "No. Opname",
+            sort: "no",
             role: "subtitle",
             className: "font-mono text-[12px] whitespace-nowrap",
             cell: (o) => o.no_opname,
@@ -139,6 +153,7 @@ export default async function StockOpnamePage({
           {
             key: "tanggal",
             header: "Tanggal",
+            sort: "tanggal",
             role: "title",
             className: "whitespace-nowrap",
             cell: (o) => formatTanggal(o.tanggal),
@@ -146,6 +161,7 @@ export default async function StockOpnamePage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (o) => (
               <span
@@ -162,6 +178,7 @@ export default async function StockOpnamePage({
           {
             key: "cakupan",
             header: "Cakupan",
+            sort: "cakupan",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (o) => o.kategori || "Semua item",
@@ -183,6 +200,7 @@ export default async function StockOpnamePage({
           {
             key: "selesai",
             header: "Ditutup",
+            sort: "selesai",
             role: "secondary",
             className: "whitespace-nowrap",
             cell: (o) => formatTanggal(o.tanggal_selesai),

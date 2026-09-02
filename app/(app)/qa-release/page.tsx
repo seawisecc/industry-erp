@@ -13,6 +13,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import { ClipboardList, Printer, FileText, Tags } from "lucide-react";
 
@@ -43,6 +44,11 @@ function formatTanggal(iso: string | null) {
   });
 }
 
+const SORT: Record<string, string> = {
+  batch: "no_batch_produksi",
+  tgl: "tanggal_produksi",
+};
+
 export default async function QaReleasePage({
   searchParams,
 }: {
@@ -54,6 +60,8 @@ export default async function QaReleasePage({
   if (!(features.qa)) redirect("/products");
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "tanggal_produksi", ascending: true });
 
   let holdQuery = supabase
     .from("production_batches")
@@ -69,7 +77,9 @@ export default async function QaReleasePage({
   if (sp.q) holdQuery = holdQuery.or(ilikeOr(["no_batch_produksi"], sp.q));
 
   const [{ data: hold, count }, { data: history }] = await Promise.all([
-    holdQuery.order("tanggal_produksi").range(sp.from, sp.to),
+    holdQuery
+      .order(ord.column, { ascending: ord.ascending })
+      .range(sp.from, sp.to),
     supabase
       .from("production_batches")
       .select(
@@ -132,6 +142,7 @@ export default async function QaReleasePage({
           {
             key: "batch",
             header: "No. Batch",
+            sort: "batch",
             role: "subtitle",
             className: "whitespace-nowrap",
             cell: (b) => (
@@ -152,6 +163,7 @@ export default async function QaReleasePage({
           {
             key: "tgl",
             header: "Tgl Produksi",
+            sort: "tgl",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (b) => formatTanggal(b.tanggal_produksi),

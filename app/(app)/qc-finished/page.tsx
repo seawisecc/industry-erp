@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import { ClipboardList, Printer, Eye, Tags } from "lucide-react";
 
@@ -41,6 +42,11 @@ function formatTanggal(iso: string | null) {
   });
 }
 
+const SORT: Record<string, string> = {
+  batch: "no_batch_produksi",
+  tgl: "tanggal_produksi",
+};
+
 export default async function QcFinishedPage({
   searchParams,
 }: {
@@ -57,6 +63,8 @@ export default async function QcFinishedPage({
 
   const sp = parseListQuery(await searchParams);
 
+  const ord = orderFor(sp, SORT, { column: "tanggal_produksi", ascending: true });
+
   let antreanQuery = supabase
     .from("production_batches")
     .select(kolom, { count: "exact" })
@@ -68,7 +76,9 @@ export default async function QcFinishedPage({
     antreanQuery = antreanQuery.ilike("no_batch_produksi", `%${sp.q}%`);
 
   const [{ data, count }, { data: riwayat }] = await Promise.all([
-    antreanQuery.order("tanggal_produksi").range(sp.from, sp.to),
+    antreanQuery
+      .order(ord.column, { ascending: ord.ascending })
+      .range(sp.from, sp.to),
     // Riwayat: semua batch yang sudah pernah diuji QC
     supabase
       .from("production_batches")
@@ -132,6 +142,7 @@ export default async function QcFinishedPage({
           {
             key: "batch",
             header: "No. Batch",
+            sort: "batch",
             role: "subtitle",
             className: "whitespace-nowrap",
             cell: (b) => (
@@ -152,6 +163,7 @@ export default async function QcFinishedPage({
           {
             key: "tgl",
             header: "Tgl Produksi",
+            sort: "tgl",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (b) => formatTanggal(b.tanggal_produksi),

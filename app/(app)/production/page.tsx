@@ -13,6 +13,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type PlanRow = {
@@ -56,6 +57,13 @@ function formatTanggal(iso: string) {
   });
 }
 
+const SORT: Record<string, string> = {
+  batch: "no_batch",
+  rencana: "tanggal_rencana",
+  jml: "jumlah_batch",
+  status: "status",
+};
+
 export default async function ProductionPage({
   searchParams,
 }: {
@@ -68,6 +76,8 @@ export default async function ProductionPage({
     isSuperAdmin || profile?.role === "Admin" || !!profile?.can_plan_production;
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "created_at", ascending: false });
 
   // Nama produk ada di tabel products, cari id-nya dulu.
   let productIds: string[] = [];
@@ -96,7 +106,9 @@ export default async function ProductionPage({
   if (sp.filter("status")) planQuery = planQuery.eq("status", sp.filter("status"));
 
   const [{ data: plans, count }, { data: batches }] = await Promise.all([
-    planQuery.order("created_at", { ascending: false }).range(sp.from, sp.to),
+    planQuery
+      .order(ord.column, { ascending: ord.ascending })
+      .range(sp.from, sp.to),
     supabase
       .from("production_batches")
       .select(
@@ -171,6 +183,7 @@ export default async function ProductionPage({
           {
             key: "batch",
             header: "No. Batch",
+            sort: "batch",
             role: "subtitle",
             className: "whitespace-nowrap",
             cell: (p) => (
@@ -205,6 +218,7 @@ export default async function ProductionPage({
           {
             key: "jml",
             header: "Jml Batch",
+            sort: "jml",
             role: "primary",
             align: "right",
             cell: (p) => Number(p.jumlah_batch).toLocaleString("id-ID"),
@@ -212,6 +226,7 @@ export default async function ProductionPage({
           {
             key: "rencana",
             header: "Rencana",
+            sort: "rencana",
             cardLabel: "Tanggal Rencana",
             role: "primary",
             className: "whitespace-nowrap",
@@ -220,6 +235,7 @@ export default async function ProductionPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (p) => (
               <span

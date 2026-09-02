@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type ServiceRow = {
@@ -27,6 +28,13 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
 
+const SORT: Record<string, string> = {
+  kode: "kode",
+  nama: "nama_jasa",
+  biaya: "biaya",
+  status: "aktif",
+};
+
 export default async function ServicesPage({
   searchParams,
 }: {
@@ -36,6 +44,8 @@ export default async function ServicesPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "kode", ascending: true });
 
   let query = supabase
     .from("services")
@@ -49,7 +59,7 @@ export default async function ServicesPage({
     query = query.eq("aktif", sp.filter("status") === "Aktif");
 
   const { data: services, count } = await query
-    .order("kode")
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (services || []) as ServiceRow[];
@@ -102,6 +112,7 @@ export default async function ServicesPage({
           {
             key: "kode",
             header: "Kode",
+            sort: "kode",
             role: "subtitle",
             cell: (s) => (
               <span className="font-mono text-[12.5px] whitespace-nowrap">
@@ -112,6 +123,7 @@ export default async function ServicesPage({
           {
             key: "nama",
             header: "Nama Jasa",
+            sort: "nama",
             role: "title",
             cell: (s) => (
               <div className="font-medium max-w-[240px] truncate" title={s.nama_jasa}>
@@ -139,6 +151,7 @@ export default async function ServicesPage({
           {
             key: "biaya",
             header: "Biaya",
+            sort: "biaya",
             role: "primary",
             align: "right",
             className: "whitespace-nowrap font-medium",
@@ -147,6 +160,7 @@ export default async function ServicesPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (s) => (
               <span

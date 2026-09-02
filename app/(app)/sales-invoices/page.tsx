@@ -14,6 +14,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type InvRow = {
@@ -42,6 +43,15 @@ function formatTanggal(iso: string) {
   });
 }
 
+const SORT: Record<string, string> = {
+  no: "no_invoice",
+  tipe: "tipe",
+  sumber: "sumber",
+  tanggal: "tanggal",
+  total: "total",
+  bayar: "status_bayar",
+};
+
 export default async function SalesInvoicesPage({
   searchParams,
 }: {
@@ -53,6 +63,8 @@ export default async function SalesInvoicesPage({
     isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "created_at", ascending: false });
 
   // Nama client ada di tabel lain, jadi dicari dulu id-nya. Cara ini
   // (bukan !inner join) menjaga invoice walk-in yang client_id-nya
@@ -90,7 +102,7 @@ export default async function SalesInvoicesPage({
     query = query.eq("status_bayar", sp.filter("status"));
 
   const { data: invoices, count } = await query
-    .order("created_at", { ascending: false })
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (invoices || []) as unknown as InvRow[];
@@ -151,6 +163,7 @@ export default async function SalesInvoicesPage({
           {
             key: "no",
             header: "No.",
+            sort: "no",
             role: "subtitle",
             className: "whitespace-nowrap",
             cell: (inv) => (
@@ -160,6 +173,7 @@ export default async function SalesInvoicesPage({
           {
             key: "tipe",
             header: "Tipe",
+            sort: "tipe",
             role: "badge",
             cell: (inv) => (
               <span
@@ -188,6 +202,7 @@ export default async function SalesInvoicesPage({
           {
             key: "sumber",
             header: "Sumber",
+            sort: "sumber",
             role: "secondary",
             className: "whitespace-nowrap text-[12.5px]",
             cell: (inv) => inv.sumber,
@@ -195,6 +210,7 @@ export default async function SalesInvoicesPage({
           {
             key: "tanggal",
             header: "Tanggal",
+            sort: "tanggal",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (inv) => formatTanggal(inv.tanggal),
@@ -202,6 +218,7 @@ export default async function SalesInvoicesPage({
           {
             key: "total",
             header: "Total",
+            sort: "total",
             role: "primary",
             align: "right",
             className: "whitespace-nowrap",
@@ -231,6 +248,7 @@ export default async function SalesInvoicesPage({
           {
             key: "bayar",
             header: "Bayar",
+            sort: "bayar",
             role: "badge",
             cell: (inv) => (
               <span

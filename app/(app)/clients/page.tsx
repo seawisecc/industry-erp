@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type ClientRow = {
@@ -35,6 +36,15 @@ const KATEGORI_STYLE: Record<string, string> = {
   Other: "bg-white/70 text-muted border border-line",
 };
 
+const SORT: Record<string, string> = {
+  kode: "kode",
+  company: "company_brand",
+  cp: "cp",
+  phone: "phone",
+  kategori: "kategori",
+  status: "aktif",
+};
+
 export default async function ClientsPage({
   searchParams,
 }: {
@@ -44,6 +54,8 @@ export default async function ClientsPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "kode", ascending: true });
 
   let query = supabase
     .from("clients")
@@ -55,7 +67,7 @@ export default async function ClientsPage({
     query = query.eq("kategori", sp.filter("kategori"));
 
   const { data: clients, count } = await query
-    .order("kode")
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (clients || []) as ClientRow[];
@@ -129,6 +141,7 @@ export default async function ClientsPage({
           {
             key: "kode",
             header: "Kode",
+            sort: "kode",
             role: "subtitle",
             cell: (c) => (
               <span className="font-mono text-[12.5px] whitespace-nowrap">
@@ -139,6 +152,7 @@ export default async function ClientsPage({
           {
             key: "company",
             header: "Company / Brand",
+            sort: "company",
             role: "title",
             cell: (c) => (
               <>
@@ -169,6 +183,7 @@ export default async function ClientsPage({
           {
             key: "cp",
             header: "CP",
+            sort: "cp",
             cardLabel: "Contact Person",
             role: "primary",
             className: "whitespace-nowrap",
@@ -177,6 +192,7 @@ export default async function ClientsPage({
           {
             key: "phone",
             header: "Phone",
+            sort: "phone",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (c) => (
@@ -186,6 +202,7 @@ export default async function ClientsPage({
           {
             key: "kategori",
             header: "Kategori",
+            sort: "kategori",
             role: "badge",
             cell: (c) => (
               <span
@@ -200,6 +217,7 @@ export default async function ClientsPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (c) => (
               <span

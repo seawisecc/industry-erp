@@ -12,7 +12,16 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
+
+const SORT: Record<string, string> = {
+  nama: "nama",
+  kontak: "nama_kontak",
+  telp: "no_telp",
+  email: "email",
+  npwp: "npwp",
+};
 
 export default async function SuppliersPage({
   searchParams,
@@ -24,6 +33,8 @@ export default async function SuppliersPage({
 
   const sp = parseListQuery(await searchParams);
 
+  const ord = orderFor(sp, SORT, { column: "nama", ascending: true });
+
   let query = supabase
     .from("suppliers")
     .select("*", { count: "exact" })
@@ -32,7 +43,7 @@ export default async function SuppliersPage({
   if (sp.q) query = query.or(ilikeOr(["nama", "nama_kontak", "email"], sp.q));
 
   const { data: suppliers, count } = await query
-    .order("nama")
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (suppliers || []) as Supplier[];
@@ -75,6 +86,7 @@ export default async function SuppliersPage({
           {
             key: "nama",
             header: "Nama",
+            sort: "nama",
             role: "title",
             cell: (s) => (
               <>
@@ -101,6 +113,7 @@ export default async function SuppliersPage({
           {
             key: "kontak",
             header: "Kontak",
+            sort: "kontak",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (s) => s.nama_kontak || "-",
@@ -108,6 +121,7 @@ export default async function SuppliersPage({
           {
             key: "telp",
             header: "Telp",
+            sort: "telp",
             role: "primary",
             className: "whitespace-nowrap font-mono text-[12.5px]",
             cell: (s) => (
@@ -117,6 +131,7 @@ export default async function SuppliersPage({
           {
             key: "email",
             header: "Email",
+            sort: "email",
             role: "secondary",
             className: "whitespace-nowrap",
             cell: (s) => s.email || "-",
@@ -124,6 +139,7 @@ export default async function SuppliersPage({
           {
             key: "npwp",
             header: "NPWP",
+            sort: "npwp",
             role: "secondary",
             className: "whitespace-nowrap",
             cell: (s) => (

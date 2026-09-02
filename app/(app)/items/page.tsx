@@ -19,6 +19,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type ItemRow = {
@@ -32,6 +33,14 @@ type ItemRow = {
   materials: { material_code: string; tradename: string }[];
 };
 
+const SORT: Record<string, string> = {
+  kode: "kode",
+  nama: "nama",
+  kategori: "kategori",
+  min: "stok_minimum",
+  status: "aktif",
+};
+
 export default async function ItemsPage({
   searchParams,
 }: {
@@ -41,6 +50,8 @@ export default async function ItemsPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "kode", ascending: true });
 
   let query = supabase
     .from("items")
@@ -55,7 +66,7 @@ export default async function ItemsPage({
     query = query.eq("kategori", sp.filter("kategori"));
 
   const { data: items, count } = await query
-    .order("kode")
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (items || []) as unknown as ItemRow[];
@@ -203,6 +214,7 @@ export default async function ItemsPage({
           {
             key: "kode",
             header: "Kode",
+            sort: "kode",
             role: "subtitle",
             cell: (i) => (
               <span className="font-mono text-[12.5px] whitespace-nowrap">
@@ -213,6 +225,7 @@ export default async function ItemsPage({
           {
             key: "nama",
             header: "Nama",
+            sort: "nama",
             role: "title",
             cell: (i) => (
               <>
@@ -240,6 +253,7 @@ export default async function ItemsPage({
           {
             key: "kategori",
             header: "Kategori",
+            sort: "kategori",
             role: "secondary",
             cell: (i) => (
               <span className="whitespace-nowrap text-[12.5px]">{i.kategori}</span>
@@ -264,6 +278,7 @@ export default async function ItemsPage({
           {
             key: "min",
             header: "Stok Min",
+            sort: "min",
             cardLabel: "Stok Minimum",
             role: "primary",
             align: "right",
@@ -274,6 +289,7 @@ export default async function ItemsPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (i) => {
               const low = stokSisa(i) <= Number(i.stok_minimum);

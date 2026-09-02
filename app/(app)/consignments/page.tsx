@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import { type OutletProdItem } from "./OutletActions";
 import OutletRekap, { type OutletRingkas } from "./OutletRekap";
@@ -46,6 +47,12 @@ function formatTanggal(iso: string) {
   });
 }
 
+const SORT: Record<string, string> = {
+  no: "no_konsinyasi",
+  tanggal: "tanggal_kirim",
+  status: "status",
+};
+
 export default async function ConsignmentsPage({
   searchParams,
 }: {
@@ -55,6 +62,8 @@ export default async function ConsignmentsPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "created_at", ascending: false });
   const kolom =
     "id, no_konsinyasi, tanggal_kirim, status, clients(id, company_brand), consignment_items(product_id, qty_kirim, qty_terjual, qty_retur, harga_jual, varian_ukuran, products(nama_produk, brand))";
 
@@ -82,7 +91,7 @@ export default async function ConsignmentsPage({
   if (sp.filter("status")) query = query.eq("status", sp.filter("status"));
 
   const { data: cons, count } = await query
-    .order("created_at", { ascending: false })
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (cons || []) as unknown as ConsRow[];
@@ -232,6 +241,7 @@ export default async function ConsignmentsPage({
           {
             key: "no",
             header: "No.",
+            sort: "no",
             role: "subtitle",
             className: "whitespace-nowrap",
             cell: (c) => (
@@ -252,6 +262,7 @@ export default async function ConsignmentsPage({
           {
             key: "tanggal",
             header: "Tanggal Kirim",
+            sort: "tanggal",
             role: "secondary",
             className: "whitespace-nowrap",
             cell: (c) => formatTanggal(c.tanggal_kirim),
@@ -285,6 +296,7 @@ export default async function ConsignmentsPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (c) => (
               <span

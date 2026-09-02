@@ -22,6 +22,7 @@
    ============================================================ */
 
 import { Fragment, type ReactNode } from "react";
+import SortHeader, { SortSelect } from "./SortHeader";
 
 /**
  * Peran kolom. Menentukan posisinya di kartu HP; di tabel desktop
@@ -60,6 +61,17 @@ export type Column<T> = {
   cardLabel?: string;
   className?: string;
   headClassName?: string;
+  /**
+   * Kunci urut kolom ini. Diisi = judulnya jadi tombol urut, dan
+   * nilainya yang masuk ke `?sort=` di URL.
+   *
+   * Halaman yang memakainya WAJIB ikut menerapkan urutannya, lewat
+   * `orderFor()` untuk tabel yang paginasi di server atau
+   * `urutkanBaris()` untuk tabel yang datanya sudah utuh di memori
+   * (lihat lib/pagination.ts). Tombol yang tidak mengubah apa pun
+   * lebih buruk daripada tidak ada tombol.
+   */
+  sort?: string;
 };
 
 const ALIGN = {
@@ -186,6 +198,14 @@ export default function DataTable<T>({
 
   const cardOf = (col: Column<T>, row: T) => (col.cardCell ?? col.cell)(row);
 
+  const kolomUrut = columns
+    .filter((c) => c.sort)
+    .map((c) => ({
+      key: c.sort as string,
+      label:
+        c.cardLabel ?? (typeof c.header === "string" ? c.header : (c.sort as string)),
+    }));
+
   return (
     <>
       {/* ---------- Tabel: tablet & desktop ---------- */}
@@ -212,7 +232,15 @@ export default function DataTable<T>({
                     c.headClassName ?? "",
                   ].join(" ")}
                 >
-                  {c.header}
+                  {c.sort ? (
+                    <SortHeader
+                      sortKey={c.sort}
+                      label={c.header}
+                      align={c.align ?? "left"}
+                    />
+                  ) : (
+                    c.header
+                  )}
                 </th>
               ))}
             </tr>
@@ -290,6 +318,12 @@ export default function DataTable<T>({
       </div>
 
       {/* ---------- Kartu: HP ---------- */}
+      {/* Kartu HP tidak punya baris judul, jadi tombol urut di <th> tidak
+          ada tempatnya. Tanpa pilihan ini sortir cuma bisa dipakai orang
+          yang memegang laptop, padahal isian data di pabrik justru
+          dilakukan sambil memegang barang. */}
+      {kolomUrut.length > 0 && !kosong && <SortSelect options={kolomUrut} />}
+
       <div className="dt-cards md:hidden flex flex-col gap-2">
         {kosong ? (
           <div

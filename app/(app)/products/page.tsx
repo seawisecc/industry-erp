@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type ProductRow = {
@@ -25,6 +26,14 @@ type ProductRow = {
   product_variants: { nama_varian: string }[];
 };
 
+const SORT: Record<string, string> = {
+  kode: "kode",
+  nama: "nama_produk",
+  brand: "brand",
+  kategori: "kategori",
+  status: "aktif",
+};
+
 export default async function ProductsPage({
   searchParams,
 }: {
@@ -34,6 +43,8 @@ export default async function ProductsPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "kode", ascending: true });
 
   let query = supabase
     .from("products")
@@ -49,7 +60,7 @@ export default async function ProductsPage({
     query = query.eq("aktif", sp.filter("status") === "Aktif");
 
   const { data: products, count } = await query
-    .order("kode")
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (products || []) as unknown as ProductRow[];
@@ -102,6 +113,7 @@ export default async function ProductsPage({
           {
             key: "kode",
             header: "Kode",
+            sort: "kode",
             role: "subtitle",
             cell: (p) => (
               <span className="font-mono text-[12.5px]">{p.kode || "-"}</span>
@@ -110,6 +122,7 @@ export default async function ProductsPage({
           {
             key: "nama",
             header: "Nama Produk",
+            sort: "nama",
             role: "title",
             cell: (p) => <span className="font-medium">{p.nama_produk}</span>,
             cardCell: (p) => p.nama_produk,
@@ -117,12 +130,14 @@ export default async function ProductsPage({
           {
             key: "brand",
             header: "Brand",
+            sort: "brand",
             role: "primary",
             cell: (p) => p.brand || "-",
           },
           {
             key: "kategori",
             header: "Kategori",
+            sort: "kategori",
             role: "primary",
             cell: (p) => p.kategori || "-",
           },
@@ -155,6 +170,7 @@ export default async function ProductsPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (p) => (
               <span

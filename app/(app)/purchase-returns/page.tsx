@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import { ALASAN_RETUR } from "@/lib/purchaseReturn";
 import AlasanBadge from "./AlasanBadge";
@@ -39,6 +40,14 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
 
+const SORT: Record<string, string> = {
+  no: "no_retur",
+  supplier: "supplier_nama",
+  alasan: "alasan",
+  tanggal: "tanggal",
+  nilai: "total_nilai",
+};
+
 export default async function PurchaseReturnsPage({
   searchParams,
 }: {
@@ -48,6 +57,8 @@ export default async function PurchaseReturnsPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "tanggal", ascending: false });
 
   let query = supabase
     .from("purchase_returns")
@@ -62,7 +73,7 @@ export default async function PurchaseReturnsPage({
   if (sp.filter("alasan")) query = query.eq("alasan", sp.filter("alasan"));
 
   const { data, count } = await query
-    .order("tanggal", { ascending: false })
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (data || []) as unknown as ReturRow[];
@@ -125,6 +136,7 @@ export default async function PurchaseReturnsPage({
           {
             key: "no",
             header: "No. Retur",
+            sort: "no",
             role: "subtitle",
             className: "font-mono text-[12px] whitespace-nowrap",
             cell: (r) => r.no_retur,
@@ -132,18 +144,21 @@ export default async function PurchaseReturnsPage({
           {
             key: "supplier",
             header: "Supplier",
+            sort: "supplier",
             role: "title",
             cell: (r) => r.supplier_nama || "-",
           },
           {
             key: "alasan",
             header: "Alasan",
+            sort: "alasan",
             role: "badge",
             cell: (r) => <AlasanBadge alasan={r.alasan} />,
           },
           {
             key: "tanggal",
             header: "Tanggal",
+            sort: "tanggal",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (r) => formatTanggal(r.tanggal),
@@ -167,6 +182,7 @@ export default async function PurchaseReturnsPage({
           {
             key: "nilai",
             header: "Nilai Retur",
+            sort: "nilai",
             role: "primary",
             align: "right",
             className: "whitespace-nowrap font-semibold",

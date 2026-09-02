@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type ReceivingRow = {
@@ -35,6 +36,13 @@ function formatTanggal(iso: string) {
   });
 }
 
+const SORT: Record<string, string> = {
+  tanggal: "tanggal_terima",
+  invoice: "no_invoice",
+  supplier: "supplier_nama",
+  total: "total_invoice",
+};
+
 export default async function ReceivingsPage({
   searchParams,
 }: {
@@ -44,6 +52,8 @@ export default async function ReceivingsPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "created_at", ascending: false });
 
   // No. PO ada di tabel purchase_orders, jadi dicari id-nya dulu.
   let poIds: string[] = [];
@@ -71,7 +81,7 @@ export default async function ReceivingsPage({
     );
 
   const { data: receivings, count } = await query
-    .order("created_at", { ascending: false })
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (receivings || []) as unknown as ReceivingRow[];
@@ -113,6 +123,7 @@ export default async function ReceivingsPage({
           {
             key: "tanggal",
             header: "Tanggal",
+            sort: "tanggal",
             role: "subtitle",
             className: "whitespace-nowrap",
             cell: (r) => formatTanggal(r.tanggal_terima),
@@ -130,6 +141,7 @@ export default async function ReceivingsPage({
           {
             key: "invoice",
             header: "No. Invoice",
+            sort: "invoice",
             role: "primary",
             cell: (r) => (
               <span className="font-mono text-[12.5px]">{r.no_invoice || "-"}</span>
@@ -138,6 +150,7 @@ export default async function ReceivingsPage({
           {
             key: "supplier",
             header: "Supplier",
+            sort: "supplier",
             role: "title",
             cell: (r) => (
               <div className="max-w-[220px] truncate font-medium">
@@ -149,6 +162,7 @@ export default async function ReceivingsPage({
           {
             key: "total",
             header: "Total Invoice",
+            sort: "total",
             role: "primary",
             align: "right",
             className: "whitespace-nowrap",

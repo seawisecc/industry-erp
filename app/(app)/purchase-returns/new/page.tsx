@@ -11,6 +11,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import { sisaHutang } from "@/lib/purchaseReturn";
 
@@ -43,6 +44,14 @@ function formatRupiah(n: number) {
  * tertentu, jadi memuat semua faktur BESERTA batch-nya sekaligus berarti
  * mengirim seluruh riwayat pembelian ke browser cuma untuk memilih satu.
  */
+const SORT: Record<string, string> = {
+  no: "no_invoice",
+  supplier: "supplier_nama",
+  tanggal: "tanggal_terima",
+  total: "total_invoice",
+  retur: "total_retur",
+};
+
 export default async function PilihFakturPage({
   searchParams,
 }: {
@@ -52,6 +61,8 @@ export default async function PilihFakturPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "tanggal_terima", ascending: false });
 
   let query = supabase
     .from("receivings")
@@ -64,7 +75,7 @@ export default async function PilihFakturPage({
   if (sp.q) query = query.or(ilikeOr(["no_invoice", "supplier_nama"], sp.q));
 
   const { data, count } = await query
-    .order("tanggal_terima", { ascending: false })
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (data || []) as unknown as FakturRow[];
@@ -105,6 +116,7 @@ export default async function PilihFakturPage({
           {
             key: "no",
             header: "No. Faktur",
+            sort: "no",
             role: "subtitle",
             className: "font-mono text-[12px] whitespace-nowrap",
             cell: (r) => r.no_invoice || "(tanpa nomor)",
@@ -112,6 +124,7 @@ export default async function PilihFakturPage({
           {
             key: "supplier",
             header: "Supplier",
+            sort: "supplier",
             role: "title",
             cell: (r) => r.supplier_nama || "-",
           },
@@ -125,6 +138,7 @@ export default async function PilihFakturPage({
           {
             key: "tanggal",
             header: "Tgl Terima",
+            sort: "tanggal",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (r) => formatTanggal(r.tanggal_terima),
@@ -132,6 +146,7 @@ export default async function PilihFakturPage({
           {
             key: "total",
             header: "Nilai Faktur",
+            sort: "total",
             role: "primary",
             align: "right",
             className: "whitespace-nowrap",
@@ -140,6 +155,7 @@ export default async function PilihFakturPage({
           {
             key: "retur",
             header: "Sudah Diretur",
+            sort: "retur",
             role: "primary",
             align: "right",
             className: "whitespace-nowrap",

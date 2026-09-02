@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import { TUJUAN_PEMAKAIAN } from "@/lib/materialIssue";
 import TujuanBadge from "./TujuanBadge";
@@ -38,6 +39,13 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
 
+const SORT: Record<string, string> = {
+  no: "no_pemakaian",
+  tanggal: "tanggal",
+  tujuan: "tujuan",
+  biaya: "total_biaya",
+};
+
 export default async function MaterialIssuesPage({
   searchParams,
 }: {
@@ -47,6 +55,8 @@ export default async function MaterialIssuesPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "tanggal", ascending: false });
 
   let query = supabase
     .from("material_issues")
@@ -60,7 +70,9 @@ export default async function MaterialIssuesPage({
   if (sp.filter("tujuan")) query = query.eq("tujuan", sp.filter("tujuan"));
 
   const [{ data: issues, count }, { data: profiles }] = await Promise.all([
-    query.order("tanggal", { ascending: false }).range(sp.from, sp.to),
+    query
+      .order(ord.column, { ascending: ord.ascending })
+      .range(sp.from, sp.to),
     supabase
       .from("profiles")
       .select("id, nama")
@@ -125,6 +137,7 @@ export default async function MaterialIssuesPage({
           {
             key: "no",
             header: "No. Pemakaian",
+            sort: "no",
             role: "subtitle",
             className: "font-mono text-[12px] whitespace-nowrap",
             cell: (r) => r.no_pemakaian,
@@ -132,6 +145,7 @@ export default async function MaterialIssuesPage({
           {
             key: "tanggal",
             header: "Tanggal",
+            sort: "tanggal",
             role: "title",
             className: "whitespace-nowrap",
             cell: (r) => formatTanggal(r.tanggal),
@@ -139,6 +153,7 @@ export default async function MaterialIssuesPage({
           {
             key: "tujuan",
             header: "Tujuan",
+            sort: "tujuan",
             role: "badge",
             cell: (r) => <TujuanBadge tujuan={r.tujuan} />,
           },
@@ -153,6 +168,7 @@ export default async function MaterialIssuesPage({
           {
             key: "biaya",
             header: "Nilai Bahan",
+            sort: "biaya",
             role: "primary",
             align: "right",
             className: "whitespace-nowrap font-medium",

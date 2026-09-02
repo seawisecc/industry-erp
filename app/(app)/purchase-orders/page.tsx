@@ -14,6 +14,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type POStatus =
@@ -56,6 +57,13 @@ function formatTanggal(iso: string) {
   });
 }
 
+const SORT: Record<string, string> = {
+  no: "no_po",
+  tanggal: "tanggal_po",
+  top: "top_days",
+  status: "status",
+};
+
 export default async function PurchaseOrdersPage({
   searchParams,
 }: {
@@ -67,6 +75,8 @@ export default async function PurchaseOrdersPage({
     isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "created_at", ascending: false });
 
   // Nama supplier ada di tabel lain, cari id-nya dulu supaya PO tetap
   // bisa dicari lewat nama supplier, bukan cuma no. PO.
@@ -96,7 +106,7 @@ export default async function PurchaseOrdersPage({
   if (sp.filter("status")) query = query.eq("status", sp.filter("status"));
 
   const { data: pos, count } = await query
-    .order("created_at", { ascending: false })
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (pos || []) as unknown as PORow[];
@@ -172,6 +182,7 @@ export default async function PurchaseOrdersPage({
           {
             key: "no",
             header: "No. PO",
+            sort: "no",
             role: "subtitle",
             cell: (po) => (
               <span className="font-mono text-[12.5px]">{po.no_po || "-"}</span>
@@ -180,6 +191,7 @@ export default async function PurchaseOrdersPage({
           {
             key: "tanggal",
             header: "Tanggal",
+            sort: "tanggal",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (po) => formatTanggal(po.tanggal_po),
@@ -214,6 +226,7 @@ export default async function PurchaseOrdersPage({
           {
             key: "top",
             header: "TOP",
+            sort: "top",
             cardLabel: "Termin (TOP)",
             role: "secondary",
             className: "whitespace-nowrap text-[12.5px]",
@@ -227,6 +240,7 @@ export default async function PurchaseOrdersPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (po) => (
               <span

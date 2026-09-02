@@ -722,6 +722,69 @@ sudutnya ditulis sebagai CSS biasa (bukan `@utility`) supaya tidak
 bergantung urutan emit Tailwind: aturan tanpa layer selalu menang atas
 utility ber-layer.
 
+## Urutan tabel: lewat URL, bukan state komponen
+
+`Column.sort` diisi = judul kolomnya jadi tombol urut
+(`components/SortHeader.tsx`), dan nilainya yang masuk ke `?sort=` di URL.
+Halaman yang memakainya WAJIB ikut menerapkan urutannya. **Tombol yang
+tidak mengubah apa pun lebih buruk daripada tidak ada tombol.**
+
+| Bentuk tabel | Cara menerapkan |
+| --- | --- |
+| paginasi di server (`.range()`) | `orderFor(sp, SORT, bawaan)` lalu `.order(...)` |
+| datanya sudah utuh di memori | `urutkanBaris(rows, sp, accessors, bawaan)` |
+
+**Kenapa URL dan bukan `useState`:** dua puluh empat tabel daftar di sini
+paginasi di SERVER. Mengurutkan di browser cuma membalik 50 baris yang
+sedang tampil, dan hasilnya kelihatan benar padahal isinya "halaman 3
+urutan lama, lalu diurutkan". Lewat URL, halamannya bisa meneruskan
+urutan itu ke `.order()` di database. Bonusnya sama dengan alasan
+Pagination menyimpan nomor halaman di URL: bisa di-refresh, di-share,
+dan tombol Kembali browser bekerja. DataTable pun tetap server component,
+yang butuh JS cuma tombol kecil di judul kolom.
+
+**Kunci urut datang dari URL, jadi TIDAK PERNAH boleh langsung dipakai
+sebagai nama kolom.** Peta `SORT` di tiap halaman adalah daftar putihnya;
+kunci yang tidak ada di situ diabaikan dan tabelnya jatuh ke urutan
+bawaan. Peta yang sama juga yang dipasang di `sort` tiap kolom, jadi
+tombol yang muncul di layar dan urutan yang benar-benar dijalankan
+berasal dari satu sumber.
+
+**Tiga keadaan, sengaja bukan dua:** klik pertama naik, kedua turun,
+ketiga KEMBALI ke urutan bawaan. Urutan bawaan di sini bermakna (dokumen
+terbaru di atas, faktur yang belum lunas dulu), jadi harus ada jalan
+pulang. Menyortir juga selalu mengembalikan ke halaman 1: tetap di
+halaman 7 sesudah urutannya berubah hampir selalu bukan yang dimaui.
+
+**Baris tanpa nilai selalu di bawah, arah urut apa pun.** Kalau ikut
+dibalik, menyortir turun menaruh baris kosong di paling atas dan yang
+dicari orang justru terdorong keluar layar. Berlaku di dua sisi:
+`urutkanBaris` menanganinya sendiri, sisi server memakai
+`nullsFirst: false`.
+
+**Kolom yang nilainya dihitung di TypeScript tidak dapat tombol urut.**
+"Harga Terakhir" dan "Stok Sisa" di Stock Items, "Total" di PO, "Sisa
+Bayar" di Payments: angkanya lahir dari query kedua yang cuma mengambil
+baris halaman ini. Mengurutkannya berarti mengurutkan satu halaman saja,
+persis kesalahan yang dihindari di atas. Kolom relasi (`suppliers(nama)`,
+`clients(company_brand)`) juga belum, karena urutannya harus dikerjakan
+PostgREST lewat embed dan itu perlu diuji tersendiri.
+
+**Tabel di halaman detail & form tidak dapat tombol urut sama sekali**
+(penimbangan produksi, baris formula, lembar hitung opname). Urutannya di
+situ bermakna dan harus sama dengan urutan yang dipakai di tempat lain,
+alasan yang sama dengan `groupBy` yang tidak pernah mengurutkan ulang.
+
+**Di HP tabelnya jadi kartu dan tidak punya baris judul**, jadi
+`SortSelect` merender pilihan urut sebagai `<select>` di atas kartu.
+Tanpa itu sortir cuma bisa dipakai orang yang memegang laptop, padahal
+isian data di pabrik justru dilakukan sambil memegang barang.
+
+Halaman dengan DUA tabel (QC Incoming, QA Release, QC Finished,
+Production) hanya memberi tombol urut pada tabel PERTAMA, yaitu yang
+paginasi. Satu `?sort=` untuk dua tabel akan membuat satu klik mengurutkan
+daftar yang salah.
+
 ## Aksi baris: ikon, bukan teks
 
 `components/RowActions.tsx`. `label` wajib: dipakai sekaligus sebagai

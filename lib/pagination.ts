@@ -21,6 +21,8 @@ function one(v: string | string[] | undefined): string {
   return (Array.isArray(v) ? v[0] : v) ?? "";
 }
 
+export type SortDir = "asc" | "desc";
+
 export type ListQuery = {
   page: number;
   q: string;
@@ -28,6 +30,9 @@ export type ListQuery = {
   filter: (name: string) => string;
   from: number;
   to: number;
+  /** kunci urut dari `?sort=`, "" kalau memakai urutan bawaan */
+  sort: string;
+  dir: SortDir;
 };
 
 export function parseListQuery(
@@ -42,7 +47,72 @@ export function parseListQuery(
     filter: (name) => one(sp[name]).trim(),
     from,
     to: from + pageSize - 1,
+    sort: one(sp.sort).trim(),
+    dir: one(sp.dir) === "desc" ? "desc" : "asc",
   };
+}
+
+/* ============================================================
+   Urutan tabel
+
+   Kunci urutnya datang dari URL, jadi TIDAK PERNAH boleh langsung
+   dipakai sebagai nama kolom di .order(). Peta `map` di tiap halaman
+   yang menjadi daftar putihnya: kunci yang tidak ada di situ diabaikan
+   dan tabelnya jatuh ke urutan bawaan.
+
+   Peta yang sama juga yang dipasang di `sort` tiap kolom DataTable,
+   jadi tombol yang muncul di layar dan urutan yang benar-benar
+   dijalankan berasal dari satu sumber.
+   ============================================================ */
+
+export type OrderBy = { column: string; ascending: boolean };
+
+/** Untuk tabel yang paginasi di server: hasilnya diteruskan ke .order(). */
+export function orderFor(
+  sp: ListQuery,
+  map: Record<string, string>,
+  fallback: OrderBy
+): OrderBy {
+  const column = map[sp.sort];
+  if (!column) return fallback;
+  return { column, ascending: sp.dir !== "desc" };
+}
+
+type NilaiUrut = string | number | null | undefined;
+
+/**
+ * Untuk tabel yang datanya sudah utuh di memori (Finished Goods,
+ * laporan, lembar detail). `accessors` berperan sama dengan `map` di
+ * atas: daftar putih sekaligus cara membaca nilainya.
+ *
+ * Mengembalikan array BARU, tidak mengurutkan di tempat: `rows` sering
+ * berasal dari hasil query yang dipakai lagi untuk menghitung total.
+ */
+export function urutkanBaris<T>(
+  rows: T[],
+  sp: ListQuery,
+  accessors: Record<string, (row: T) => NilaiUrut>,
+  bawaan?: (a: T, b: T) => number
+): T[] {
+  const ambil = accessors[sp.sort];
+  if (!ambil) return bawaan ? [...rows].sort(bawaan) : rows;
+
+  const arah = sp.dir === "desc" ? -1 : 1;
+  return [...rows].sort((a, b) => {
+    const x = ambil(a);
+    const y = ambil(b);
+    // Baris tanpa nilai selalu di bawah, arah urut apa pun. Kalau ikut
+    // dibalik, menyortir turun menaruh baris kosong di paling atas dan
+    // yang dicari orang justru terdorong keluar layar.
+    const kosongX = x === null || x === undefined || x === "";
+    const kosongY = y === null || y === undefined || y === "";
+    if (kosongX || kosongY) return kosongX && kosongY ? 0 : kosongX ? 1 : -1;
+
+    if (typeof x === "number" && typeof y === "number") return (x - y) * arah;
+    return (
+      String(x).localeCompare(String(y), "id", { numeric: true }) * arah
+    );
+  });
 }
 
 /**

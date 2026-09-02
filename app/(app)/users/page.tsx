@@ -13,6 +13,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type UserRow = {
@@ -26,6 +27,12 @@ type UserRow = {
   allowed_modules: string[] | null;
 };
 
+const SORT: Record<string, string> = {
+  nama: "nama",
+  role: "role",
+  status: "aktif",
+};
+
 export default async function UsersPage({
   searchParams,
 }: {
@@ -35,6 +42,8 @@ export default async function UsersPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "nama", ascending: true });
 
   let query = supabase
     .from("profiles")
@@ -50,7 +59,7 @@ export default async function UsersPage({
     query = query.eq("aktif", sp.filter("status") === "Aktif");
 
   const { data: users, count } = await query
-    .order("nama")
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (users || []) as UserRow[];
@@ -99,6 +108,7 @@ export default async function UsersPage({
           {
             key: "nama",
             header: "Nama",
+            sort: "nama",
             role: "title",
             cell: (u) => (
               <>
@@ -130,6 +140,7 @@ export default async function UsersPage({
           {
             key: "role",
             header: "Role",
+            sort: "role",
             role: "primary",
             cell: (u) => (
               <>
@@ -158,6 +169,7 @@ export default async function UsersPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (u) => (
               <span

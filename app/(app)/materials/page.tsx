@@ -12,6 +12,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 
 type MaterialRow = {
@@ -34,6 +35,14 @@ function inciTeks(m: MaterialRow) {
     : "-";
 }
 
+const SORT: Record<string, string> = {
+  kode: "material_code",
+  tradename: "tradename",
+  kategori: "kategori",
+  origin: "origin",
+  noc: "noc",
+};
+
 export default async function MaterialsPage({
   searchParams,
 }: {
@@ -43,6 +52,8 @@ export default async function MaterialsPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "material_code", ascending: true });
 
   let query = supabase
     .from("materials")
@@ -60,7 +71,7 @@ export default async function MaterialsPage({
     query = query.eq("kategori", sp.filter("kategori"));
 
   const { data: materials, count } = await query
-    .order("material_code")
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (materials || []) as unknown as MaterialRow[];
@@ -113,6 +124,7 @@ export default async function MaterialsPage({
           {
             key: "kode",
             header: "Kode",
+            sort: "kode",
             role: "subtitle",
             cell: (m) => (
               <span className="font-mono text-[12.5px] font-medium whitespace-nowrap">
@@ -123,6 +135,7 @@ export default async function MaterialsPage({
           {
             key: "tradename",
             header: "Tradename",
+            sort: "tradename",
             role: "title",
             cell: (m) => (
               <div className="max-w-[200px] truncate font-medium" title={m.tradename}>
@@ -134,6 +147,7 @@ export default async function MaterialsPage({
           {
             key: "kategori",
             header: "Kategori",
+            sort: "kategori",
             role: "badge",
             cell: (m) => (
               <span
@@ -180,6 +194,7 @@ export default async function MaterialsPage({
           {
             key: "origin",
             header: "Origin",
+            sort: "origin",
             role: "secondary",
             className: "whitespace-nowrap",
             cell: (m) => m.origin || "-",
@@ -187,6 +202,7 @@ export default async function MaterialsPage({
           {
             key: "noc",
             header: "NOC",
+            sort: "noc",
             role: "secondary",
             className: "whitespace-nowrap",
             cell: (m) => m.noc || "-",

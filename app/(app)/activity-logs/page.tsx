@@ -9,6 +9,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import {
   AKSI_TONE,
@@ -71,6 +72,14 @@ function DaftarPerubahan({ perubahan }: { perubahan: Perubahan | null }) {
   );
 }
 
+const SORT: Record<string, string> = {
+  waktu: "created_at",
+  aksi: "aksi",
+  modul: "modul",
+  user: "user_nama",
+  dokumen: "dokumen_no",
+};
+
 export default async function ActivityLogsPage({
   searchParams,
 }: {
@@ -80,6 +89,8 @@ export default async function ActivityLogsPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "created_at", ascending: false });
 
   let query = supabase
     .from("activity_logs")
@@ -105,8 +116,11 @@ export default async function ActivityLogsPage({
   }
 
   const { data: logs, count } = await query
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false }) // tiebreaker: satu transaksi = created_at sama
+    .order(ord.column, { ascending: ord.ascending })
+    // Penyeimbang: satu transaksi menghasilkan beberapa baris dengan
+    // created_at yang sama persis, jadi tanpa ini urutannya bisa
+    // berpindah-pindah antar muat ulang.
+    .order("id", { ascending: false })
     .range(sp.from, sp.to);
 
   const list = (logs || []) as unknown as LogRow[];
@@ -173,6 +187,7 @@ export default async function ActivityLogsPage({
           {
             key: "waktu",
             header: "Waktu",
+            sort: "waktu",
             role: "subtitle",
             className: "whitespace-nowrap text-[12.5px]",
             cell: (r) => formatWaktu(r.created_at),
@@ -191,6 +206,7 @@ export default async function ActivityLogsPage({
           {
             key: "aksi",
             header: "Aksi",
+            sort: "aksi",
             role: "badge",
             cell: (r) => (
               <span
@@ -205,6 +221,7 @@ export default async function ActivityLogsPage({
           {
             key: "modul",
             header: "Modul",
+            sort: "modul",
             role: "primary",
             className: "whitespace-nowrap text-[12.5px]",
             cell: (r) => labelModul(r.modul),
@@ -212,6 +229,7 @@ export default async function ActivityLogsPage({
           {
             key: "user",
             header: "Oleh",
+            sort: "user",
             role: "primary",
             cell: (r) => (
               <div className="max-w-[160px] truncate" title={r.user_email ?? ""}>
@@ -223,6 +241,7 @@ export default async function ActivityLogsPage({
           {
             key: "dokumen",
             header: "Dokumen",
+            sort: "dokumen",
             role: "secondary",
             className: "font-mono text-[11.5px] whitespace-nowrap",
             cell: (r) => r.dokumen_no || "-",

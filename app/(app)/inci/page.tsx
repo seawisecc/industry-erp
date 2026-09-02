@@ -13,7 +13,16 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
+
+const SORT: Record<string, string> = {
+  inci: "inci_name",
+  cas: "cas_number",
+  noael: "noael",
+  function: "function",
+  reference: "reference",
+};
 
 export default async function InciPage({
   searchParams,
@@ -25,6 +34,8 @@ export default async function InciPage({
 
   const sp = parseListQuery(await searchParams);
 
+  const ord = orderFor(sp, SORT, { column: "inci_name", ascending: true });
+
   let query = supabase
     .from("inci_master")
     .select("*", { count: "exact" })
@@ -34,7 +45,7 @@ export default async function InciPage({
     query = query.or(ilikeOr(["inci_name", "cas_number", "function"], sp.q));
 
   const { data: inciList, count } = await query
-    .order("inci_name")
+    .order(ord.column, { ascending: ord.ascending })
     .range(sp.from, sp.to);
 
   const list = (inciList || []) as InciMaster[];
@@ -75,6 +86,7 @@ export default async function InciPage({
           {
             key: "inci",
             header: "INCI Name",
+            sort: "inci",
             role: "title",
             cell: (i) => <span className="font-medium">{i.inci_name}</span>,
             cardCell: (i) => i.inci_name,
@@ -82,24 +94,28 @@ export default async function InciPage({
           {
             key: "cas",
             header: "CAS Number",
+            sort: "cas",
             role: "primary",
             cell: (i) => i.cas_number || "-",
           },
           {
             key: "noael",
             header: "NOAEL",
+            sort: "noael",
             role: "primary",
             cell: (i) => i.noael || "-",
           },
           {
             key: "function",
             header: "Function",
+            sort: "function",
             role: "secondary",
             cell: (i) => i.function || "-",
           },
           {
             key: "reference",
             header: "Reference",
+            sort: "reference",
             role: "secondary",
             headClassName: "w-[220px]",
             cell: (i) =>

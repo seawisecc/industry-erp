@@ -11,6 +11,7 @@ import {
   pageInfo,
   parseListQuery,
   type SearchParams,
+  orderFor,
 } from "@/lib/pagination";
 import { localDateStr } from "@/lib/dates";
 import { sisaHutang } from "@/lib/purchaseReturn";
@@ -41,6 +42,17 @@ function formatTanggal(iso: string) {
   });
 }
 
+const SORT: Record<string, string> = {
+  no: "no_invoice",
+  supplier: "supplier_nama",
+  tgl: "tanggal_terima",
+  top: "top_days",
+  tempo: "jatuh_tempo",
+  total: "total_invoice",
+  retur: "total_retur",
+  status: "status_bayar",
+};
+
 export default async function PaymentsPage({
   searchParams,
 }: {
@@ -50,6 +62,8 @@ export default async function PaymentsPage({
   const { organizationId } = await getEffectiveOrg();
 
   const sp = parseListQuery(await searchParams);
+
+  const ord = orderFor(sp, SORT, { column: "status_bayar", ascending: true });
   const todayStr = localDateStr();
 
   // No. PO ada di tabel purchase_orders, cari id-nya dulu supaya
@@ -84,7 +98,9 @@ export default async function PaymentsPage({
   // database, kalau tetap di JS, urutannya cuma benar dalam satu halaman.
   // "Belum Lunas" < "Lunas" secara alfabet, jadi ascending sudah tepat.
   const { data: invoices, count } = await query
-    .order("status_bayar", { ascending: true })
+    .order(ord.column, { ascending: ord.ascending, nullsFirst: false })
+    // Penyeimbang urutan bawaan: yang belum lunas dulu, lalu jatuh tempo
+    // terdekat. Tidak mengganggu waktu kolom lain yang disortir.
     .order("jatuh_tempo", { ascending: true, nullsFirst: false })
     .range(sp.from, sp.to);
 
@@ -214,6 +230,7 @@ export default async function PaymentsPage({
           {
             key: "no",
             header: "No. Faktur",
+            sort: "no",
             role: "subtitle",
             className: "whitespace-nowrap",
             cell: (inv) => (
@@ -223,6 +240,7 @@ export default async function PaymentsPage({
           {
             key: "supplier",
             header: "Supplier",
+            sort: "supplier",
             role: "title",
             cell: (inv) => (
               <div
@@ -249,6 +267,7 @@ export default async function PaymentsPage({
           {
             key: "tgl",
             header: "Tgl Faktur",
+            sort: "tgl",
             role: "secondary",
             className: "whitespace-nowrap",
             cell: (inv) => formatTanggal(inv.tanggal_terima),
@@ -256,6 +275,7 @@ export default async function PaymentsPage({
           {
             key: "top",
             header: "TOP",
+            sort: "top",
             cardLabel: "Termin (TOP)",
             role: "secondary",
             className: "whitespace-nowrap text-[12.5px]",
@@ -269,6 +289,7 @@ export default async function PaymentsPage({
           {
             key: "tempo",
             header: "Jatuh Tempo",
+            sort: "tempo",
             role: "primary",
             className: "whitespace-nowrap",
             cell: (inv) =>
@@ -292,6 +313,7 @@ export default async function PaymentsPage({
           {
             key: "total",
             header: "Total",
+            sort: "total",
             role: "primary",
             align: "right",
             className: "whitespace-nowrap",
@@ -300,6 +322,7 @@ export default async function PaymentsPage({
           {
             key: "retur",
             header: "Retur",
+            sort: "retur",
             role: "secondary",
             align: "right",
             className: "whitespace-nowrap",
@@ -326,6 +349,7 @@ export default async function PaymentsPage({
           {
             key: "status",
             header: "Status",
+            sort: "status",
             role: "badge",
             cell: (inv) => {
               const paid = inv.status_bayar === "Lunas";
