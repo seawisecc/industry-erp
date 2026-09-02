@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { reportConsignmentSale, closeConsignment } from "../actions";
-import { computeTotals } from "@/lib/invoiceMath";
+import { computeTotals, type TaxSettings } from "@/lib/invoiceMath";
 import { diskonTertimbang } from "@/lib/clientPrice";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import NumberInput from "@/components/NumberInput";
+import InvoiceTotals from "@/components/InvoiceTotals";
 
 export type ConsItem = {
   id: string;
@@ -42,10 +43,13 @@ export default function ReportSaleForm({
   consignmentId,
   items,
   aktif,
+  taxSettings,
 }: {
   consignmentId: string;
   items: ConsItem[];
   aktif: boolean;
+  /** Model pajak perusahaan. RPC-nya membaca sendiri dari database. */
+  taxSettings: TaxSettings;
 }) {
   const router = useRouter();
   const konfirmasi = useConfirmSave();
@@ -59,7 +63,6 @@ export default function ReportSaleForm({
    */
   const [diskonManual, setDiskonManual] = useState(false);
   const [pakaiTax, setPakaiTax] = useState(false);
-  const [taxPercent, setTaxPercent] = useState("11");
   const [top, setTop] = useState("14");
   const [loading, setLoading] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -87,7 +90,9 @@ export default function ReportSaleForm({
     calcItems,
     parseNum(diskonDipakai),
     pakaiTax,
-    parseNum(taxPercent)
+    taxSettings.taxPercent,
+    taxSettings.taxMode,
+    taxSettings.dppNilaiLain
   );
   const adaLaku = calcItems.length > 0;
 
@@ -109,6 +114,18 @@ export default function ReportSaleForm({
                 })}% · ${formatRupiah(totals.diskon)}`
               : "tanpa diskon",
         },
+        ...(pakaiTax
+          ? [
+              {
+                label: "PPN",
+                nilai: `${formatRupiah(totals.tax)} · ${
+                  taxSettings.taxMode === "Include"
+                    ? "sudah termasuk di harga"
+                    : "ditambahkan ke tagihan"
+                }`,
+              },
+            ]
+          : []),
         { label: "Total Tagihan", nilai: formatRupiah(totals.total) },
       ],
       tombol: "Ya, Terbitkan Proforma",
@@ -127,7 +144,7 @@ export default function ReportSaleForm({
           })),
         diskon_percent: parseNum(diskonDipakai),
         pakai_tax: pakaiTax,
-        tax_percent: parseNum(taxPercent),
+        tax_percent: taxSettings.taxPercent,
         top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
       });
       if (result.ok && result.invoiceId) {
@@ -318,83 +335,53 @@ export default function ReportSaleForm({
           onSubmit={handleSubmit}
           className="glass rounded-2xl p-6 flex flex-col gap-3 sm:max-w-md sm:ml-auto sm:w-full"
         >
-          <h3 className="font-display text-[14.5px] font-semibold text-ink">
-            Generate Proforma Invoice
-          </h3>
-          <div className="flex justify-between text-[13.5px]">
-            <span className="text-muted">Sub-Total</span>
-            <span>{formatRupiah(totals.subtotal)}</span>
-          </div>
-          <div className="flex justify-between items-center text-[13.5px]">
-            <span className="text-muted flex items-center gap-1.5">
-              Discount
-              <NumberInput
-                aria-label="Diskon persen"
-                value={diskonDipakai}
-                onChange={(nilai) => {
-                  setDiskonManual(true);
-                  setDiskon(nilai);
-                }}
-                className="w-16 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
-              />
-              %
-            </span>
-            <span className="text-clay-600">
-              {totals.diskon > 0 ? `− ${formatRupiah(totals.diskon)}` : formatRupiah(0)}
-            </span>
-          </div>
-          {adaDiskonKhusus && !diskonManual && (
-            <p className="text-botanical-700 text-[11.5px] -mt-2">
-              Terisi otomatis dari diskon khusus outlet ini. Tetap bisa diubah.
-            </p>
-          )}
-          {adaDiskonKhusus && diskonManual && (
-            <p className="text-[11.5px] text-muted -mt-2">
-              Diikat manual.{" "}
-              <button
-                type="button"
-                onClick={() => setDiskonManual(false)}
-                className="text-botanical-700 font-medium hover:underline"
-              >
-                Pakai diskon khusus lagi
-              </button>
-            </p>
-          )}
-          <div className="flex justify-between items-center text-[13.5px]">
-            <label className="text-muted flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={pakaiTax}
-                onChange={(e) => setPakaiTax(e.target.checked)}
-                className="accent-[#2f4f3e]"
-              />
-              Tax
-              <NumberInput
-                value={taxPercent}
-                onChange={(nilai) => setTaxPercent(nilai)}
-                disabled={!pakaiTax}
-                className="w-12 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700 disabled:opacity-40"
-              />
-              %
-            </label>
-            <span>{pakaiTax ? formatRupiah(totals.tax) : "-"}</span>
-          </div>
-          <div className="flex justify-between items-center text-[13.5px]">
-            <span className="text-muted flex items-center gap-1.5">
-              TOP
-              <NumberInput
-                bulat
-                value={top}
-                onChange={(nilai) => setTop(nilai)}
-                className="w-14 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
-              />
-              hari
-            </span>
-          </div>
-          <div className="flex justify-between font-semibold text-[15px] border-t border-line pt-2">
-            <span>TOTAL</span>
-            <span>{formatRupiah(totals.total)}</span>
-          </div>
+          <InvoiceTotals
+            judul="Generate Proforma Invoice"
+            totals={totals}
+            taxSettings={taxSettings}
+            diskon={diskonDipakai}
+            onDiskonChange={(nilai) => {
+              setDiskonManual(true);
+              setDiskon(nilai);
+            }}
+            pakaiTax={pakaiTax}
+            onPakaiTaxChange={setPakaiTax}
+            diskonHint={
+              adaDiskonKhusus ? (
+                !diskonManual ? (
+                  <p className="text-botanical-700 text-[11.5px] -mt-1">
+                    Terisi otomatis dari diskon khusus outlet ini. Tetap bisa
+                    diubah.
+                  </p>
+                ) : (
+                  <p className="text-[11.5px] text-muted -mt-1">
+                    Diikat manual.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setDiskonManual(false)}
+                      className="text-botanical-700 font-medium hover:underline"
+                    >
+                      Pakai diskon khusus lagi
+                    </button>
+                  </p>
+                )
+              ) : null
+            }
+            extraRows={
+              <div className="flex justify-between items-center text-[13.5px]">
+                <span className="text-muted flex items-center gap-1.5">
+                  TOP
+                  <NumberInput
+                    bulat
+                    value={top}
+                    onChange={(nilai) => setTop(nilai)}
+                    className="w-14 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                  />
+                  hari
+                </span>
+              </div>
+            }
+          />
 
           {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}
 

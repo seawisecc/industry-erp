@@ -13,8 +13,13 @@
 
    Apa yang TIDAK dijanjikan: ini bukan tanda tangan elektronik
    tersertifikasi. Tidak ada PSrE, tidak ada sertifikat, tidak ada
-   kunci privat milik perorangan. Kalimat "Non-Certified" wajib ikut
-   tercetak di dokumennya, pengesahan yang mengaku lebih dari
+   kunci privat milik perorangan.
+
+   Keterangan itu ada di halaman verifikasi (app/verify/[jenis]/[id]),
+   BUKAN di badan dokumen cetaknya. Di situlah orang berhenti membaca
+   waktu memeriksa keaslian, dan di situ pula kalimatnya tidak ikut
+   terbaca sebagai keraguan penerbit atas fakturnya sendiri. Jangan
+   dihapus dari halaman verifikasi: pengesahan yang mengaku lebih dari
    kemampuannya lebih berbahaya daripada tidak ada pengesahan.
 
    Siapa pengesah tiap dokumen TIDAK ada di sini, melainkan di

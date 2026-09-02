@@ -1,14 +1,16 @@
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { getSalesOptions } from "@/lib/salesOptions";
+import { getTaxSettings } from "@/lib/taxServer";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import InvoiceForm from "../InvoiceForm";
 
 export default async function NewInvoicePage() {
   const { organizationId } = await getEffectiveOrg();
-  const { clients, options, clientPrices } = await getSalesOptions(organizationId!, {
-    includeServices: true,
-  });
+  const [{ clients, options, clientPrices }, taxSettings] = await Promise.all([
+    getSalesOptions(organizationId!, { includeServices: true }),
+    getTaxSettings(organizationId!),
+  ]);
 
   return (
     <div className="max-w-5xl">
@@ -32,6 +34,7 @@ export default async function NewInvoicePage() {
         options={options}
         clientPrices={clientPrices}
         mode="invoice"
+        taxSettings={taxSettings}
       />
     </div>
   );

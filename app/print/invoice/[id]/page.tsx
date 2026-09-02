@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
 import type { SignSlot } from "@/lib/docSign";
 import { getDocSignConfig } from "@/lib/docSignServer";
+import { hitungTotalDokumen, parseTaxMode } from "@/lib/invoiceMath";
 import PrintButton from "../../po/[id]/PrintButton";
 import QrSignBlock from "../../QrSignBlock";
 
@@ -15,6 +16,10 @@ type InvPrint = {
   diskon_percent: number;
   pakai_tax: boolean;
   tax_percent: number;
+  /** Model pajak yang dibekukan saat dokumen terbit. */
+  tax_mode: string | null;
+  /** Aturan DPP yang dibekukan saat dokumen terbit. */
+  tax_dpp_nilai_lain: boolean | null;
   subtotal: number;
   total: number;
   catatan: string | null;
@@ -64,7 +69,7 @@ export default async function PrintInvoicePage({
     supabase
       .from("sales_invoices")
       .select(
-        `id, no_invoice, tipe, tanggal, jatuh_tempo, diskon_percent, pakai_tax, tax_percent,
+        `id, no_invoice, tipe, tanggal, jatuh_tempo, diskon_percent, pakai_tax, tax_percent, tax_mode, tax_dpp_nilai_lain,
          subtotal, total, catatan, nama_pembeli,
          clients(company_brand, cp, phone, npwp, alamat),
          sales_invoice_items(qty, harga, subtotal, varian_ukuran, products(nama_produk), services(nama_jasa))`
@@ -92,9 +97,19 @@ export default async function PrintInvoicePage({
   const dibayar = (pays || []).reduce((s, p) => s + Number(p.jumlah), 0);
   const sisaTagihan = Number(inv.total) - dibayar;
 
-  const diskonNilai = (Number(inv.subtotal) * Number(inv.diskon_percent)) / 100;
-  const dpp = Number(inv.subtotal) - diskonNilai;
-  const taxNilai = inv.pakai_tax ? (dpp * Number(inv.tax_percent)) / 100 : 0;
+  // Rincian pajak dihitung ulang dari kolom yang tersimpan, dengan model
+  // yang dibekukan di dokumen ini. Bukan dari pengaturan perusahaan yang
+  // berlaku sekarang: dokumen yang sudah terbit tidak boleh berubah
+  // angkanya cuma karena setelan diganti bulan depan.
+  const taxMode = parseTaxMode(inv.tax_mode);
+  const rincian = hitungTotalDokumen(
+    Number(inv.subtotal),
+    Number(inv.diskon_percent),
+    inv.pakai_tax,
+    Number(inv.tax_percent),
+    taxMode,
+    inv.tax_dpp_nilai_lain !== false
+  );
 
   const billTo = inv.clients?.company_brand || inv.nama_pembeli || "-";
 
@@ -261,24 +276,65 @@ export default async function PrintInvoicePage({
               {settings?.email && <div>Email: {settings.email}</div>}
             </div>
             <div className="text-[12px]">
+              {/* Urutan barisnya mengikuti faktur yang dipakai di
+                  lapangan: potongan dulu, nilai bersihnya, lalu tiga
+                  baris pajak. Tarifnya sengaja TIDAK dicetak di sebelah
+                  labelnya: tarif PPN adalah 12% dan yang membuatnya
+                  terbaca 11% cuma DPP Nilai Lain, jadi menulis "PPN
+                  (11%)" salah sebagai keterangan resmi. */}
               <div className="flex justify-between py-1 px-2">
                 <span className="tracking-[0.15em] text-neutral-600">
-                  DISCOUNT{Number(inv.diskon_percent) > 0 ? ` (${Number(inv.diskon_percent)}%)` : ""} :
+                  D I S C O U N T :
                 </span>
-                <span>Rp {formatNum(diskonNilai)}</span>
+                <span>Rp {formatNum(rincian.diskon)}</span>
               </div>
               <div className="flex justify-between py-1 px-2">
                 <span className="tracking-[0.15em] text-neutral-600">
-                  TAX{inv.pakai_tax ? ` (${Number(inv.tax_percent)}%)` : ""} :
+                  SUB TOTAL
                 </span>
-                <span>{inv.pakai_tax ? `Rp ${formatNum(taxNilai)}` : ""}</span>
+                <span>Rp {formatNum(rincian.netto)}</span>
               </div>
+              {inv.pakai_tax && (
+                <>
+                  {/* Pada Exclude angka ini sama dengan SUB TOTAL, jadi
+                      cuma mengulang baris di atasnya. */}
+                  {taxMode === "Include" && (
+                    <div className="flex justify-between py-1 px-2">
+                      <span className="tracking-[0.15em] text-neutral-600">
+                        SUB TOTAL EXC TAX
+                      </span>
+                      <span>Rp {formatNum(rincian.exTax)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-1 px-2">
+                    <span className="tracking-[0.15em] text-neutral-600">
+                      DPP :
+                    </span>
+                    <span>Rp {formatNum(rincian.dpp)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 px-2">
+                    <span className="tracking-[0.15em] text-neutral-600">
+                      PPN :
+                    </span>
+                    <span>Rp {formatNum(rincian.tax)}</span>
+                  </div>
+                </>
+              )}
               <div className="bg-botanical-100/60 border-y border-neutral-400 flex justify-between items-center px-2 py-2 mt-2 font-bold tracking-[0.15em]">
                 <span>T O T A L :</span>
                 <span className="tracking-normal">
                   Rp {formatNum(Number(inv.total))}
                 </span>
               </div>
+              {/* Pembeli harus tahu pajaknya sudah di dalam harga atau
+                  ditambahkan; itu yang menentukan apa yang dia bayar. */}
+              {inv.pakai_tax && (
+                <div className="text-[10px] text-neutral-600 px-2 pt-1 leading-snug">
+                  {taxMode === "Include"
+                    ? "Harga sudah termasuk PPN."
+                    : "PPN ditambahkan di atas nilai setelah diskon."}
+                </div>
+              )}
               {dibayar > 0 && sisaTagihan > 0.5 && (
                 <>
                   <div className="flex justify-between py-1 px-2 mt-1">

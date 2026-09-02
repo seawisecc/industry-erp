@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import { toResult, type ActionResult } from "@/lib/actionResult";
+import { type TaxMode } from "@/lib/invoiceMath";
 
 export async function updateAccount(data: {
   company_nama: string;
@@ -59,6 +60,15 @@ export type SettingsInput = {
   sign_disetujui_jabatan: string | null;
   sign_mengetahui_nama: string | null;
   sign_mengetahui_jabatan: string | null;
+  /**
+   * Model perhitungan PPN. Exclude = harga produk belum termasuk pajak,
+   * Include = harga produk sudah final. Lihat lib/invoiceMath.ts.
+   */
+  tax_mode: TaxMode;
+  /** Tarif PPN menurut regulasi (12), bukan tarif efektif (11). */
+  tax_percent: number;
+  /** DPP dihitung 11/12 dari harga jual (PMK 131/2024). */
+  tax_dpp_nilai_lain: boolean;
 };
 
 export async function saveSettings(
@@ -78,14 +88,27 @@ async function saveSettingsImpl(data: SettingsInput) {
     throw new Error("Hanya Admin yang bisa mengubah pengaturan.");
   }
 
+  // tax_mode & tax_percent bukan teks, jadi dipisahkan sebelum kolom
+  // lainnya di-trim jadi null.
+  const { tax_mode, tax_percent, tax_dpp_nilai_lain, ...teks } = data;
+
   const clean = Object.fromEntries(
-    Object.entries(data).map(([k, v]) => [k, (v as string | null)?.trim() || null])
+    Object.entries(teks).map(([k, v]) => [k, (v as string | null)?.trim() || null])
   );
+
+  const mode: TaxMode = tax_mode === "Include" ? "Include" : "Exclude";
+  const persen = Number(tax_percent);
+  if (!Number.isFinite(persen) || persen < 0 || persen > 100) {
+    throw new Error("Tarif PPN harus angka antara 0 dan 100.");
+  }
 
   const { error } = await supabase.from("organization_settings").upsert(
     {
       organization_id: organizationId,
       ...clean,
+      tax_mode: mode,
+      tax_percent: persen,
+      tax_dpp_nilai_lain: tax_dpp_nilai_lain !== false,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "organization_id" }
@@ -93,5 +116,10 @@ async function saveSettingsImpl(data: SettingsInput) {
 
   if (error) throw new Error(error.message);
 
+  // Mode pajak ikut menentukan angka di form penjualan, jadi layar yang
+  // sudah ter-cache harus ikut segar.
   revalidatePath("/settings");
+  revalidatePath("/sales-invoices/new");
+  revalidatePath("/pos");
+  revalidatePath("/consignments");
 }

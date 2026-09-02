@@ -7,6 +7,7 @@ import { ShoppingBag, Undo2, X } from "lucide-react";
 import { reportOutletSale, returOutlet, type OutletLine } from "./actions";
 import NumberInput from "@/components/NumberInput";
 import { diskonTertimbang } from "@/lib/clientPrice";
+import { computeTotals, type TaxSettings } from "@/lib/invoiceMath";
 
 export type OutletProdItem = {
   product_id: string;
@@ -23,15 +24,23 @@ export type OutletProdItem = {
 function rupiah(n: number) {
   return "Rp " + Math.round(n).toLocaleString("id-ID");
 }
+/** Angka pajak boleh pecahan; membulatkannya di sini bikin DPP + PPN tidak
+ *  lagi persis sama dengan totalnya. */
+function rupiahTepat(n: number) {
+  return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
 
 export default function OutletActions({
   clientId,
   clientName,
   produk,
+  taxSettings,
 }: {
   clientId: string;
   clientName: string;
   produk: OutletProdItem[];
+  /** Model pajak perusahaan. RPC-nya membaca sendiri dari database. */
+  taxSettings: TaxSettings;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<null | "laku" | "retur">(null);
@@ -83,13 +92,20 @@ export default function OutletActions({
     }))
     .filter((b) => b.qty > 0);
 
-  const subtotalLaku = barisLaku.reduce((s, b) => s + b.qty * b.harga, 0);
   // Proforma menyimpan satu diskon per dokumen, jadi diskon per produk
   // dirangkum jadi persentase tertimbang. Rupiahnya sama persis dengan
   // menghitung baris per baris.
   const diskonPersenDok = diskonTertimbang(barisLaku);
-  const potonganLaku = (subtotalLaku * diskonPersenDok) / 100;
-  const totalLaku = subtotalLaku - potonganLaku;
+  // Dulu total di dialog ini dihitung tangan dan PPN-nya tidak ikut,
+  // jadi angka yang dilihat kasir berbeda dengan Proforma yang terbit.
+  const totals = computeTotals(
+    barisLaku.map((b) => ({ qty: b.qty, harga: b.harga })),
+    diskonPersenDok,
+    pakaiTax,
+    taxSettings.taxPercent,
+    taxSettings.taxMode,
+    taxSettings.dppNilaiLain
+  );
   const adaDiskonKhusus = produk.some((p) => p.diskon_persen > 0);
 
   async function submit() {
@@ -107,7 +123,7 @@ export default function OutletActions({
           ? await reportOutletSale(clientId, ls, {
               diskon_percent: diskonPersenDok,
               pakai_tax: pakaiTax,
-              tax_percent: 11,
+              tax_percent: taxSettings.taxPercent,
               top_days: top === "" ? null : Math.max(0, parseInt(top) || 0),
             })
           : await returOutlet(clientId, ls);
@@ -234,7 +250,7 @@ export default function OutletActions({
                     onChange={(e) => setPakaiTax(e.target.checked)}
                     className="accent-[#2f4f3e]"
                   />
-                  PPN 11%
+                  PPN
                 </label>
                 <label className="inline-flex items-center gap-2 text-[12.5px]">
                   Tempo (hari)
@@ -247,19 +263,30 @@ export default function OutletActions({
                   />
                 </label>
                 <div className="ml-auto text-right">
-                  {potonganLaku > 0 && (
+                  {totals.diskon > 0 && (
                     <div className="text-[11.5px] text-muted">
-                      Subtotal {rupiah(subtotalLaku)} · diskon{" "}
+                      Subtotal {rupiah(totals.subtotal)} · diskon{" "}
                       <span className="text-botanical-700">
                         {diskonPersenDok.toLocaleString("id-ID", {
                           maximumFractionDigits: 2,
                         })}
-                        % − {rupiah(potonganLaku)}
+                        % − {rupiah(totals.diskon)}
+                      </span>
+                    </div>
+                  )}
+                  {pakaiTax && (
+                    <div className="text-[11.5px] text-muted">
+                      DPP {rupiahTepat(totals.dpp)} · PPN{" "}
+                      {rupiahTepat(totals.tax)}
+                      <span className="text-muted/70">
+                        {taxSettings.taxMode === "Include"
+                          ? " (sudah di dalam harga)"
+                          : " (ditambahkan)"}
                       </span>
                     </div>
                   )}
                   <div className="text-[13px] font-semibold text-ink">
-                    Total: {rupiah(totalLaku)}
+                    Total: {rupiah(totals.total)}
                   </div>
                 </div>
               </div>

@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Trash2, CheckCircle2, Receipt, FileText } from "lucide-react";
 import { createInvoice } from "./actions";
-import { computeTotals } from "@/lib/invoiceMath";
+import { computeTotals, type TaxSettings } from "@/lib/invoiceMath";
 import ClientPicker from "@/components/ClientPicker";
 import ProductPicker from "@/components/ProductPicker";
 import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
+import InvoiceTotals from "@/components/InvoiceTotals";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -50,11 +51,19 @@ export default function InvoiceForm({
   options,
   clientPrices,
   mode,
+  taxSettings,
 }: {
   clients: ClientOpt[];
   options: ProductVariantOpt[];
   clientPrices: ClientPriceMap;
   mode: "invoice" | "pos";
+  /**
+   * Model pajak & tarif bawaan perusahaan. Cuma untuk tampilan: server
+   * action membacanya lagi sendiri dan menghitung ulang totalnya, jadi
+   * tab yang sudah lama terbuka tidak bisa menerbitkan dokumen dengan
+   * model pajak yang sudah tidak berlaku.
+   */
+  taxSettings: TaxSettings;
 }) {
   const router = useRouter();
   const konfirmasi = useConfirmSave();
@@ -67,7 +76,6 @@ export default function InvoiceForm({
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [diskon, setDiskon] = useState("0");
   const [pakaiTax, setPakaiTax] = useState(false);
-  const [taxPercent, setTaxPercent] = useState("11");
   const [top, setTop] = useState(isPos ? "0" : "");
   const [catatan, setCatatan] = useState("");
   const [rows, setRows] = useState<Row[]>([{ ...BARIS_KOSONG }]);
@@ -116,7 +124,14 @@ export default function InvoiceForm({
   const calcItems = rows
     .filter((r) => r.key)
     .map((r) => ({ qty: parseNum(r.qty), harga: parseNum(r.harga) }));
-  const totals = computeTotals(calcItems, parseNum(diskon), pakaiTax, parseNum(taxPercent));
+  const totals = computeTotals(
+    calcItems,
+    parseNum(diskon),
+    pakaiTax,
+    taxSettings.taxPercent,
+    taxSettings.taxMode,
+    taxSettings.dppNilaiLain
+  );
 
   function updateRow(idx: number, patch: Partial<Row>) {
     setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -139,6 +154,18 @@ export default function InvoiceForm({
         { label: "Pembeli", nilai: pembeli },
         { label: "Tanggal", nilai: tanggal },
         { label: "Item", nilai: rows.filter((r) => r.key).length + " baris" },
+        ...(pakaiTax
+          ? [
+              {
+                label: "PPN",
+                nilai: `${formatRupiah(totals.tax)} · ${
+                  taxSettings.taxMode === "Include"
+                    ? "sudah termasuk di harga"
+                    : "ditambahkan ke tagihan"
+                }`,
+              },
+            ]
+          : []),
         { label: "Total", nilai: formatRupiah(totals.total) },
       ],
       tombol: isPos ? "Ya, Selesaikan" : "Ya, Terbitkan",
@@ -156,7 +183,6 @@ export default function InvoiceForm({
         tanggal,
         diskon_percent: parseNum(diskon),
         pakai_tax: pakaiTax,
-        tax_percent: parseNum(taxPercent),
         top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
         catatan: catatan || null,
         langsung_lunas: isPos,
@@ -444,48 +470,15 @@ export default function InvoiceForm({
       </div>
 
       {/* ===== Diskon, Tax, Total ===== */}
-      <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto sm:w-full text-[13.5px]">
-        <div className="flex justify-between">
-          <span className="text-muted">Sub-Total</span>
-          <span>{formatRupiah(totals.subtotal)}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-muted flex items-center gap-1.5">
-            Discount
-            <NumberInput
-              value={diskon}
-              onChange={(nilai) => setDiskon(nilai)}
-              className="w-14 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
-            />
-            %
-          </span>
-          <span className="text-clay-600">
-            {totals.diskon > 0 ? `− ${formatRupiah(totals.diskon)}` : formatRupiah(0)}
-          </span>
-        </div>
-        <div className="flex justify-between items-center">
-          <label className="text-muted flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={pakaiTax}
-              onChange={(e) => setPakaiTax(e.target.checked)}
-              className="accent-[#2f4f3e]"
-            />
-            Tax
-            <NumberInput
-              value={taxPercent}
-              onChange={(nilai) => setTaxPercent(nilai)}
-              disabled={!pakaiTax}
-              className="w-12 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700 disabled:opacity-40"
-            />
-            %
-          </label>
-          <span>{pakaiTax ? formatRupiah(totals.tax) : "-"}</span>
-        </div>
-        <div className="flex justify-between font-semibold text-[15px] border-t border-line pt-2 mt-1">
-          <span>TOTAL</span>
-          <span>{formatRupiah(totals.total)}</span>
-        </div>
+      <div className="glass rounded-2xl p-6 sm:max-w-sm sm:ml-auto sm:w-full">
+        <InvoiceTotals
+          totals={totals}
+          taxSettings={taxSettings}
+          diskon={diskon}
+          onDiskonChange={setDiskon}
+          pakaiTax={pakaiTax}
+          onPakaiTaxChange={setPakaiTax}
+        />
       </div>
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}

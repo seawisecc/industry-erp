@@ -16,6 +16,7 @@ import {
 import OutletActions, { type OutletProdItem } from "./OutletActions";
 import { clientPriceKey } from "@/lib/clientPrice";
 import { getClientDiscounts } from "@/lib/salesOptions";
+import { getTaxSettings } from "@/lib/taxServer";
 
 type ConsItem = {
   product_id: string;
@@ -109,6 +110,7 @@ export default async function ConsignmentsPage({
   // Diskon khusus seluruh outlet, dibaca sekarang bukan dibekukan saat
   // pengiriman: yang ditagihkan adalah kesepakatan yang berlaku hari ini.
   const diskonSemua = await getClientDiscounts(organizationId!);
+  const taxSettings = await getTaxSettings(organizationId!);
   const diskonMap = new Map(Object.entries(diskonSemua));
 
   // ===== Rekap per outlet (client) untuk konsinyasi yang masih Aktif =====
@@ -250,6 +252,7 @@ export default async function ConsignmentsPage({
                       clientId={o.clientId}
                       clientName={o.client}
                       produk={produkArr}
+                      taxSettings={taxSettings}
                     />
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import ReportSaleForm, { ConsItem } from "./ReportSaleForm";
 import { clientPriceKey } from "@/lib/clientPrice";
+import { getTaxSettings } from "@/lib/taxServer";
 
 type ConsDetail = {
   id: string;
@@ -72,6 +73,8 @@ export default async function ConsignmentDetailPage({
     );
   }
 
+  const taxSettings = await getTaxSettings(organizationId!);
+
   const items: ConsItem[] = cons.consignment_items.map((it) => ({
     id: it.id,
     nama: it.products?.nama_produk || "-",
@@ -125,6 +128,7 @@ export default async function ConsignmentDetailPage({
         consignmentId={cons.id}
         items={items}
         aktif={cons.status === "Aktif"}
+        taxSettings={taxSettings}
       />
     </div>
   );

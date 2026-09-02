@@ -24,6 +24,7 @@ type InvRow = {
   tanggal: string;
   total: number;
   pakai_tax: boolean;
+  tax_mode: string | null;
   diskon_percent: number;
   status_bayar: string;
   nama_pembeli: string | null;
@@ -70,7 +71,7 @@ export default async function SalesInvoicesPage({
   let query = supabase
     .from("sales_invoices")
     .select(
-      "id, no_invoice, tipe, sumber, tanggal, total, pakai_tax, diskon_percent, status_bayar, nama_pembeli, clients(company_brand)",
+      "id, no_invoice, tipe, sumber, tanggal, total, pakai_tax, tax_mode, diskon_percent, status_bayar, nama_pembeli, clients(company_brand)",
       { count: "exact" }
     )
     .eq("organization_id", organizationId);
@@ -220,7 +221,12 @@ export default async function SalesInvoicesPage({
             header: "Tax",
             role: "secondary",
             className: "whitespace-nowrap text-[12.5px]",
-            cell: (inv) => (inv.pakai_tax ? "PPN" : "Non-Tax"),
+            cell: (inv) =>
+              inv.pakai_tax
+                ? inv.tax_mode === "Include"
+                  ? "PPN incl."
+                  : "PPN"
+                : "Non-Tax",
           },
           {
             key: "bayar",

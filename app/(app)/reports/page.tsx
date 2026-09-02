@@ -4,6 +4,7 @@ import PrintPageButton from "@/components/PrintPageButton";
 import DataTable from "@/components/DataTable";
 import { localDateStr, localMonthKey } from "@/lib/dates";
 import { getMarginReport } from "@/lib/margin";
+import { hitungTotalDokumen, parseTaxMode } from "@/lib/invoiceMath";
 import type { ExecutionData } from "@/app/(app)/production/actions";
 
 type ReportType =
@@ -78,7 +79,7 @@ export default async function ReportsPage({
     const { data } = await supabase
       .from("sales_invoices")
       .select(
-        "no_invoice, tipe, sumber, tanggal, subtotal, diskon_percent, pakai_tax, tax_percent, total, status_bayar, nama_pembeli, clients(company_brand)"
+        "no_invoice, tipe, sumber, tanggal, subtotal, diskon_percent, pakai_tax, tax_percent, tax_mode, tax_dpp_nilai_lain, total, status_bayar, nama_pembeli, clients(company_brand)"
       )
       .eq("organization_id", organizationId)
       .gte("tanggal", from)
@@ -94,11 +95,32 @@ export default async function ReportsPage({
       diskon_percent: number;
       pakai_tax: boolean;
       tax_percent: number;
+      tax_mode: string | null;
+      tax_dpp_nilai_lain: boolean | null;
       total: number;
       status_bayar: string;
       nama_pembeli: string | null;
       clients: { company_brand: string } | null;
     }[];
+
+    // Rincian pajak per dokumen dihitung dengan model yang dibekukan di
+    // dokumen itu, bukan dengan pengaturan yang berlaku sekarang. Dalam
+    // satu periode bisa saja ada dokumen dari dua model sekaligus.
+    const rincian = new Map(
+      rows.map((r) => [
+        r,
+        hitungTotalDokumen(
+          Number(r.subtotal),
+          Number(r.diskon_percent),
+          r.pakai_tax,
+          Number(r.tax_percent),
+          parseTaxMode(r.tax_mode),
+          r.tax_dpp_nilai_lain !== false
+        ),
+      ])
+    );
+    const totalPpn = rows.reduce((s, r) => s + (rincian.get(r)?.tax ?? 0), 0);
+    const totalDpp = rows.reduce((s, r) => s + (rincian.get(r)?.dpp ?? 0), 0);
 
     const totalNilai = rows.reduce((s, r) => s + Number(r.total), 0);
     const totalLunas = rows
@@ -120,12 +142,14 @@ export default async function ReportsPage({
 
     content = (
       <>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           {[
             { label: "Jumlah Dokumen", value: String(rows.length) },
             { label: "Total Penjualan", value: formatRupiah(totalNilai) },
             { label: "Sudah Dibayar", value: formatRupiah(totalLunas) },
             { label: "Piutang", value: formatRupiah(totalNilai - totalLunas) },
+            { label: "Total DPP", value: formatRupiah(totalDpp) },
+            { label: "Total PPN", value: formatRupiah(totalPpn) },
           ].map((c) => (
             <div key={c.label} className="glass rounded-xl p-3.5">
               <div className="text-[10.5px] uppercase tracking-wide text-muted">
@@ -142,13 +166,19 @@ export default async function ReportsPage({
           <DataTable
             rows={rows}
             rowKey={(_r, i) => String(i)}
-            minWidth={860}
+            minWidth={1000}
             empty="Tidak ada penjualan pada periode ini."
             footer={{
               row: (
                 <tr className="border-t-2 border-line font-semibold">
                   <td className={`${td} sticky-col`} colSpan={8}>
                     TOTAL ({rows.length} dokumen)
+                  </td>
+                  <td className={`${td} text-right whitespace-nowrap`}>
+                    {formatRupiah(totalDpp)}
+                  </td>
+                  <td className={`${td} text-right whitespace-nowrap`}>
+                    {formatRupiah(totalPpn)}
                   </td>
                   <td className={`${td} text-right whitespace-nowrap`}>
                     {formatRupiah(totalNilai)}
@@ -227,7 +257,29 @@ export default async function ReportsPage({
                 header: "Tax",
                 role: "secondary",
                 align: "right",
-                cell: (r) => (r.pakai_tax ? `${Number(r.tax_percent)}%` : "-"),
+                cell: (r) =>
+                  r.pakai_tax
+                    ? parseTaxMode(r.tax_mode) === "Include"
+                      ? "Incl."
+                      : "Excl."
+                    : "-",
+              },
+              {
+                key: "dpp",
+                header: "DPP",
+                role: "secondary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (r) => formatRupiah(rincian.get(r)?.dpp ?? 0),
+              },
+              {
+                key: "ppn",
+                header: "PPN",
+                role: "secondary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (r) =>
+                  r.pakai_tax ? formatRupiah(rincian.get(r)?.tax ?? 0) : "-",
               },
               {
                 key: "total",

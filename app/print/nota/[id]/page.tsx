@@ -13,6 +13,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { notFound } from "next/navigation";
 import { APP_TIMEZONE } from "@/lib/dates";
 import NotaToolbar from "./NotaToolbar";
+import { hitungTotalDokumen, parseTaxMode } from "@/lib/invoiceMath";
 
 type NotaData = {
   id: string;
@@ -23,6 +24,10 @@ type NotaData = {
   diskon_percent: number;
   pakai_tax: boolean;
   tax_percent: number;
+  /** Model pajak yang dibekukan saat dokumen terbit. */
+  tax_mode: string | null;
+  /** Aturan DPP yang dibekukan saat dokumen terbit. */
+  tax_dpp_nilai_lain: boolean | null;
   subtotal: number;
   total: number;
   catatan: string | null;
@@ -80,7 +85,7 @@ export default async function PrintNotaPage({
     supabase
       .from("sales_invoices")
       .select(
-        `id, no_invoice, tipe, tanggal, created_at, diskon_percent, pakai_tax, tax_percent,
+        `id, no_invoice, tipe, tanggal, created_at, diskon_percent, pakai_tax, tax_percent, tax_mode, tax_dpp_nilai_lain,
          subtotal, total, catatan, nama_pembeli, status_bayar, dibuat_oleh,
          clients(company_brand),
          sales_invoice_items(qty, harga, subtotal, varian_ukuran, products(nama_produk), services(nama_jasa))`
@@ -118,9 +123,18 @@ export default async function PrintNotaPage({
   const dibayar = (pays || []).reduce((s, p) => s + Number(p.jumlah), 0);
   const sisa = Number(inv.total) - dibayar;
 
-  const diskonNilai = (Number(inv.subtotal) * Number(inv.diskon_percent)) / 100;
-  const dpp = Number(inv.subtotal) - diskonNilai;
-  const taxNilai = inv.pakai_tax ? (dpp * Number(inv.tax_percent)) / 100 : 0;
+  // Model pajaknya diambil dari dokumen, bukan dari pengaturan yang
+  // berlaku sekarang: nota yang dicetak ulang tahun depan harus
+  // menunjukkan angka yang sama dengan yang dibayar hari ini.
+  const taxMode = parseTaxMode(inv.tax_mode);
+  const rincian = hitungTotalDokumen(
+    Number(inv.subtotal),
+    Number(inv.diskon_percent),
+    inv.pakai_tax,
+    Number(inv.tax_percent),
+    taxMode,
+    inv.tax_dpp_nilai_lain !== false
+  );
 
   const pembeli = inv.clients?.company_brand || inv.nama_pembeli || "Walk-in";
   const waktu = inv.created_at
@@ -213,17 +227,39 @@ export default async function PrintNotaPage({
             <span className={kiri}>Subtotal</span>
             <span className={kanan}>{rp(Number(inv.subtotal))}</span>
           </div>
-          {diskonNilai > 0 && (
-            <div className={baris}>
-              <span className={kiri}>Diskon ({Number(inv.diskon_percent)}%)</span>
-              <span className={kanan}>-{rp(diskonNilai)}</span>
-            </div>
+          {rincian.diskon > 0 && (
+            <>
+              <div className={baris}>
+                <span className={kiri}>
+                  Diskon ({rp(Number(inv.diskon_percent))}%)
+                </span>
+                <span className={kanan}>-{rp(rincian.diskon)}</span>
+              </div>
+              <div className={baris}>
+                <span className={kiri}>Sub Total</span>
+                <span className={kanan}>{rp(rincian.netto)}</span>
+              </div>
+            </>
           )}
           {inv.pakai_tax && (
-            <div className={baris}>
-              <span className={kiri}>PPN ({Number(inv.tax_percent)}%)</span>
-              <span className={kanan}>{rp(taxNilai)}</span>
-            </div>
+            <>
+              {/* Pada Exclude angka ini sama dengan Sub Total. Struk 58 mm
+                  tidak punya ruang untuk baris yang cuma mengulang. */}
+              {taxMode === "Include" && (
+                <div className={baris}>
+                  <span className={kiri}>Sub Total Exc Tax</span>
+                  <span className={kanan}>{rp(rincian.exTax)}</span>
+                </div>
+              )}
+              <div className={baris}>
+                <span className={kiri}>DPP</span>
+                <span className={kanan}>{rp(rincian.dpp)}</span>
+              </div>
+              <div className={baris}>
+                <span className={kiri}>PPN</span>
+                <span className={kanan}>{rp(rincian.tax)}</span>
+              </div>
+            </>
           )}
 
           <div className="border-t border-black mt-1 pt-1" />
@@ -232,6 +268,14 @@ export default async function PrintNotaPage({
             <span className={kanan}>{rp(Number(inv.total))}</span>
           </div>
           <div className="border-t border-black mt-1" />
+
+          {inv.pakai_tax && (
+            <div className="text-[9px] mt-0.5">
+              {taxMode === "Include"
+                ? "Harga sudah termasuk PPN."
+                : "PPN ditambahkan."}
+            </div>
+          )}
 
           {/* ===== Pembayaran ===== */}
           <div className={`${baris} mt-1`}>

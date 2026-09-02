@@ -2,6 +2,7 @@ import { Printer, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { getSalesOptions } from "@/lib/salesOptions";
+import { getTaxSettings } from "@/lib/taxServer";
 import SalesShell from "@/components/SalesShell";
 import DataTable from "@/components/DataTable";
 import RowActions, { IconAction } from "@/components/RowActions";
@@ -24,9 +25,10 @@ function formatRupiah(n: number) {
 export default async function PosPage() {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
-  const { clients, options, clientPrices } = await getSalesOptions(organizationId!, {
-    includeServices: true,
-  });
+  const [{ clients, options, clientPrices }, taxSettings] = await Promise.all([
+    getSalesOptions(organizationId!, { includeServices: true }),
+    getTaxSettings(organizationId!),
+  ]);
 
   const todayStr = localDateStr();
   const { data: todaySales } = await supabase
@@ -56,6 +58,7 @@ export default async function PosPage() {
           options={options}
           clientPrices={clientPrices}
           mode="pos"
+          taxSettings={taxSettings}
         />
       </div>
 

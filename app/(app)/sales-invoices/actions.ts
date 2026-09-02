@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { computeTotals } from "@/lib/invoiceMath";
+import { getTaxSettings } from "@/lib/taxServer";
 import { revalidatePath } from "next/cache";
 import { addDaysStr, localDateStr } from "@/lib/dates";
 
@@ -22,7 +23,6 @@ export type InvoiceInput = {
   tanggal: string;
   diskon_percent: number;
   pakai_tax: boolean;
-  tax_percent: number;
   top_days: number | null;
   catatan: string | null;
   langsung_lunas?: boolean;
@@ -50,11 +50,23 @@ export async function createInvoice(
     );
     if (items.length === 0) throw new Error("Minimal satu item");
 
+    // Tarif & model pajaknya dibaca ulang di server, BUKAN diterima dari
+    // form. PPN itu angka regulasi, bukan angka yang boleh dikirim klien.
+    // Kolom sales_invoices.tax_mode diisi trigger dari sumber yang sama,
+    // jadi total yang tersimpan pasti cocok dengan model yang tercatat di
+    // dokumennya. Kalau nilainya diambil dari klien, tab yang sudah lama
+    // terbuka bisa menerbitkan invoice dengan total model lama sementara
+    // dokumennya tertulis model baru, dan selisihnya tidak menimbulkan
+    // error apa pun saat terjadi.
+    const tax = await getTaxSettings(organizationId);
+
     const { subtotal, total } = computeTotals(
       items,
       data.diskon_percent,
       data.pakai_tax,
-      data.tax_percent
+      tax.taxPercent,
+      tax.taxMode,
+      tax.dppNilaiLain
     );
 
     const jatuhTempo =
@@ -75,7 +87,7 @@ export async function createInvoice(
           tanggal: data.tanggal,
           diskon_percent: data.diskon_percent,
           pakai_tax: data.pakai_tax,
-          tax_percent: data.tax_percent,
+          tax_percent: tax.taxPercent,
           subtotal,
           total,
           top_days: data.top_days,

@@ -4,6 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveSettings, SettingsInput } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import NumberInput from "@/components/NumberInput";
+import {
+  parseTaxSettings,
+  penjelasanTaxMode,
+  tarifEfektif,
+  type TaxMode,
+} from "@/lib/invoiceMath";
 
 type Props = {
   initial: SettingsInput | null;
@@ -26,9 +33,19 @@ export default function SettingsForm({ initial }: Props) {
     sign_mengetahui_nama: initial?.sign_mengetahui_nama || "",
     sign_mengetahui_jabatan: initial?.sign_mengetahui_jabatan || "",
   });
+  const awalPajak = parseTaxSettings(initial);
+  const [taxMode, setTaxMode] = useState<TaxMode>(awalPajak.taxMode);
+  const [taxPercent, setTaxPercent] = useState(String(awalPajak.taxPercent));
+  const [dppNilaiLain, setDppNilaiLain] = useState(awalPajak.dppNilaiLain);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+
+  const tarif = parseFloat(taxPercent.replace(",", ".")) || 0;
+  const pajak = { taxMode, taxPercent: tarif, dppNilaiLain };
+  const efektif = tarifEfektif(tarif, dppNilaiLain);
+  const persenStr = (n: number) =>
+    n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 
   function set(key: string, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -46,6 +63,16 @@ export default function SettingsForm({ initial }: Props) {
         { label: "Alamat", nilai: form.alamat || "-" },
         { label: "No. Telp", nilai: form.no_telp || "-" },
         { label: "Email", nilai: form.email || "-" },
+        {
+          label: "Model PPN",
+          nilai: `${
+            taxMode === "Include"
+              ? "Harga sudah termasuk pajak"
+              : "Pajak ditambahkan"
+          } · PPN ${persenStr(tarif)}%${
+            dppNilaiLain ? ` (DPP Nilai Lain, efektif ${persenStr(efektif)}%)` : ""
+          }`,
+        },
       ],
     });
     if (!lanjut) return;
@@ -53,7 +80,12 @@ export default function SettingsForm({ initial }: Props) {
     setLoading(true);
     setError("");
     try {
-      const result = await saveSettings(form as unknown as SettingsInput);
+      const result = await saveSettings({
+        ...(form as unknown as SettingsInput),
+        tax_mode: taxMode,
+        tax_percent: tarif,
+        tax_dpp_nilai_lain: dppNilaiLain,
+      });
       if (result.ok) {
         setSaved(true);
         router.refresh();
@@ -143,6 +175,120 @@ export default function SettingsForm({ initial }: Props) {
             className={inputCls}
           />
         </div>
+      </div>
+
+      {/* ===== Pajak (PPN) =====
+          Model pajak menentukan apakah tagihan client bertambah atau tidak,
+          jadi pilihannya ditulis sebagai kalimat utuh, bukan dropdown
+          "Include / Exclude" yang gampang dipilih terbalik. */}
+      <div className="glass rounded-2xl p-6 flex flex-col gap-4">
+        <div>
+          <h2 className="font-display text-[15.5px] font-semibold text-ink">
+            Pajak (PPN)
+          </h2>
+          <p className="text-muted text-[12.5px] mt-1">
+            Menentukan cara invoice menghitung pajak dari harga produk.
+            Dokumen yang sudah terbit tidak ikut berubah, modelnya dibekukan
+            di masing-masing dokumen.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {(
+            [
+              {
+                key: "Exclude" as TaxMode,
+                judul: "Harga belum termasuk pajak",
+                desc: "PPN dihitung dari nilai setelah diskon lalu ditambahkan. Tagihan client bertambah.",
+                contoh: "Harga 100.000, tagihan jadi 111.000",
+              },
+              {
+                key: "Include" as TaxMode,
+                judul: "Harga sudah termasuk pajak",
+                desc: "Harga produk sudah final. PPN diurai dari harga supaya tetap tercatat, total tidak bertambah.",
+                contoh: "Harga 100.000 tetap 100.000, PPN 9.909,91 di dalamnya",
+              },
+            ] as const
+          ).map((m) => (
+            <label
+              key={m.key}
+              className={`cursor-pointer rounded-xl border p-3.5 flex flex-col gap-1 transition-colors ${
+                taxMode === m.key
+                  ? "border-botanical-700 bg-botanical-100/50"
+                  : "border-line bg-white/45 hover:bg-white/70"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="tax_mode"
+                  checked={taxMode === m.key}
+                  onChange={() => {
+                    setTaxMode(m.key);
+                    setSaved(false);
+                  }}
+                  className="accent-[#2f4f3e]"
+                />
+                <span className="text-[13.5px] font-medium text-ink">
+                  {m.judul}
+                </span>
+              </span>
+              <span className="text-[12px] text-muted leading-snug">
+                {m.desc}
+              </span>
+              <span className="text-[11.5px] text-muted/80">
+                Contoh: {m.contoh}
+              </span>
+            </label>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-4 items-start">
+          <div>
+            <label className="block text-[12.5px] font-medium text-muted mb-1.5">
+              Tarif PPN (%)
+            </label>
+            <NumberInput
+              value={taxPercent}
+              onChange={(nilai) => {
+                setTaxPercent(nilai);
+                setSaved(false);
+              }}
+              placeholder="12"
+              className={inputCls}
+            />
+            <p className="text-[11.5px] text-muted mt-1.5">
+              Tarif menurut regulasi, 12% sejak 1 Januari 2025.
+            </p>
+          </div>
+
+          <label className="cursor-pointer rounded-xl border border-line bg-white/45 p-3.5 flex flex-col gap-1 hover:bg-white/70 transition-colors">
+            <span className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={dppNilaiLain}
+                onChange={(e) => {
+                  setDppNilaiLain(e.target.checked);
+                  setSaved(false);
+                }}
+                className="accent-[#2f4f3e]"
+              />
+              <span className="text-[13.5px] font-medium text-ink">
+                Pakai DPP Nilai Lain (11/12 harga jual)
+              </span>
+            </span>
+            <span className="text-[12px] text-muted leading-snug">
+              PMK 131/2024. Dasar pengenaannya bukan harga jual penuh,
+              melainkan 11/12-nya, sehingga PPN yang dibayar efektif{" "}
+              {persenStr(efektif)}% dari harga jual. Matikan hanya kalau
+              aturan itu tidak berlaku lagi.
+            </span>
+          </label>
+        </div>
+
+        <p className="text-[12px] text-muted bg-white/50 rounded-lg px-3 py-2 leading-snug">
+          {penjelasanTaxMode(pajak)}
+        </p>
       </div>
 
       <div className="glass rounded-2xl p-6">

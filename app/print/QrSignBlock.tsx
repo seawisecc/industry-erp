@@ -88,12 +88,9 @@ export default async function QrSignBlock({
           <div className="mt-1 text-[9px] text-neutral-500 break-all">
             Pindai untuk memeriksa keaslian · {url.split("?")[0]}
           </div>
-          {/* Wajib ikut tercetak. Pengesahan yang mengaku lebih dari
-              kemampuannya lebih berbahaya daripada tidak ada. */}
-          <div className="mt-1 text-[9px] text-neutral-500 italic">
-            QR Signature Non-Certified, validasi internal. Bukan tanda tangan
-            elektronik tersertifikasi.
-          </div>
+          {/* Keterangan "non-certified" tidak dicetak di sini, tapi
+              tetap ada di halaman verifikasi yang dituju QR-nya. Lihat
+              lib/qrSign.ts. */}
         </div>
       </div>
     </div>

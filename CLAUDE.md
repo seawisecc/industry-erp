@@ -127,6 +127,12 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `save_opname_count_tx` | Dicocokkan lewat id baris opname, bukan `item_id` |
 | `20260817_client_discounts` | `save_client_prices_tx` | Diperluas: baris boleh berisi harga saja, diskon saja, atau dua-duanya |
 | | `log_client_price_change` | Snapshot audit ikut memuat `diskon_persen` |
+| `20260818_tax_mode` | `invoice_tax_calc` | **Satu-satunya** rumus diskon & PPN di sisi SQL: dua model harga + DPP Nilai Lain |
+| | `org_tax_mode` | Model harga yang berlaku di satu organisasi |
+| | `org_tax_dpp_nilai_lain` | Aturan DPP yang berlaku di satu organisasi |
+| | `set_invoice_tax_mode` | Trigger BEFORE INSERT: membekukan model pajak di tiap invoice |
+| | `report_outlet_sale_tx` | Diperluas: totalnya lewat `invoice_tax_calc` |
+| | `report_consignment_sale_tx` | Diperluas: totalnya lewat `invoice_tax_calc` |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -321,6 +327,141 @@ Discount disentuh, `diskonManual` menyala dan angka otomatis berhenti
 mengambil alih. Jangan menaruh ini di `useEffect` yang mengawasi qty,
 itu melanggar `react-hooks/set-state-in-effect` dan menambah satu render
 sesudah layar terlanjur dilukis.
+
+# Pajak (PPN): tarif 12%, DPP Nilai Lain, dua model harga
+
+**Tarif PPN Indonesia adalah 12%.** Yang membuatnya terbaca seperti 11%
+adalah DPP Nilai Lain (PMK 131/2024): dasar pengenaannya bukan harga jual
+penuh, melainkan 11/12-nya.
+
+```
+PPN = 12% x (11/12 x harga jual) = 11% x harga jual
+```
+
+Angkanya sama dengan menghitung 11% langsung, tapi **rinciannya beda, dan
+rincian itulah yang tercetak di faktur.** Karena itu tarif dan pengali DPP
+disimpan terpisah, tidak dipadatkan jadi satu angka 11: kalau aturan Nilai
+Lain dicabut, yang berubah cuma pengalinya dan tarifnya tetap 12.
+
+Konsekuensi yang gampang dilanggar: **jangan mencetak tarif di sebelah
+label pajaknya.** Menulis "PPN (11%)" salah sebagai keterangan resmi,
+karena 11% bukan tarif, cuma hasil akhir. Dokumen cetak menulis `PPN :`
+saja, dan layar menulis `Tax` saja. Angka tarif hanya muncul di Settings,
+tempat orang memang sedang mengatur regulasinya.
+
+## Dua model harga
+
+| `tax_mode` | Artinya | Total tagihan |
+| --- | --- | --- |
+| `Exclude` (bawaan) | Harga produk belum termasuk pajak | bertambah sebesar PPN |
+| `Include` | Harga produk sudah final, pajak ada di dalamnya | tidak bergerak |
+
+Urutannya, persis seperti yang tercetak di faktur:
+
+```
+subtotal = Sigma (qty x harga)      <- harga apa adanya di baris item
+diskon   = subtotal x diskon%
+netto    = subtotal - diskon        <- SUB TOTAL
+exTax    = harga jual tanpa pajak   <- SUB TOTAL EXC TAX
+           Exclude: netto
+           Include: netto / (1 + tarif efektif)
+dpp      = exTax x 11/12            <- DPP
+pajak    = dpp x 12%
+total    = Include ? netto : netto + pajak
+```
+
+Contoh yang dipakai sebagai acuan (harga 125.000, diskon 20%, Include):
+
+| Baris | Nilai |
+| --- | --- |
+| SUB-TOTAL | 125.000,00 |
+| DISCOUNT | 25.000,00 |
+| SUB TOTAL | 100.000,00 |
+| SUB TOTAL EXC TAX | 90.090,09 |
+| DPP | 82.582,58 |
+| PPN | 9.909,91 |
+| TOTAL | 100.000,00 |
+
+**`SUB TOTAL EXC TAX` cuma dicetak pada `Include`.** Pada `Exclude`
+angkanya sama persis dengan `SUB TOTAL`, jadi barisnya cuma mengulang.
+
+**Pada `Include`, pajaknya dihitung sebagai SISA** (`netto - exTax`), bukan
+`dpp x tarif`. Nilainya identik secara matematis, tapi cara ini menjamin
+`exTax + pajak = netto` tanpa sisa, jadi tidak ada selisih pembulatan yang
+harus dijelaskan di dokumen pajak.
+
+## Rumusnya cuma ada di dua tempat, dan wajib berubah bersamaan
+
+| Sisi | Berkas |
+| --- | --- |
+| TypeScript | `hitungTotalDokumen` / `computeTotals` di `lib/invoiceMath.ts` |
+| SQL | `invoice_tax_calc()` di `20260818_tax_mode.sql` |
+
+Dua salinan itu tidak bisa dihindari: form menghitung di layar, RPC
+konsinyasi menghitung sendiri karena harganya datang dari
+`consignment_items`, bukan dari layar. Yang tidak boleh terjadi adalah
+salinan ketiga. Kalau ada pemanggil yang butuh angka pajak, panggil salah
+satu dari dua fungsi itu, jangan menulis `x 11 / 100` di tempat baru.
+Pelajarannya sama persis dengan `fg_stock_calc`: angka di layar yang
+berbeda dengan angka yang dihitung ulang di database adalah bug terburuk
+yang mungkin terjadi di modul ini.
+
+## Aturannya DIBEKUKAN per dokumen, dan diisi trigger
+
+`sales_invoices` menyimpan tiga hal yang berlaku saat dokumen terbit:
+`tax_mode`, `tax_percent`, dan `tax_dpp_nilai_lain`. Pengaturan perusahaan
+boleh diganti kapan saja; invoice yang sudah dicetak, dikirim ke client,
+dan dibayar tidak boleh ikut bergeser angkanya. Halaman cetak dan laporan
+menghitung ulang rinciannya dengan ketiga kolom itu, bukan dengan
+pengaturan yang berlaku sekarang.
+
+Dokumen yang terbit sebelum migrasi `20260818` di-backfill
+`tax_dpp_nilai_lain = false` dan tetap bertarif 11, jadi angkanya tidak
+bergerak sedikit pun.
+
+`tax_mode` dan `tax_dpp_nilai_lain` diisi trigger `set_invoice_tax_mode`
+(BEFORE INSERT), bukan aplikasi. Alasannya sama dengan audit trail:
+invoice lahir dari tiga jalur (`createInvoice` untuk Direct/POS,
+`report_outlet_sale_tx`, `report_consignment_sale_tx`), dan
+`create_sales_invoice_tx` sendiri tidak di-track di repo. Jalur yang lupa
+mengisinya tidak menghasilkan error apa pun, cuma dokumen dengan pajak
+model yang salah.
+
+**Tarifnya tidak bisa diketik di form penjualan, dan itu disengaja.** PPN
+adalah angka regulasi, bukan angka yang dinegosiasikan per transaksi. Yang
+tersisa di form cuma centang kena pajak atau tidak; tarif dan aturan DPP
+datang dari Settings. `createInvoice` pun membacanya sendiri lewat
+`getTaxSettings()` dan menghitung ulang totalnya, jadi props `taxSettings`
+di `InvoiceForm` murni untuk tampilan. Kalau nilainya dipercaya dari klien,
+tab yang sudah lama terbuka bisa menerbitkan invoice bertotal aturan lama
+sementara kolomnya tertulis aturan baru.
+
+## Panel rekap penjualan cuma satu komponen
+
+`components/InvoiceTotals.tsx` merender Sub-Total, Discount, Sub Total,
+Sub Total Exc Tax, DPP, PPN, dan TOTAL untuk semua form yang menerbitkan
+invoice (Invoice, POS, laku per pengiriman konsinyasi). Dulu markup-nya
+disalin di tiap layar, jadi tiap penambahan baris rekap harus diingat di
+tiga tempat.
+
+Layar yang berbentuk dialog sempit (`OutletActions`) sengaja tidak memakai
+komponen ini, tapi tetap memanggil `computeTotals`. Sebelumnya dia
+menghitung totalnya tangan dan pajaknya tidak ikut, jadi angka yang dilihat
+kasir berbeda dengan Proforma yang terbit.
+
+## Yang berlaku ke perusahaan mana
+
+`PT Damar Nubio Aestetik (DNAlab)` memakai `Include`: harga jual produknya
+sudah final. `PT Seawise Studio` tetap `Exclude`. Dua-duanya bertarif 12
+dengan DPP Nilai Lain menyala, dan itu **tidak mengubah total mana pun**
+karena `12% x 11/12` sama dengan `11%` yang dipakai selama ini; yang
+berubah cuma rincian DPP yang tercetak.
+
+Migrasi `20260818_tax_mode.sql` ikut mengubah Proforma DNAlab yang belum
+pernah dibayar sepeser pun agar totalnya berhenti di nilai setelah diskon.
+**Dokumen yang sudah punya baris `sales_payments` sengaja tidak
+disentuh**: totalnya adalah angka yang sudah dipakai orang untuk membayar,
+dan mengubahnya membuat ledger cicilan tidak cocok lagi dengan tagihannya.
 
 # Audit trail ditulis trigger, bukan aplikasi
 
