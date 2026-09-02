@@ -183,8 +183,13 @@ export async function convertToInvoice(
 
 /**
  * Batalkan invoice/proforma (koreksi operasional): hapus baris item &
- * pembayaran, stok produk jadi otomatis kembali. Tidak bisa bila client
- * sudah membayar (selain kas POS) atau bila berasal dari konsinyasi.
+ * pembayaran, stoknya otomatis kembali. Tidak bisa bila client sudah
+ * membayar (selain kas POS).
+ *
+ * Untuk dokumen dari konsinyasi, qty-nya dikembalikan ke pengiriman
+ * asalnya lewat consignment_sale_lines, bukan ke stok produk jadi:
+ * barangnya memang masih di outlet. Lihat bab "Batal invoice
+ * konsinyasi" di CLAUDE.md.
  */
 export async function cancelInvoice(
   id: string,
@@ -211,6 +216,10 @@ export async function cancelInvoice(
     revalidatePath("/sales-payments");
     revalidatePath("/finished-goods");
     revalidatePath("/dashboard");
+    // Invoice konsinyasi mengembalikan qty ke pengirimannya, jadi rekap
+    // outlet dan halaman detail pengiriman ikut basi.
+    revalidatePath("/consignments");
+    revalidatePath("/consignments/[id]", "page");
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Gagal" };

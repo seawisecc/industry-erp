@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus, Store, Eye, Printer } from "lucide-react";
+import { Plus, Eye, Printer } from "lucide-react";
 import SalesShell from "@/components/SalesShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
@@ -13,7 +13,8 @@ import {
   parseListQuery,
   type SearchParams,
 } from "@/lib/pagination";
-import OutletActions, { type OutletProdItem } from "./OutletActions";
+import { type OutletProdItem } from "./OutletActions";
+import OutletRekap, { type OutletRingkas } from "./OutletRekap";
 import { clientPriceKey } from "@/lib/clientPrice";
 import { getClientDiscounts } from "@/lib/salesOptions";
 import { getTaxSettings } from "@/lib/taxServer";
@@ -162,9 +163,18 @@ export default async function ConsignmentsPage({
     }
     outlets.set(cid, o);
   }
-  const outletList = Array.from(outlets.values())
+  // Map tidak bisa melewati batas server/klien, jadi produknya
+  // dijadikan array di sini sekalian diurutkan.
+  const outletList: OutletRingkas[] = Array.from(outlets.values())
     .filter((o) => o.totalSisa > 0)
-    .sort((a, b) => b.totalSisa - a.totalSisa);
+    .sort((a, b) => b.totalSisa - a.totalSisa)
+    .map((o) => ({
+      clientId: o.clientId,
+      client: o.client,
+      pengiriman: o.pengiriman,
+      totalSisa: o.totalSisa,
+      produk: Array.from(o.produk.values()).sort((a, b) => b.sisa - a.sisa),
+    }));
 
   return (
     <SalesShell>
@@ -186,80 +196,7 @@ export default async function ConsignmentsPage({
 
       {/* ===== Rekap stok per outlet (di atas) ===== */}
       {outletList.length > 0 && (
-        <>
-          <div className="flex items-center gap-2 mt-5 mb-3">
-            <div className="rounded-lg p-1.5 bg-botanical-100 text-botanical-700">
-              <Store size={16} />
-            </div>
-            <div>
-              <h3 className="font-display text-[15px] font-semibold text-ink">
-                Stok per Outlet
-              </h3>
-              <p className="text-muted text-[11.5px]">
-                Total barang yang masih ada di tiap outlet, catat laku/retur
-                langsung dari sini.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
-            {outletList.map((o) => {
-              const produkArr = Array.from(o.produk.values()).sort(
-                (a, b) => b.sisa - a.sisa
-              );
-              return (
-                <div key={o.clientId} className="glass rounded-2xl p-5">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="min-w-0">
-                      <div className="font-semibold text-ink truncate" title={o.client}>
-                        {o.client}
-                      </div>
-                      <div className="text-[11.5px] text-muted">
-                        {o.pengiriman} pengiriman aktif
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="font-display text-[22px] font-semibold text-botanical-700 leading-none">
-                        {o.totalSisa.toLocaleString("id-ID")}
-                      </div>
-                      <div className="text-[10.5px] uppercase tracking-wide text-muted">
-                        total pcs di lokasi
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-line pt-2 flex flex-col gap-1">
-                    {produkArr.map((p) => (
-                      <div
-                        key={`${p.product_id}|${p.varian}`}
-                        className="flex items-center justify-between text-[12.5px] py-0.5"
-                      >
-                        <span className="truncate pr-3">
-                          {p.nama}
-                          {p.varian !== "-" && (
-                            <span className="text-muted"> · {p.varian}</span>
-                          )}
-                        </span>
-                        <span className="font-medium whitespace-nowrap">
-                          {p.sisa.toLocaleString("id-ID")} pcs
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-line mt-3 pt-3">
-                    <OutletActions
-                      clientId={o.clientId}
-                      clientName={o.client}
-                      produk={produkArr}
-                      taxSettings={taxSettings}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
+        <OutletRekap outlets={outletList} taxSettings={taxSettings} />
       )}
 
       {/* ===== Detail pengiriman (di bawah) ===== */}

@@ -133,6 +133,11 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `set_invoice_tax_mode` | Trigger BEFORE INSERT: membekukan model pajak di tiap invoice |
 | | `report_outlet_sale_tx` | Diperluas: totalnya lewat `invoice_tax_calc` |
 | | `report_consignment_sale_tx` | Diperluas: totalnya lewat `invoice_tax_calc` |
+| `20260820_consignment_sale_lines` | `consignment_take` | Diganti tipe kembaliannya jadi `jsonb`: harga **+** pembagian FIFO-nya |
+| | `report_outlet_sale_tx` | Diperluas: menulis `consignment_sale_lines` |
+| | `report_consignment_sale_tx` | Diperluas: menulis `consignment_sale_lines` |
+| | `retur_outlet_tx` | Menyesuaikan bentuk kembalian `consignment_take` |
+| | `cancel_invoice_tx` | Diperluas: invoice konsinyasi mengembalikan qty ke pengiriman asalnya |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -462,6 +467,99 @@ pernah dibayar sepeser pun agar totalnya berhenti di nilai setelah diskon.
 **Dokumen yang sudah punya baris `sales_payments` sengaja tidak
 disentuh**: totalnya adalah angka yang sudah dipakai orang untuk membayar,
 dan mengubahnya membuat ledger cicilan tidak cocok lagi dengan tagihannya.
+
+# Batal invoice konsinyasi: asal stok harus dicatat dulu
+
+Invoice yang lahir dari konsinyasi dulu tidak bisa dibatalkan.
+`cancel_invoice_tx` menolaknya dengan pesan "batalkan/koreksi lewat menu
+Consignment", dan menu itu tidak pernah ada, jadi salah ketik qty laku
+cuma bisa dibetulkan lewat SQL.
+
+Yang menghalangi bukan kebijakan, melainkan data: **tidak ada yang
+mencatat qty sebuah baris invoice diambil dari pengiriman yang mana.**
+`report_outlet_sale_tx` menyebar FIFO ke beberapa pengiriman sekaligus
+lewat `consignment_take`, dan header invoice-nya bahkan tidak memuat
+`consignment_id` (kolom itu cuma terisi pada laku per-pengiriman).
+
+Menebaknya dari `product_id` + varian salah persis di kasus yang paling
+mahal: satu produk yang sama dititipkan di dua pengiriman dengan
+`harga_jual` berbeda. Qty balik ke pengiriman yang keliru, nilai barang
+yang masih di outlet jadi ngawur, dan tidak ada error apa pun.
+
+Polanya sama dengan `purchase_return_items.qty_dari_karantina` /
+`qty_dari_sisa`: simpan ASAL potongannya supaya pembatalannya bisa
+mengembalikan qty ke baris yang persis benar.
+
+## `consignment_sale_lines`
+
+Satu baris invoice bisa berasal dari BEBERAPA pengiriman, jadi
+hubungannya satu-ke-banyak dan tidak muat sebagai kolom di
+`sales_invoice_items`. `consignment_take` sekarang mengembalikan
+`jsonb` `{harga, alloc}` (dulu `numeric` harga saja, karena itu fungsinya
+harus di-DROP dulu, `create or replace` tidak bisa mengganti tipe
+kembalian), dan kedua RPC laku menulis pembagiannya ke tabel ini.
+
+## Dua kondisi saat membatalkan, dan bedanya bukan kosmetik
+
+| Pengiriman | Yang ditulis | Stok produk jadi |
+| --- | --- | --- |
+| masih `Aktif` | `qty_terjual` turun | tidak bergerak |
+| sudah `Selesai` | `qty_terjual` turun, `qty_retur` naik | **naik** |
+
+Yang pertama benar karena `fg_stock_calc` menghitung konsinyasi sebagai
+`qty_kirim - qty_retur`; `qty_terjual` tidak ikut, jadi barangnya memang
+masih tercatat ada di outlet.
+
+Yang kedua wajib karena `close_consignment_tx` sudah mengubah sisa yang
+tak laku jadi retur. Menurunkan `qty_terjual` saja pada pengiriman yang
+sudah ditutup menghasilkan pengiriman dengan sisa yang tidak ada
+barangnya, sekaligus tidak pernah mengembalikan stoknya ke gudang.
+Barang yang batal laku itu semestinya ikut pulang waktu konsinyasi
+ditutup, dan itulah yang ditulis.
+
+**Catatan asal DIJUMLAHKAN per `consignment_item` sebelum diterapkan.**
+Satu invoice boleh punya dua baris produk yang sama dan keduanya bisa
+jatuh ke pengiriman yang sama; kalau diproses satu per satu, pemeriksaan
+qty putaran kedua memakai angka yang sudah basi.
+
+## Invoice yang terbit sebelum ini
+
+Backfill di `20260820` cuma mengisi yang **pasangannya tidak ambigu**
+(tepat satu `consignment_item` yang cocok dan qty terjualnya cukup).
+Kalau satu baris saja ambigu, SELURUH invoice itu dilewati: setengah
+catatan asal lebih berbahaya daripada tidak ada, karena pembatalannya
+akan mengembalikan sebagian qty saja tanpa memberi tahu siapa pun.
+Invoice yang tidak ter-backfill ditolak dengan pesan yang menyebutkan
+alasannya dan menunjuk ke Stock Opname produk jadi.
+
+## Di mana tombolnya
+
+Dua tempat, karena orang yang mengoreksi laku biasanya sedang membuka
+layar outletnya, bukan daftar faktur:
+
+- **Sales Invoices**, tombol Batal yang sudah ada (syarat `sumber !=
+  'Konsinyasi'` dihapus).
+- **Detail Konsinyasi**, tabel "Invoice dari Pengiriman Ini". Daftarnya
+  dicari lewat `consignment_sale_lines`, BUKAN lewat
+  `sales_invoices.consignment_id`: kolom itu kosong untuk semua laku
+  yang dicatat per outlet, yaitu mayoritas dokumennya.
+
+Aturan pembayaran tidak berubah: dokumen yang sudah dibayar client tetap
+ditolak, hapus dulu cicilannya di Sales Payments.
+
+## Pencarian outlet disaring di klien
+
+`components`-nya `app/(app)/consignments/OutletRekap.tsx`. Penyaringannya
+di klien, bukan lewat `?q=`, karena seluruh konsinyasi aktif memang sudah
+dibaca untuk menghitung rekapnya, DAN karena halaman itu sudah punya
+kotak cari kedua (`TableToolbar`) yang memiliki `?q=`. Memakai parameter
+yang sama akan membuat satu ketikan menyaring dua daftar sekaligus.
+
+Karena itu pula lencana `/` tidak dipasang di kotak ini: shortcut itu
+milik kotak cari halaman, dan dua kotak yang mengaku punya tombol yang
+sama lebih buruk daripada satu kotak tanpa shortcut. Pencariannya ikut
+mencocokkan nama produk di dalam titipan, bukan cuma nama outlet, karena
+orang sering mengingat produknya lebih dulu.
 
 # Audit trail ditulis trigger, bukan aplikasi
 

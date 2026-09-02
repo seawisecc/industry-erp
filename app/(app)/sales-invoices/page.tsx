@@ -252,7 +252,7 @@ export default async function SalesInvoicesPage({
             className: "whitespace-nowrap",
             cell: (inv) => (
               <RowActions>
-                {canCancel && inv.sumber !== "Konsinyasi" && (
+                {canCancel && (
                   <CancelTxButton
                     id={inv.id}
                     action={cancelInvoice}
@@ -260,7 +260,11 @@ export default async function SalesInvoicesPage({
                     variant="icon"
                     label="Batalkan dokumen"
                     judul="Batalkan Dokumen Penjualan"
-                    keterangan="Dokumen dihapus dan stok produk jadi kembali. Tidak bisa bila client sudah membayar."
+                    keterangan={
+                      inv.sumber === "Konsinyasi"
+                        ? "Dokumen dihapus dan qty-nya kembali jadi sisa di outlet asalnya. Kalau pengirimannya sudah ditutup, qty itu dicatat sebagai retur dan stok produk jadi bertambah. Tidak bisa bila client sudah membayar."
+                        : "Dokumen dihapus dan stok produk jadi kembali. Tidak bisa bila client sudah membayar."
+                    }
                   />
                 )}
                 <IconAction
