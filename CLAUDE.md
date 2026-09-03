@@ -932,6 +932,84 @@ daripada kartu di bawahnya.** Efek `.glass` membentuk stacking context,
 jadi tanpa itu daftar sarannya tertimbun panel berikutnya. Lihat
 `InvoiceForm` (`z-40` untuk kartu header, `z-10` untuk kartu item).
 
+# Sidebar: rail yang melebar saat dijelajah
+
+Dua lebar, dan yang menentukan bukan satu keadaan melainkan dua yang
+sengaja dipisah:
+
+| Keadaan | Asalnya | Menggeser konten? |
+| --- | --- | --- |
+| `rail` | preferensi user, dari COOKIE lewat server | ya |
+| `dijelajah` | kursor di atas sidebar / fokus keyboard di dalamnya | **tidak** |
+
+Yang menahan tempat di alur layout adalah **div pengganjal terpisah**,
+dan lebarnya cuma mengikuti `rail`. Sidebarnya sendiri `fixed` dan
+menumpuk di atas konten waktu dijelajah. Itu inti polanya: halaman kerja
+tidak pernah bergeser cuma karena kursor lewat. Kalau nanti tergoda
+menghapus pengganjalnya dan mengembalikan sidebar ke alur flex, yang
+hilang bukan kerapian melainkan seluruh gunanya.
+
+**Fokus keyboard ikut melebarkan, bukan cuma hover.** Tanpa itu orang
+yang menekan Tab masuk ke sidebar berpindah antar ikon tanpa tahu dia
+sedang menyorot menu apa. `onBlurCapture` memeriksa `relatedTarget`
+supaya perpindahan fokus ANTAR tombol di dalam sidebar tidak ikut
+menutupnya.
+
+**Rail yang sedang dijelajah wajib berlatar PEKAT.** `.glass-dark` cuma
+0.72, dan sisa 28% itu terbaca sebagai teks hantu halaman di balik menu,
+pelajaran yang sama persis dengan sel sticky di DataTable. Warnanya bukan
+`#16261D` mentah melainkan komposit `glass-dark` di atas `--background`,
+supaya pekat 100% tapi terlihat identik dengan sidebar yang menempel;
+warna yang melompat saat kursor masuk lebih mengganggu daripada
+transparansinya.
+
+**Lebar desktop lewat custom property `--sb-w`, bukan kelas Tailwind.**
+Di bawah 640px sidebar adalah drawer selebar 250px, jadi inline style
+biasa (yang berlaku di semua ukuran layar) merusak tampilan HP. Media
+query-nya tinggal di `globals.css` sebagai aturan biasa, bukan
+`@utility`, supaya menang atas `w-[250px]` tanpa bergantung urutan emit
+Tailwind. Alasannya sama dengan aturan sudut sticky.
+
+**Yang disembunyikan saat rail diam, disembunyikan lewat CSS (`sm:hidden`),
+BUKAN dengan tidak merendernya.** Drawer HP selalu selebar 250px, jadi
+judul grup dan OrgSwitcher harus tetap terbaca di sana walau preferensi
+desktop orang itu rail. Menyembunyikannya di JS ikut menghapusnya di HP,
+dan kelompok menu jadi tidak berjudul justru di layar yang paling butuh
+penanda.
+
+## Preferensi lebar ada di cookie, dan itu memang perbaikannya
+
+Dulu di `localStorage`, yang tidak terbaca di server, jadi HTML pertama
+selalu dirender lebar lalu dikoreksi di klien: sidebar berkedip lebar
+lalu sempit di **tiap** muat halaman. `useSyncExternalStore` menghapus
+bentrok hidrasinya tapi tidak menghapus kedipannya, dan itu bertahan
+lama sebagai known issue. Cookie ikut terkirim di tiap request, jadi
+`components/Sidebar.tsx` merender lebar yang benar sejak byte pertama.
+
+`lib/sidebarPref.ts` sengaja bersih dari import server: nilainya dibaca
+di server dan ditulis di klien, jadi keduanya harus bisa mengimpor nama
+yang sama. Lihat bab Batas server/klien di `lib/`.
+
+Preferensi `localStorage` versi lama disapu sekali saat mount, dan
+sengaja TIDAK ikut mengubah tampilan saat itu juga: mengubah state di
+dalam effect melanggar `react-hooks/set-state-in-effect`. Cukup tulis
+cookie-nya, muat halaman berikutnya sudah benar dari server. Yang
+dikorbankan satu kali muat, sekali seumur akun.
+
+## Menu dikelompokkan, dan urutannya tidak menyentuh pendaratan
+
+`NAV` di `lib/navConfig.ts` punya kolom `grup`: Operasional (yang dipakai
+tiap hari, urut mengikuti alur barang), Analisis (yang dibaca, bukan
+diisi), Administrasi (yang jarang disentuh sesudah disiapkan). Grup yang
+seluruh menunya tidak boleh diakses tidak dirender, supaya tidak ada
+judul yang menggantung tanpa isi.
+
+**Menata ulang `NAV` tidak memindahkan siapa pun ke halaman lain.**
+Halaman pendaratan sesudah login dihitung dari urutan `MODULES` di
+`lib/modules.ts`, daftar yang berbeda. Itu disengaja dan jangan
+disatukan: `NAV` adalah sepuluh menu hub, `MODULES` adalah dua puluh
+delapan modul berizin.
+
 # Dokumen cetak: menambah jenis baru
 
 Satu jenis dokumen hidup di empat tempat, dan TypeScript memaksa
@@ -1478,13 +1556,6 @@ Aturan turunannya:
   membaca daftar yang sama.
 
 # Known issue
-
-**Sidebar berkedip lebar → sempit saat muat pertama.** Preferensi minimize
-ada di `localStorage`, yang tidak terbaca di server, jadi HTML pertama
-selalu dirender lebar lalu dikoreksi di klien. `useSyncExternalStore`
-menghapus bentrok hidrasi dan render sesudah paint, tapi **tidak**
-menghapus kedipannya. Perbaikan sebenarnya: pindahkan preferensi ke cookie
-supaya server bisa merender lebar yang benar sejak awal. Belum dikerjakan.
 
 **Menu Notifications tidak punya badge jumlah.** Itu yang biasanya membuat
 notification center dipakai, tapi sidebar dirender di setiap halaman.

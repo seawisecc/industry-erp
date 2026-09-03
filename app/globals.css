@@ -89,6 +89,38 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Lebar sidebar desktop.
+
+   Angkanya datang dari React lewat custom property --sb-w, tapi media
+   query-nya tinggal di CSS. Alasannya: di bawah 640px sidebar adalah
+   drawer selebar 250px, jadi lebar inline style biasa (yang berlaku di
+   semua ukuran layar) akan merusak tampilan HP. Aturan CSS biasa, bukan
+   @utility, supaya tidak bergantung urutan emit Tailwind: aturan tanpa
+   layer selalu menang atas utility ber-layer, jadi w-[250px] milik
+   drawer tetap kalah di desktop tanpa perlu !important. */
+@media (min-width: 640px) {
+  .sidebar-panel {
+    width: var(--sb-w);
+  }
+
+  /* Rail yang sedang dijelajah menumpuk DI ATAS halaman kerja, jadi
+     latarnya wajib pekat. Pelajarannya sama persis dengan sel sticky di
+     DataTable: .glass-dark cuma 0.72, dan sisa 28% itu terbaca sebagai
+     teks hantu halaman di balik menu. Blur tidak menolong, yang lewat
+     bukan ketajamannya melainkan kontrasnya.
+
+     Warnanya sengaja BUKAN #16261D mentah, melainkan hasil komposit
+     yang sama: warna glass-dark ditumpuk di atas --background yang
+     dipakai body. Hasilnya pekat 100% tapi terlihat identik dengan
+     sidebar yang sedang menempel, jadi menjelajah menu tidak membuat
+     warnanya melompat. */
+  .sidebar-panel[data-overlay="1"] {
+    background:
+      linear-gradient(rgba(22, 38, 29, 0.72), rgba(22, 38, 29, 0.72)),
+      var(--background);
+  }
+}
+
 @utility glass-input {
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(28, 28, 26, 0.1);

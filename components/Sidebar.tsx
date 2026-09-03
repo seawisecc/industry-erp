@@ -1,8 +1,10 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { getFeatures } from "@/lib/featuresServer";
 import SidebarNav from "./SidebarNav";
 import MobileBottomNav from "./MobileBottomNav";
+import { SIDEBAR_COOKIE, bacaRail } from "@/lib/sidebarPref";
 
 export default async function Sidebar() {
   const supabase = await createClient();
@@ -14,6 +16,11 @@ export default async function Sidebar() {
     const { data } = await supabase.from("organizations").select("*").order("nama");
     organizations = data || [];
   }
+
+  // Lebar sidebar dibaca di SERVER supaya HTML pertama sudah benar.
+  // Lihat lib/sidebarPref.ts: dulu ini di localStorage dan sidebar
+  // selalu berkedip lebar lalu sempit di tiap muat halaman.
+  const railAwal = bacaRail((await cookies()).get(SIDEBAR_COOKIE)?.value);
 
   const { data: currentOrg } = await supabase
     .from("organizations")
@@ -31,6 +38,7 @@ export default async function Sidebar() {
         organizations={organizations}
         currentOrgId={organizationId || ""}
         currentOrgNama={currentOrg?.nama || ""}
+        railAwal={railAwal}
       />
       <MobileBottomNav
         isSuperAdmin={isSuperAdmin}

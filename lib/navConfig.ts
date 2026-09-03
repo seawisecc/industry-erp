@@ -35,10 +35,21 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+/* Kelompok menu sidebar.
+
+   Urutannya di sini yang menentukan urutan di layar, dan itu SATU-SATUNYA
+   akibatnya: halaman pendaratan sesudah login dihitung dari urutan MODULES
+   di lib/modules.ts, bukan dari sini, jadi menata ulang NAV tidak memindahkan
+   siapa pun ke halaman lain. */
+export const NAV_GRUP = ["Operasional", "Analisis", "Administrasi"] as const;
+
+export type NavGrup = (typeof NAV_GRUP)[number];
+
 export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  grup: NavGrup;
 };
 
 export type SubItem = {
@@ -93,16 +104,22 @@ export const HUBS: Record<string, string[]> = {
 };
 
 export const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/items", label: "Materials & Stock", icon: Boxes },
-  { href: "/purchase-orders", label: "Purchasing", icon: ClipboardList },
-  { href: "/suppliers", label: "Suppliers", icon: Briefcase },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/clients", label: "Sales", icon: HandCoins },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/companies", label: "Companies", icon: Building2 },
+  // Yang dipakai tiap hari, urut mengikuti alur barang: bahan masuk,
+  // dibeli, diolah, dijual.
+  { href: "/items", label: "Materials & Stock", icon: Boxes, grup: "Operasional" },
+  { href: "/purchase-orders", label: "Purchasing", icon: ClipboardList, grup: "Operasional" },
+  { href: "/suppliers", label: "Suppliers", icon: Briefcase, grup: "Operasional" },
+  { href: "/products", label: "Products", icon: Package, grup: "Operasional" },
+  { href: "/clients", label: "Sales", icon: HandCoins, grup: "Operasional" },
+
+  // Yang dibaca, bukan diisi.
+  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, grup: "Analisis" },
+  { href: "/reports", label: "Reports", icon: BarChart3, grup: "Analisis" },
+  { href: "/notifications", label: "Notifications", icon: Bell, grup: "Analisis" },
+
+  // Yang jarang disentuh sesudah disiapkan.
+  { href: "/settings", label: "Settings", icon: Settings, grup: "Administrasi" },
+  { href: "/companies", label: "Companies", icon: Building2, grup: "Administrasi" },
 ];
 
 /** Label pendek modul untuk header dropup / bar HP. */
