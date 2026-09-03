@@ -5,6 +5,7 @@ import ProdukShell from "@/components/ProdukShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
 import DataTable from "@/components/DataTable";
+import { varianKey } from "@/lib/clientPrice";
 import {
   PAGE_SIZE,
   pageInfo,
@@ -39,16 +40,21 @@ export default async function FinishedGoodsPage({
   ]);
 
   const hargaMap = new Map<string, number>();
+  // Varian yang masih ada di master produk, DENGAN atau tanpa harga.
+  // Dipisah dari hargaMap karena keduanya menjawab pertanyaan yang
+  // berbeda: "berapa harganya" dan "namanya masih dikenal atau tidak".
+  const dikenal = new Set<string>();
   for (const v of (varian || []) as {
     product_id: string;
     nama_varian: string | null;
     harga_jual: number | null;
   }[]) {
+    dikenal.add(`${v.product_id}|${varianKey(v.nama_varian)}`);
     // `harga_jual` boleh null dan tiap pembacanya wajib menyaringnya:
     // Number(null) bernilai 0, bukan NaN, jadi varian tanpa harga akan
     // terbaca "Rp 0" yang kelihatan seperti harga sungguhan.
     if (v.harga_jual == null) continue;
-    hargaMap.set(`${v.product_id}|${v.nama_varian ?? "-"}`, Number(v.harga_jual));
+    hargaMap.set(`${v.product_id}|${varianKey(v.nama_varian)}`, Number(v.harga_jual));
   }
 
   const productMap = new Map(
@@ -74,6 +80,7 @@ export default async function FinishedGoodsPage({
         brand: p?.brand || null,
         varian: s.varian === "-" ? "-" : s.varian,
         harga: hargaMap.get(`${s.product_id}|${s.varian}`) ?? null,
+        yatim: !dikenal.has(`${s.product_id}|${s.varian}`),
         produced: s.produced,
         consigned: s.consigned,
         sold: s.sold,
@@ -82,9 +89,36 @@ export default async function FinishedGoodsPage({
       };
     });
 
+  // Varian yatim yang seluruh kolomnya nol disembunyikan.
+  //
+  // Baris seperti ini lahir dari opname yang memindahkan stok ke nama
+  // varian baru: koreksi +462 di nama lama, lalu -462 waktu dipindahkan.
+  // Yang tersisa jejak yang jumlahnya nol di SEMUA kolom, tanpa harga
+  // karena namanya sudah tidak ada di master, dan itu cuma jadi jebakan
+  // salah pilih di layar stok.
+  //
+  // Syaratnya sengaja seluruh kolom nol, bukan cuma "tersedia = 0".
+  // Varian yatim yang pernah diproduksi lalu habis terjual TETAP tampil:
+  // angkanya nol tapi riwayatnya tidak, dan varian yatim yang punya
+  // mutasi adalah gejala nama yang diganti saat stoknya masih jalan,
+  // persis hal yang tidak boleh hilang diam-diam dari layar.
+  const tampilkanYatim = sp.filter("yatim") === "1";
+  const terpakai = tampilkanYatim
+    ? semua
+    : semua.filter(
+        (r) =>
+          !r.yatim ||
+          r.produced !== 0 ||
+          r.consigned !== 0 ||
+          r.sold !== 0 ||
+          r.adjustment !== 0 ||
+          r.available !== 0
+      );
+  const disembunyikan = semua.length - terpakai.length;
+
   const needle = sp.q.toLowerCase();
   const cocok = needle
-    ? semua.filter((r) =>
+    ? terpakai.filter((r) =>
         [r.kode, r.nama, r.brand, r.varian]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(needle))
@@ -132,7 +166,28 @@ export default async function FinishedGoodsPage({
 
       <div className="mt-4">
 
-        <TableToolbar placeholder="Cari produk / varian..." info={info} />
+        <TableToolbar
+          placeholder="Cari produk / varian..."
+          info={info}
+          filters={
+            disembunyikan > 0 || tampilkanYatim
+              ? [
+                  {
+                    param: "yatim",
+                    label: "Sembunyikan varian yatim",
+                    options: [{ value: "1", label: "Tampilkan varian yatim" }],
+                  },
+                ]
+              : []
+          }
+        />
+        {disembunyikan > 0 && (
+          <p className="text-[12px] text-muted -mt-1 mb-3">
+            {disembunyikan.toLocaleString("id-ID")} varian lama tanpa mutasi
+            disembunyikan, yaitu nama varian yang sudah tidak ada di master
+            produk dan seluruh angkanya nol.
+          </p>
+        )}
 
       </div>
       <DataTable

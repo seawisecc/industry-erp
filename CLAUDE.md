@@ -261,6 +261,21 @@ cara membersihkannya. Dia juga tidak lagi muncul sebagai pilihan di form
 penjualan (`getSalesOptions` menyaringnya), karena baris tanpa harga yang
 namanya mirip dengan varian yang benar cuma jadi jebakan salah pilih.
 
+**Di Finished Goods, varian yatim yang SELURUH kolomnya nol
+disembunyikan.** Perpindahan stok lewat opname meninggalkan sepasang
+koreksi di nama lama (`+462` waktu stok awal dicatat, `-462` waktu
+dipindahkan), jadi nama lamanya tetap punya baris di `fg_stock_calc`
+walau tidak ada barangnya. Di DNAlab itu tujuh baris tanpa harga, persis
+jebakan salah pilih yang sama.
+
+Syaratnya sengaja SELURUH kolom nol, bukan cuma `tersedia = 0`. Varian
+yatim yang pernah diproduksi lalu habis terjual tetap tampil: angkanya
+nol tapi riwayatnya tidak, dan varian yatim yang punya mutasi adalah
+gejala nama yang diganti saat stoknya masih jalan, hal yang justru tidak
+boleh hilang diam-diam dari layar. Yang disembunyikan tetap bisa dilihat
+lewat filter "Tampilkan varian yatim", dan jumlahnya ditulis di bawah
+kotak cari supaya tidak ada baris yang lenyap tanpa keterangan.
+
 Konsekuensinya kalau menambah jalur keluar-masuk produk jadi yang baru:
 tambahkan sebagai `union all` di `fg_stock_calc`, lalu cerminkan di
 fallback `lib/salesStock.ts`. Jangan menambahkan penyesuaian di pemanggil.
@@ -1380,14 +1395,6 @@ manual, pembatalannya harus ikut dipikirkan.
 jadi tidak menyimpan satuan jual per varian, jadi lembar hitung dan layar
 opname menuliskan `pcs`. Angkanya benar, labelnya yang bisa menyesatkan
 kalau ada produk yang dihitung dalam satuan lain.
-
-**Varian yatim yang stoknya sudah nol masih terlihat di Finished Goods.**
-Dia sudah disaring dari pemilih produk penjualan, tapi layar stok tetap
-menampilkannya sebagai baris nol. Di situ memang lebih berguna terlihat
-(riwayatnya jelas: masuk sekian, keluar sekian), tapi kalau daftarnya
-jadi panjang, penyaringannya perlu dipikirkan ulang. Sejak kolom Harga
-Jual ada, barisnya jadi lebih gampang dikenali: varian yatim yang
-kehilangan pasangannya di master tampil berharga `-`.
 
 **Tanda Terima Konsinyasi = satu dokumen per pengiriman.** Kurir yang
 mengantar beberapa CSG sekaligus ke satu outlet membawa beberapa lembar.
