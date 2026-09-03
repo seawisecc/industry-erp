@@ -138,6 +138,7 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `report_consignment_sale_tx` | Diperluas: menulis `consignment_sale_lines` |
 | | `retur_outlet_tx` | Menyesuaikan bentuk kembalian `consignment_take` |
 | | `cancel_invoice_tx` | Diperluas: invoice konsinyasi mengembalikan qty ke pengiriman asalnya |
+| `20260821_opname_varian_yatim` | `create_stock_opname_tx` | Diperluas: lembar opname produk jadi berhenti memuat varian yatim yang stoknya nol |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -275,6 +276,28 @@ gejala nama yang diganti saat stoknya masih jalan, hal yang justru tidak
 boleh hilang diam-diam dari layar. Yang disembunyikan tetap bisa dilihat
 lewat filter "Tampilkan varian yatim", dan jumlahnya ditulis di bawah
 kotak cari supaya tidak ada baris yang lenyap tanpa keterangan.
+
+**Lembar Stock Opname memakai syarat yang lebih ketat: `available <> 0`.**
+Bedanya disengaja, karena kedua layar menjawab pertanyaan yang berbeda.
+Finished Goods menjawab "apa riwayatnya", jadi varian yatim yang pernah
+bergerak tetap tampil. Lembar opname menjawab "apa yang harus dihitung
+di gudang", dan di situ nama yang tidak ada barangnya bukan cuma
+mubazir: lembarnya dipakai sambil memegang barang, dan dua baris
+`250 ml` dan `220 ml` untuk produk yang sama adalah undangan salah
+tulis yang baru ketahuan sesudah opname ditutup dan koreksinya
+terlanjur jadi stok.
+
+Varian yatim yang stoknya BELUM nol tetap ikut, termasuk yang minus:
+itu justru barang yang perlu diluruskan, dan opname adalah satu-satunya
+pintu untuk meluruskannya. Aturannya ada di dua tempat yang harus
+bergerak bersamaan, `create_stock_opname_tx` (20260821) dan perkiraan
+jumlah baris di layar Opname Baru. Perkiraan yang meleset dari jumlah
+baris yang benar-benar terbentuk membuat orang mengira ada item yang
+tidak ikut terhitung.
+
+**Opname yang sudah ditutup tidak pernah disentuh.** Barisnya adalah
+potret stok pada hari itu, bukan daftar yang boleh dirapikan
+belakangan.
 
 Konsekuensinya kalau menambah jalur keluar-masuk produk jadi yang baru:
 tambahkan sebagai `union all` di `fg_stock_calc`, lalu cerminkan di

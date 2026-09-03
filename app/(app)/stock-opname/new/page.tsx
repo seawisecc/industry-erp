@@ -47,8 +47,13 @@ export default async function OpnameBaruPage() {
 
   // Perkiraan baris produk jadi harus sama dengan yang dibentuk
   // create_stock_opname_tx: master produk × varian yang aktif, ditambah
-  // kombinasi yang pernah bergerak walau variannya sudah dihapus dari
-  // master (barangnya masih ada di gudang).
+  // varian yang sudah dihapus dari master TAPI stoknya belum nol
+  // (barangnya masih ada di gudang dan harus tetap dihitung).
+  //
+  // Yang stoknya nol sengaja tidak ikut. Lihat 20260821, dan kalau
+  // syaratnya di SQL bergerak, angka di layar ini harus ikut bergerak:
+  // perkiraan yang meleset dari jumlah baris yang benar-benar terbentuk
+  // membuat orang mengira ada item yang tidak ikut terhitung.
   const produkAktif = new Set(
     ((products || []) as { id: string }[]).map((p) => p.id)
   );
@@ -67,7 +72,7 @@ export default async function OpnameBaruPage() {
     if (!punyaVarian.has(id)) kombinasi.add(`${id}|-`);
   }
   for (const s of stock.values()) {
-    if (produkAktif.has(s.product_id)) {
+    if (produkAktif.has(s.product_id) && s.available !== 0) {
       kombinasi.add(`${s.product_id}|${varianKey(s.varian)}`);
     }
   }
