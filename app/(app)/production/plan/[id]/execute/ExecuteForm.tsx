@@ -17,6 +17,7 @@ import { urutkanFormula, faseKey, faseLabel } from "@/lib/formulaOrder";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
+import { localTimeStr } from "@/lib/dates";
 
 /* ------------------------------------------------------------
    Draft otomatis di browser.
@@ -1083,13 +1084,10 @@ export default function ExecuteForm({
 
           {plan.steps.map((s) => {
             const log = stepLogs.find((l) => l.urutan === s.urutan)!;
-            const jam = (iso: string | null) =>
-              iso
-                ? new Date(iso).toLocaleTimeString("id-ID", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : null;
+            // Zona operasional, bukan zona browser: jam yang dilihat
+            // operator harus sama persis dengan yang tercetak di batch
+            // record, dan halaman cetaknya dirender di server.
+            const jam = (iso: string | null) => localTimeStr(iso) || null;
             return (
               <div
                 key={s.urutan}

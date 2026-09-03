@@ -8,6 +8,7 @@ import EditNoBatchButton from "../EditNoBatchButton";
 import DataTable from "@/components/DataTable";
 import { hitungEstimasiProduksi } from "@/lib/productionEstimate";
 import { cancelProduction, updateBatchNoBatch } from "../actions";
+import { localTimeStr } from "@/lib/dates";
 
 type BatchDetail = {
   id: string;
@@ -34,6 +35,26 @@ type BatchDetail = {
       supplier_nama: string | null;
     } | null;
   }[];
+};
+
+/* Cara pembuatan: sama persis dengan yang tercetak di batch record.
+   Sebelumnya jejak MES (jam mulai, jam selesai, operator, catatan) cuma
+   bisa dilihat dengan membuka halaman cetak, padahal itu yang paling
+   sering ditanya waktu meninjau satu batch. */
+type Step = {
+  urutan: number;
+  instruksi: string;
+  suhu: string | null;
+  rpm: string | null;
+  durasi: string | null;
+};
+
+type StepLog = {
+  urutan: number;
+  mulai: string | null;
+  selesai: string | null;
+  oleh: string | null;
+  catatan: string | null;
 };
 
 function formatRupiah(n: number) {
@@ -89,6 +110,35 @@ export default async function ProductionDetailPage({
     batch.production_components,
     Number(batch.total_cost_bahan)
   );
+
+  // Snapshot dari plan adalah jejak historis; prosedur produk yang
+  // berlaku sekarang cuma fallback untuk batch lama yang belum punya
+  // snapshot. Urutannya sama dengan halaman cetak.
+  const { data: plan } = await supabase
+    .from("production_plans")
+    .select("steps_snapshot, product_id, execution_data")
+    .eq("production_batch_id", batch.id)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  let steps: Step[] = Array.isArray(plan?.steps_snapshot)
+    ? (plan!.steps_snapshot as Step[])
+    : [];
+  if (steps.length === 0 && plan?.product_id) {
+    const { data: liveSteps } = await supabase
+      .from("product_process_steps")
+      .select("urutan, instruksi, suhu, rpm, durasi")
+      .eq("product_id", plan.product_id as string)
+      .eq("organization_id", organizationId)
+      .order("urutan");
+    steps = (liveSteps || []) as Step[];
+  }
+  steps.sort((a, b) => a.urutan - b.urutan);
+
+  const langkahLogs = new Map<number, StepLog>();
+  const exec = plan?.execution_data as { langkah?: StepLog[] } | null;
+  for (const l of exec?.langkah || []) langkahLogs.set(l.urutan, l);
+  const adaJejak = steps.some((s) => langkahLogs.get(s.urutan)?.mulai);
 
   return (
     <div className="max-w-5xl">
@@ -364,6 +414,89 @@ export default async function ProductionDetailPage({
           ]}
         />
       </div>
+
+      {steps.length > 0 && (
+        <>
+          <h2 className="font-display text-[15.5px] font-semibold text-ink mb-0.5">
+            Cara Pembuatan
+          </h2>
+          <p className="text-muted text-[12.5px] mb-2">
+            {adaJejak
+              ? "Jam mulai & selesai dicatat operator di layar Execution, dalam waktu " +
+                "setempat. Isian yang sama ini yang tercetak di batch record."
+              : "Langkahnya belum pernah diisi lewat layar Execution, jadi kolom jam " +
+                "dan parafnya kosong dan diisi tangan di batch record."}
+          </p>
+          <div className="mb-5">
+            <DataTable
+              rows={steps}
+              rowKey={(s) => String(s.urutan)}
+              minWidth={720}
+              empty="Belum ada langkah."
+              columns={[
+                {
+                  key: "no",
+                  header: "No",
+                  role: "subtitle",
+                  className: "font-semibold whitespace-nowrap",
+                  cardCell: (s) => `Langkah ${s.urutan}`,
+                  cell: (s) => `${s.urutan}.`,
+                },
+                {
+                  key: "instruksi",
+                  header: "Instruksi",
+                  role: "title",
+                  cell: (s) => (
+                    <>
+                      {s.instruksi}
+                      {langkahLogs.get(s.urutan)?.catatan && (
+                        <div className="text-[11.5px] text-muted italic mt-0.5">
+                          Catatan: {langkahLogs.get(s.urutan)!.catatan}
+                        </div>
+                      )}
+                    </>
+                  ),
+                },
+                {
+                  key: "parameter",
+                  header: "Parameter",
+                  role: "primary",
+                  className: "text-[12.5px] text-muted",
+                  cell: (s) =>
+                    [s.suhu, s.rpm ? `${s.rpm} rpm` : null, s.durasi]
+                      .filter(Boolean)
+                      .join(" · ") || "-",
+                },
+                {
+                  key: "mulai",
+                  header: "Mulai",
+                  role: "primary",
+                  align: "center",
+                  className: "font-mono text-[12.5px] whitespace-nowrap",
+                  cell: (s) => localTimeStr(langkahLogs.get(s.urutan)?.mulai) || "-",
+                },
+                {
+                  key: "selesai",
+                  header: "Selesai",
+                  role: "primary",
+                  align: "center",
+                  className: "font-mono text-[12.5px] whitespace-nowrap",
+                  cell: (s) => localTimeStr(langkahLogs.get(s.urutan)?.selesai) || "-",
+                },
+                {
+                  key: "oleh",
+                  header: "Paraf",
+                  cardLabel: "Dikerjakan oleh",
+                  role: "primary",
+                  align: "center",
+                  className: "text-[12.5px]",
+                  cell: (s) => langkahLogs.get(s.urutan)?.oleh || "-",
+                },
+              ]}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

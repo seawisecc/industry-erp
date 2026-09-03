@@ -47,3 +47,50 @@ export function addDaysStr(iso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+/* ============================================================
+   Helper JAM.
+
+   Alasannya sama persis dengan localDateStr di atas, dan sekali
+   sudah lolos ke kertas: batch record produksi mencetak jam mulai
+   & selesai tiap langkah dengan `new Date(iso).toLocaleTimeString()`
+   tanpa timeZone. Di server Vercel itu jam UTC, jadi langkah yang
+   dikerjakan 09.04 WITA tercetak 01.04. Angkanya kelihatan wajar
+   (tidak ada error, tidak ada tanda tanya), cuma delapan jam meleset,
+   dan itu jam yang ditandatangani operator di dokumen CPKB.
+
+   Pemisahnya TITIK DUA, bukan titik. `id-ID` memakai titik ("09.04"),
+   dan di sebelah kolom angka lain itu terbaca seperti bilangan
+   desimal, bukan jam. Jam 24 dipaksa lewat hourCycle h23 supaya
+   tidak pernah muncul AM/PM.
+   ============================================================ */
+
+const jamFmt = new Intl.DateTimeFormat("en-GB", {
+  timeZone: APP_TIMEZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+const waktuFmt = new Intl.DateTimeFormat("id-ID", {
+  timeZone: APP_TIMEZONE,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/** Jam di zona operasional, format 24 jam `HH:mm`. */
+export function localTimeStr(iso: string | Date | null | undefined): string {
+  if (!iso) return "";
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return jamFmt.format(d);
+}
+
+/** Tanggal + jam di zona operasional, mis. `3 Sep 2026, 09:04`. */
+export function localDateTimeStr(iso: string | Date | null | undefined): string {
+  if (!iso) return "";
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${waktuFmt.format(d)}, ${jamFmt.format(d)}`;
+}

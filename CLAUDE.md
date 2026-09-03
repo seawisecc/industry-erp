@@ -153,6 +153,43 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
   SQL. Server berjalan di UTC; `lib/dates.ts` yang menghitung tanggal
   kalender di zona operasional.
 
+# Jam di layar & di kertas: `lib/dates.ts`, bukan `toLocaleTimeString`
+
+Aturannya perpanjangan dari `localDateStr`, tapi jamnya jauh lebih
+gampang lolos karena angkanya tetap kelihatan wajar. Komponen SERVER
+yang menulis `new Date(iso).toLocaleTimeString("id-ID", ...)` tanpa
+`timeZone` mencetak jam UTC.
+
+Itu sudah sampai ke kertas. Batch record produksi mencetak jam mulai &
+selesai tiap langkah, dan langkah yang dikerjakan **09.04 WITA tercetak
+01.04**. Tidak ada error, tidak ada tanda tanya, cuma delapan jam
+meleset, di dokumen CPKB yang ditandatangani operator. Yang membuatnya
+tidak ketahuan berbulan-bulan: layar Execution yang mencatat jamnya
+adalah komponen KLIEN, jadi di situ angkanya benar. Salah satu dari dua
+sisi benar adalah kondisi terburuk, karena orang yang mengisi tidak
+pernah melihat angka yang salah.
+
+| Fungsi di `lib/dates.ts` | Keluaran |
+| --- | --- |
+| `localTimeStr(iso)` | `09:04` |
+| `localDateTimeStr(iso)` | `3 Sep 2026, 09:04` |
+
+Dua hal yang menentukan bentuknya:
+
+- **Pemisahnya titik dua, bukan titik.** `id-ID` memakai titik
+  (`09.04`), dan di sebelah kolom angka lain itu terbaca seperti
+  bilangan desimal. Jam 24 dipaksa lewat `hourCycle: "h23"`, jadi tidak
+  pernah ada AM/PM yang harus ditebak.
+- **Klien pun memakainya.** `lib/dates.ts` bersih dari import server,
+  jadi `ExecuteForm` ikut memanggilnya. Jam yang dilihat operator waktu
+  menekan Mulai wajib sama persis dengan yang tercetak, dan zona browser
+  tidak menjamin itu.
+
+Kalau menambah layar yang memuat jam, pakai kedua fungsi itu. Halaman
+cetak yang sudah benar sejak awal (`label`, `nota`) memakai
+`Intl.DateTimeFormat` ber-`timeZone: APP_TIMEZONE` sendiri; itu boleh
+tetap, yang tidak boleh cuma `toLocaleTimeString` telanjang.
+
 # Akuntansi stok: satu barang keluar sekali
 
 Barang bisa keluar lewat produksi, pemakaian di luar produksi, retur ke

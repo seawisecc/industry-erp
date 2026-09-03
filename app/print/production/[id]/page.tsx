@@ -7,6 +7,7 @@ import { hitungEstimasiProduksi } from "@/lib/productionEstimate";
 import PrintButton from "../../po/[id]/PrintButton";
 import QrSignBlock from "../../QrSignBlock";
 import PrintKop from "@/components/PrintKop";
+import { localTimeStr } from "@/lib/dates";
 
 type BatchPrint = {
   id: string;
@@ -129,13 +130,6 @@ export default async function PrintProductionPage({
   const langkahLogs = new Map<number, StepLog>();
   const exec = plan?.execution_data as { langkah?: StepLog[] } | null;
   for (const l of exec?.langkah || []) langkahLogs.set(l.urutan, l);
-  const jamOf = (iso: string | null | undefined) =>
-    iso
-      ? new Date(iso).toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      : "";
 
   // Fase & persentase per bahan (dari formula produk)
   const formulaMap = new Map<string, { fase: string | null; percentage: number }>();
@@ -394,10 +388,10 @@ export default async function PrintProductionPage({
                         .join(" · ") || "-"}
                     </td>
                     <td className="py-2.5 pr-2 border-l border-neutral-200 text-center text-[11px]">
-                      {jamOf(langkahLogs.get(s.urutan)?.mulai)}
+                      {localTimeStr(langkahLogs.get(s.urutan)?.mulai)}
                     </td>
                     <td className="py-2.5 pr-2 border-l border-neutral-200 text-center text-[11px]">
-                      {jamOf(langkahLogs.get(s.urutan)?.selesai)}
+                      {localTimeStr(langkahLogs.get(s.urutan)?.selesai)}
                     </td>
                     <td className="py-2.5 border-l border-neutral-200 text-center text-[10px]">
                       {langkahLogs.get(s.urutan)?.oleh || ""}

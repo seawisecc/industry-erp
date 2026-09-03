@@ -20,6 +20,7 @@ import {
   type AktivitasAksi,
   type Perubahan,
 } from "@/lib/activityLog";
+import { localDateTimeStr } from "@/lib/dates";
 
 type LogRow = {
   id: string;
@@ -41,15 +42,9 @@ const PERIODE: Record<string, number> = {
   "90": 90,
 };
 
-function formatWaktu(iso: string) {
-  return new Date(iso).toLocaleString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+// Server berjalan di UTC, jadi jamnya wajib lewat helper zona
+// operasional. Tanpa itu audit trail mencatat delapan jam meleset.
+const formatWaktu = localDateTimeStr;
 
 /** Daftar "kolom: dari → ke" untuk aksi Ubah. */
 function DaftarPerubahan({ perubahan }: { perubahan: Perubahan | null }) {
