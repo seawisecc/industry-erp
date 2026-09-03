@@ -31,12 +31,15 @@ export default function PaymentPanel({
   client,
   total,
   payments,
+  canCancel,
 }: {
   invoiceId: string;
   noInvoice: string | null;
   client: string;
   total: number;
   payments: PaymentRow[];
+  /** Izin yang sama dengan Batal Transaksi. Lihat catatan di actions.ts. */
+  canCancel: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -46,15 +49,14 @@ export default function PaymentPanel({
   const [catatan, setCatatan] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [hapusId, setHapusId] = useState<string | null>(null);
 
   const dibayar = payments.reduce((s, p) => s + Number(p.jumlah), 0);
   const sisa = Math.max(0, total - dibayar);
 
-  async function submit(penuh: boolean) {
+  async function submit() {
     if (loading) return;
-    const nilai = penuh
-      ? sisa
-      : Math.round(Number(jumlah));
+    const nilai = Math.round(Number(jumlah));
     if (!(nilai > 0)) {
       setError("Isi jumlah pembayaran dulu");
       return;
@@ -79,13 +81,14 @@ export default function PaymentPanel({
   }
 
   async function hapus(id: string) {
-    if (!confirm("Hapus catatan pembayaran ini?")) return;
+    setHapusId(null);
+    setError("");
     try {
       const res = await deleteSalesPayment(id);
-      if (!res.ok) alert(res.error || "Gagal");
-      router.refresh();
+      if (res.ok) router.refresh();
+      else setError(res.error || "Gagal menghapus pembayaran");
     } catch {
-      alert("Gagal, muat ulang halaman lalu coba lagi.");
+      setError("Gagal, muat ulang halaman lalu coba lagi.");
     }
   }
 
@@ -169,17 +172,44 @@ export default function PaymentPanel({
                           </span>
                         )}
                       </div>
-                      <button
-                        onClick={() => hapus(p.id)}
-                        className="text-muted hover:text-clay-600 flex-shrink-0"
-                        aria-label="Hapus"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {/* Menghapus cicilan mengubah tagihan yang sudah
+                          diakui, jadi izinnya sama dengan Batal Transaksi. */}
+                      {canCancel &&
+                        (hapusId === p.id ? (
+                          <span className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => hapus(p.id)}
+                              className="text-clay-600 text-[11.5px] font-medium hover:underline"
+                            >
+                              Hapus
+                            </button>
+                            <button
+                              onClick={() => setHapusId(null)}
+                              className="text-muted text-[11.5px] font-medium hover:underline"
+                            >
+                              Batal
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setHapusId(p.id)}
+                            className="text-muted hover:text-clay-600 flex-shrink-0"
+                            aria-label="Hapus pembayaran ini"
+                            title="Hapus pembayaran ini"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        ))}
                     </div>
                   ))}
                 </div>
               </div>
+            )}
+
+            {error && (
+              <p className="mx-5 mb-3 text-clay-600 text-[12px] bg-clay-100/60 rounded-lg px-3 py-2">
+                {error}
+              </p>
             )}
 
             {/* Form input */}
@@ -224,17 +254,15 @@ export default function PaymentPanel({
 
                 <button
                   type="button"
-                  onClick={() => setJumlah(sisa.toLocaleString("id-ID"))}
+                  onClick={() => setJumlah(String(Math.round(sisa)))}
                   className="mt-2 text-botanical-700 text-[12px] font-medium hover:underline"
                 >
                   Isi penuh (lunasi {rupiah(sisa)})
                 </button>
 
-                {error && <p className="text-clay-600 text-[12px] mt-2">{error}</p>}
-
                 <div className="flex items-center gap-2 mt-4">
                   <button
-                    onClick={() => submit(false)}
+                    onClick={() => submit()}
                     disabled={loading}
                     className="flex-1 inline-flex items-center justify-center gap-1.5 bg-botanical-700 text-white text-[13px] font-medium py-2.5 rounded-lg hover:bg-botanical-800 transition-colors disabled:opacity-60"
                   >

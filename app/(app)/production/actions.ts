@@ -129,6 +129,99 @@ export async function deletePlan(id: string): Promise<{ ok: boolean; error?: str
   }
 }
 
+/**
+ * Betulkan nomor batch yang salah ketik.
+ *
+ * Izinnya sama dengan pembuat instruksi produksi (`requirePlanner`):
+ * nomor batch lahir di layar Plan, jadi yang berhak menulisnya juga
+ * yang berhak membetulkannya.
+ *
+ * Nomornya tersimpan di DUA tabel. `finishProduction` menyalin
+ * `production_plans.no_batch` jadi `production_batches.no_batch_produksi`,
+ * dan sesudah itu keduanya berdiri sendiri. Karena itu perbaikannya
+ * selalu menyentuh pasangannya juga: membetulkan satu sisi saja
+ * menghasilkan batch record yang nomornya beda dengan instruksi
+ * produksinya, dan itu justru kesalahan yang lebih sulit dilacak
+ * daripada salah ketik yang mau dibetulkan.
+ *
+ * Jejaknya tidak ditulis dari sini: trigger `log_activity` memantau
+ * kolom `no_batch` dan `no_batch_produksi` (lihat 20260806).
+ */
+export async function updatePlanNoBatch(
+  planId: string,
+  noBaru: string
+): Promise<ActionResult> {
+  return toResult(async () => {
+    const supabase = await createClient();
+    const { organizationId } = await requirePlanner();
+
+    const no = noBaru.trim();
+    if (!no) throw new Error("No. batch wajib diisi");
+
+    const { data: plan } = await supabase
+      .from("production_plans")
+      .select("id, production_batch_id")
+      .eq("id", planId)
+      .eq("organization_id", organizationId)
+      .single();
+    if (!plan) throw new Error("Plan tidak ditemukan");
+
+    const { error } = await supabase
+      .from("production_plans")
+      .update({ no_batch: no })
+      .eq("id", planId)
+      .eq("organization_id", organizationId);
+    if (error) throw new Error(error.message);
+
+    if (plan.production_batch_id) {
+      const { error: e2 } = await supabase
+        .from("production_batches")
+        .update({ no_batch_produksi: no })
+        .eq("id", plan.production_batch_id)
+        .eq("organization_id", organizationId);
+      if (e2) throw new Error(e2.message);
+    }
+
+    revalidatePath("/production");
+    revalidatePath(`/production/${plan.production_batch_id || ""}`);
+  }, "Gagal mengubah no. batch");
+}
+
+/**
+ * Sisi sebaliknya: dipanggil dari batch yang sudah jadi (termasuk
+ * produksi langsung yang tidak lahir dari plan). Plan yang menunjuk
+ * batch ini ikut disamakan, alasannya sama dengan di atas.
+ */
+export async function updateBatchNoBatch(
+  batchId: string,
+  noBaru: string
+): Promise<ActionResult> {
+  return toResult(async () => {
+    const supabase = await createClient();
+    const { organizationId } = await requirePlanner();
+
+    const no = noBaru.trim();
+    if (!no) throw new Error("No. batch wajib diisi");
+
+    const { error } = await supabase
+      .from("production_batches")
+      .update({ no_batch_produksi: no })
+      .eq("id", batchId)
+      .eq("organization_id", organizationId);
+    if (error) throw new Error(error.message);
+
+    const { error: e2 } = await supabase
+      .from("production_plans")
+      .update({ no_batch: no })
+      .eq("production_batch_id", batchId)
+      .eq("organization_id", organizationId);
+    if (e2) throw new Error(e2.message);
+
+    revalidatePath("/production");
+    revalidatePath(`/production/${batchId}`);
+  }, "Gagal mengubah no. batch");
+}
+
 export async function saveExecution(
   planId: string,
   data: ExecutionData

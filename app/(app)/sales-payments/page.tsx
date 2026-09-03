@@ -54,7 +54,11 @@ export default async function SalesPaymentsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const supabase = await createClient();
-  const { organizationId } = await getEffectiveOrg();
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+
+  // Hapus cicilan setara Batal Transaksi, lihat catatan di actions.ts.
+  const canCancel =
+    isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
 
   // Yang butuh pelunasan: dokumen belum lunas (Proforma / cicilan berjalan).
   // POS cash sudah lunas seketika → tidak muncul di sini.
@@ -363,6 +367,7 @@ export default async function SalesPaymentsPage({
                   client={inv.clients?.company_brand || inv.nama_pembeli || "-"}
                   total={Number(inv.total)}
                   payments={paysByInv.get(inv.id) || []}
+                  canCancel={canCancel}
                 />
               </div>
             ),

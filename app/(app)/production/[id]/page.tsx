@@ -4,9 +4,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer, Tags } from "lucide-react";
 import CancelTxButton from "@/components/CancelTxButton";
+import EditNoBatchButton from "../EditNoBatchButton";
 import DataTable from "@/components/DataTable";
 import { hitungEstimasiProduksi } from "@/lib/productionEstimate";
-import { cancelProduction } from "../actions";
+import { cancelProduction, updateBatchNoBatch } from "../actions";
 
 type BatchDetail = {
   id: string;
@@ -57,6 +58,9 @@ export default async function ProductionDetailPage({
   const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
   const canCancel =
     isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
+  // Membetulkan nomor batch = izin yang sama dengan membuat plan-nya.
+  const canPlan =
+    isSuperAdmin || profile?.role === "Admin" || !!profile?.can_plan_production;
 
   const { data } = await supabase
     .from("production_batches")
@@ -111,6 +115,13 @@ export default async function ProductionDetailPage({
             judul="Batalkan Batch Produksi"
             keterangan="Bahan yang terpakai akan dikembalikan ke stok dan hasil produksi dihapus. Hanya bisa bila produk jadinya belum terjual/terkirim."
             redirectTo="/production"
+          />
+          <EditNoBatchButton
+            id={batch.id}
+            noSekarang={batch.no_batch_produksi}
+            action={updateBatchNoBatch}
+            canEdit={canPlan}
+            variant="button"
           />
           <Link
             href={`/print/label/batch/${batch.id}`}

@@ -1089,6 +1089,16 @@ Lima aturan yang menentukan:
 `bulat` untuk kolom yang tidak pernah pecahan (qty pcs, tempo hari):
 koma sama sekali ditolak. `negatif` untuk yang boleh minus.
 
+**Tombol yang MENGISI kotak angka wajib menulis NILAI, bukan hasil
+`toLocaleString`.** Ini sudah sekali lolos: tombol "Isi penuh" di
+`PaymentPanel` mengisi state dengan `sisa.toLocaleString("id-ID")`,
+jadi state berisi `"1.500.000"`. Bagi komponen ini titik adalah
+pemisah DESIMAL di sisi NILAI, sehingga yang tampil jadi `1,500.000`
+dan `Number(...)` di pemanggilnya menghasilkan `NaN`. Gejalanya
+menyesatkan: tombolnya kelihatan bekerja, tapi simpannya ditolak
+dengan pesan "isi jumlah dulu". Yang benar `String(n)`, dan `String(
+Math.round(n))` untuk kotak `bulat`.
+
 Pengecualian yang disengaja: kotak nomor halaman di
 `components/Pagination.tsx`. Itu penunjuk halaman, bukan jumlah, dan
 "halaman 1.024" salah baca.
@@ -1260,6 +1270,41 @@ Empat aturan yang menentukan, dan semuanya gampang dilanggar tanpa sadar:
 
 `theme_color` di manifest dan `viewport.themeColor` di `app/layout.tsx` adalah
 angka yang sama (`#1E3327`) di dua tempat. Ubah dua-duanya.
+
+# Izin per aksi: satu kolom, dua sisi penjaga
+
+Selain `allowed_modules`, ada izin per aksi di `profiles`:
+`can_approve_po`, `can_plan_production`, `can_qc`, `can_qa`, dan
+`can_cancel`. Bentuk pemeriksaannya selalu sama dan harus ditiru
+apa adanya, karena Admin dan super admin tidak pernah dicentang
+satu per satu:
+
+```ts
+const boleh =
+  isSuperAdmin || profile?.role === "Admin" || !!profile?.can_cancel;
+```
+
+**Dipasang di DUA sisi: halaman (menyembunyikan tombol) dan server
+action (menolak).** Menyembunyikan tombol saja bukan pembatasan
+akses: server action punya URL sendiri dan bisa dipanggil dari mana
+saja.
+
+Dua aksi yang tidak kelihatan seperti "batal transaksi" tapi izinnya
+memang itu:
+
+| Aksi | Izin | Kenapa |
+| --- | --- | --- |
+| Hapus baris pembayaran (`deleteSalesPayment`) | `can_cancel` | Menurunkan jumlah yang sudah dibayar, bisa menurunkan status Lunas jadi Belum Lunas, dan itu mengubah tagihan yang sudah diakui ke client |
+| Ubah no. batch produksi (`updatePlanNoBatch` / `updateBatchNoBatch`) | `can_plan_production` | Nomor batch lahir di layar Plan, jadi yang berhak menulisnya juga yang berhak membetulkan salah ketiknya |
+
+**Nomor batch tersimpan di dua tabel**, `production_plans.no_batch`
+dan `production_batches.no_batch_produksi` (yang kedua disalin dari
+yang pertama waktu Input Hasil). Perbaikannya selalu menyentuh
+pasangannya juga: membetulkan satu sisi saja menghasilkan batch
+record yang nomornya beda dengan instruksi produksinya, kesalahan
+yang jauh lebih sulit dilacak daripada salah ketik yang mau
+dibetulkan. Jejaknya tidak perlu ditulis dari aplikasi, trigger
+`log_activity` sudah memantau kedua kolom itu.
 
 # Hak akses modul: jangan pernah menuju halaman tetap
 

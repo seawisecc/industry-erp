@@ -7,6 +7,8 @@ import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
 import DataTable from "@/components/DataTable";
 import RowActions, { IconAction } from "@/components/RowActions";
+import EditNoBatchButton from "./EditNoBatchButton";
+import { updatePlanNoBatch, updateBatchNoBatch } from "./actions";
 import { namaBrand } from "@/lib/produkLabel";
 import {
   ilikeOrWithIds,
@@ -253,6 +255,12 @@ export default async function ProductionPage({
             className: "whitespace-nowrap",
             cell: (p) => (
               <RowActions>
+                <EditNoBatchButton
+                  id={p.id}
+                  noSekarang={p.no_batch}
+                  action={updatePlanNoBatch}
+                  canEdit={canPlan}
+                />
                 {p.status === "Direncanakan" && (
                   <IconAction
                     icon={Play}
@@ -365,6 +373,12 @@ export default async function ProductionPage({
               align: "right",
               cell: (b) => (
                 <RowActions>
+                  <EditNoBatchButton
+                    id={b.id}
+                    noSekarang={b.no_batch_produksi}
+                    action={updateBatchNoBatch}
+                    canEdit={canPlan}
+                  />
                   <IconAction
                     icon={Eye}
                     label="Lihat batch record"

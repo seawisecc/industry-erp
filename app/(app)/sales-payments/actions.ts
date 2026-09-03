@@ -49,14 +49,26 @@ export async function recordSalesPayment(
   }
 }
 
-/** Hapus satu baris pembayaran (koreksi), lalu hitung ulang status. */
+/**
+ * Hapus satu baris pembayaran (koreksi), lalu hitung ulang status.
+ *
+ * Izinnya SAMA dengan Batal Transaksi (`profiles.can_cancel`), bukan
+ * izin biasa: menghapus cicilan menurunkan jumlah yang sudah dibayar,
+ * bisa menurunkan status Lunas jadi Belum Lunas, dan itu mengubah
+ * tagihan yang sudah diakui ke client. Penjaganya di sini, bukan cuma
+ * di layar: server action bisa dipanggil dari mana saja.
+ */
 export async function deleteSalesPayment(
   paymentId: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient();
-    const { organizationId } = await getEffectiveOrg();
+    const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
     if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
+    if (!(isSuperAdmin || profile?.role === "Admin" || profile?.can_cancel))
+      throw new Error(
+        "Kamu tidak punya izin menghapus pembayaran. Minta Admin mengaktifkan izin Batalkan Transaksi di menu Pengguna."
+      );
 
     const { error } = await supabase.rpc("delete_sales_payment_tx", {
       p_organization_id: organizationId,
