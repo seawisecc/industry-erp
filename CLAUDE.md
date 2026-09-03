@@ -299,6 +299,16 @@ tidak ikut terhitung.
 potret stok pada hari itu, bukan daftar yang boleh dirapikan
 belakangan.
 
+**Penyaring baris dipasang SEBELUM cabang pencarian, bukan di dalam
+salah satunya.** Bentuk halaman yang datanya utuh di memori adalah
+`const cocok = needle ? sumber.filter(...) : sumber`, dan versi pertama
+penyaring varian yatim ini cuma mengganti `sumber` di cabang pencarian.
+Akibatnya keterangan "7 varian disembunyikan" muncul, hitungannya tetap
+40, dan barisnya tetap ada, tapi begitu kotak cari diisi filternya
+mendadak jalan. Layar yang mengaku sudah menyaring padahal belum lebih
+buruk daripada layar yang tidak menyaring sama sekali: yang pertama
+membuat orang berhenti curiga.
+
 Konsekuensinya kalau menambah jalur keluar-masuk produk jadi yang baru:
 tambahkan sebagai `union all` di `fg_stock_calc`, lalu cerminkan di
 fallback `lib/salesStock.ts`. Jangan menambahkan penyesuaian di pemanggil.
@@ -1454,6 +1464,14 @@ bukan. Perbaikan sebenarnya: pindahkan perhitungannya ke database (view
 atau kolom turunan) supaya bisa masuk `.order()`. Kolom relasi
 (`suppliers(nama)`, `clients(company_brand)`) juga belum, karena urutannya
 harus dikerjakan PostgREST lewat embed dan itu perlu diuji tersendiri.
+
+**Nomor batch yang dibetulkan tidak mengubah kertas yang sudah
+tercetak.** Label batch, Certificate of Analysis, lembar QC, dan batch
+record yang terlanjur keluar dari printer tetap memuat nomor lama, dan
+tidak ada yang mencatat bahwa dokumen itu perlu dicetak ulang. Sekarang
+peringatannya cuma kalimat di dialog Ubah No. Batch. Kalau nanti dirasa
+kurang, yang dibutuhkan bukan larangan mengubah nomor melainkan daftar
+dokumen yang sudah dicetak per batch.
 
 **Logo perusahaan tidak tercetak di nota 58 mm.** Kertas thermal cuma
 punya satu warna dan logo berwarna lebih sering keluar jadi blok hitam
