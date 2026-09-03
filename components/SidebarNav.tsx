@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import Logo from "./Logo";
 import OrgSwitcher from "./OrgSwitcher";
 import SignOutButton from "./SignOutButton";
+import InstallAppButton from "./InstallAppButton";
 import {
   Menu,
   X,
@@ -213,11 +214,19 @@ export default function SidebarNav({
           <div className={collapsed ? "sm:hidden" : ""}>
             <div className="text-[13px] font-medium text-white">{currentOrgNama}</div>
             <div className="text-[11px] text-white/45">{profileNama}</div>
-            <SignOutButton />
+            {/* Tombol pasang duduk di kanan Keluar, dan tidak merender
+                apa pun kalau browsernya memang tidak bisa memasang. */}
+            <div className="flex items-center gap-2">
+              <SignOutButton />
+              <div className="mt-2">
+                <InstallAppButton />
+              </div>
+            </div>
           </div>
           {collapsed && (
-            <div className="hidden sm:block">
+            <div className="hidden sm:flex flex-col items-center gap-1">
               <SignOutButton variant="icon" />
+              <InstallAppButton />
             </div>
           )}
         </div>

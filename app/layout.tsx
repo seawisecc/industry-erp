@@ -83,6 +83,26 @@ export default function RootLayout({
       className={`${inter.variable} ${fraunces.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* Penangkap "beforeinstallprompt".
+
+            Sengaja skrip inline, bukan useEffect di komponen. Event ini
+            cuma dipicu SEKALI dan pada kunjungan kedua (service worker
+            sudah aktif) Chrome memicunya nyaris bersamaan dengan parsing
+            HTML, jauh sebelum React hidrasi. Listener yang dipasang
+            belakangan ketinggalan, dan tombol Install tidak pernah muncul
+            untuk sebagian pengguna saja. Lihat lib/pwaInstall.ts. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "window.__pwaPrompt=null;" +
+              "addEventListener('beforeinstallprompt',function(e){" +
+              "e.preventDefault();window.__pwaPrompt=e;" +
+              "dispatchEvent(new Event('pwa-status'))});" +
+              "addEventListener('appinstalled',function(){" +
+              "window.__pwaPrompt=null;" +
+              "dispatchEvent(new Event('pwa-status'))});",
+          }}
+        />
         <TopProgress />
         <ServiceWorkerRegister />
         {children}

@@ -1356,6 +1356,58 @@ Empat aturan yang menentukan, dan semuanya gampang dilanggar tanpa sadar:
 `theme_color` di manifest dan `viewport.themeColor` di `app/layout.tsx` adalah
 angka yang sama (`#1E3327`) di dua tempat. Ubah dua-duanya.
 
+## Tombol Pasang: event-nya ditangkap skrip inline, bukan `useEffect`
+
+Chrome tidak menyediakan API "pasang sekarang" yang bisa dipanggil kapan
+saja. Yang ada cuma event `beforeinstallprompt`, dan aturannya keras:
+**dipicu sekali, dan objeknya harus disimpan** karena `prompt()` hanya
+boleh dipanggil dari gestur user.
+
+Waktu pemicunya itu yang jadi jebakan. Pada kunjungan PERTAMA event-nya
+datang telat, sesudah service worker terdaftar, jadi listener di
+`useEffect` sempat terpasang. Pada kunjungan kedua service worker sudah
+aktif dan manifest sudah di-cache browser, jadi Chrome memicunya nyaris
+bersamaan dengan parsing HTML, sebelum React hidrasi. Listener yang
+dipasang belakangan ketinggalan kereta dan tombolnya tidak pernah
+muncul, **cuma pada sebagian pengguna**, yaitu bentuk bug yang paling
+sulit dipercaya waktu dilaporkan.
+
+Karena itu penangkapnya skrip inline di `app/layout.tsx`, jalan saat
+HTML diurai, menyimpan event ke `window.__pwaPrompt` lalu mengirim
+event `pwa-status`. `lib/pwaInstall.ts` cuma membaca hasil tangkapan itu
+sebagai external store, dan `components/InstallAppButton.tsx` membacanya
+lewat `useSyncExternalStore`, alasan yang sama dengan `localStorage` di
+bab State klien. Skrip inline itu kelihatan mubazir, jangan dipindah ke
+`useEffect`.
+
+Empat keadaan, dan dua di antaranya tidak merender apa pun:
+
+| Keadaan | Tombol |
+| --- | --- |
+| `terpasang` (dibuka dari home screen) | tidak ada |
+| `siap` (event tertangkap) | buka dialog pasang browser |
+| `ios` (Safari di iPhone/iPad) | buka petunjuk manual |
+| `tidak-bisa` | tidak ada |
+
+**iOS tidak akan pernah punya `beforeinstallprompt`.** Satu-satunya
+jalan di sana adalah Bagikan lalu "Tambahkan ke Layar Utama", jadi yang
+bisa diberikan aplikasi cuma petunjuknya. Petunjuk itu ditahan supaya
+tidak muncul di Chrome/Firefox versi iOS (`CriOS`/`FxiOS`): keduanya
+memakai WebKit tapi tidak punya menu itu, jadi petunjuknya cuma
+menyesatkan.
+
+**Tombol yang tidak bisa memasang apa pun harus hilang, bukan
+dinonaktifkan.** Tombol pasang yang ditekan lalu tidak terjadi apa-apa
+terbaca sebagai pemasangan yang gagal, dan orang akan mencoba lagi.
+
+Tempatnya dua: kaki sidebar di sebelah kanan Keluar (ikon saja), dan
+halaman login. Login dipilih karena itu satu-satunya halaman yang pasti
+dilihat semua orang, termasuk yang belum pernah masuk sama sekali.
+
+**Mengujinya wajib `npm run build && npm start`,** bukan `npm run dev`:
+di dev service worker justru dicabut (lihat aturan di atas), dan tanpa
+service worker aktif Chrome tidak pernah memicu event-nya.
+
 # Izin per aksi: satu kolom, dua sisi penjaga
 
 Selain `allowed_modules`, ada izin per aksi di `profiles`:

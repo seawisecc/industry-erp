@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import InstallAppButton from "@/components/InstallAppButton";
 import Link from "next/link";
 import { Check, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -539,6 +540,13 @@ export default function LoginPage() {
           Kenapa Seawise? →
         </Link>
       </p>
+
+      {/* Ditawarkan di sini karena inilah satu-satunya halaman yang pasti
+          dilihat semua orang, termasuk yang belum pernah masuk. Tidak
+          merender apa pun kalau browsernya tidak bisa memasang. */}
+      <div className="mt-4 flex justify-center">
+        <InstallAppButton variant="login" />
+      </div>
     </div>
   );
 }
