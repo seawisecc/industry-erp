@@ -123,7 +123,7 @@ export default async function FinishedGoodsPage({
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(needle))
       )
-    : semua;
+    : terpakai;
 
   // Datanya sudah utuh di memori (agregat RPC, bukan tabel mentah), jadi
   // urutannya dikerjakan SEBELUM dipotong per halaman. Kalau dibalik,
