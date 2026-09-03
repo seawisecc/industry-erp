@@ -33,6 +33,30 @@ type OrgOption = { id: string; nama: string; slug: string; aktif: boolean };
    dia sedang menyorot menu apa.
    ------------------------------------------------------------ */
 
+/**
+ * Inisial nama perusahaan untuk penanda di rail, mis. "PT Damar Nubio
+ * Aestetik" jadi "DN".
+ *
+ * Bentuk badan usaha dibuang dulu: hampir semua company di sini diawali
+ * PT atau CV, jadi memakainya menghasilkan "PD" dan "PS" yang justru
+ * tidak membedakan apa pun. Sengaja BUKAN ikon: ikon gedung sudah
+ * dipakai menu Companies, dan dua ikon kembar di satu rail bikin orang
+ * mengira penandanya bisa diklik ke sana.
+ */
+function inisialOrg(nama: string): string {
+  const kata = nama
+    .split(/\s+/)
+    .filter((k) => !/^(pt|cv|ud|pt\.|cv\.)$/i.test(k) && /[a-z0-9]/i.test(k));
+  const dipakai = kata.length > 0 ? kata : nama.split(/\s+/);
+  return (
+    dipakai
+      .slice(0, 2)
+      .map((k) => k[0])
+      .join("")
+      .toUpperCase() || "?"
+  );
+}
+
 const LEBAR_RAIL = 68;
 const LEBAR_PENUH = 230;
 
@@ -184,10 +208,15 @@ export default function SidebarNav({
            berlaku juga di HP dan merusak lebar drawer. */
         style={{ "--sb-w": `${luas ? LEBAR_PENUH : LEBAR_RAIL}px` } as React.CSSProperties}
       >
-        {/* Header */}
+        {/* Header.
+
+            Tingginya DIKUNCI dan sama di kedua keadaan. Kalau dibiarkan
+            mengikuti isi, munculnya judul saat melebar mendorong seluruh
+            menu ke bawah, dan menu yang lari dari kursornya sendiri
+            adalah cacat yang paling terasa dari pola rail ini. */}
         <div
-          className={`flex items-center gap-2.5 px-2 pb-4 pt-1 ${
-            luas ? "" : "sm:px-0 sm:justify-center"
+          className={`flex items-center gap-2.5 h-[52px] shrink-0 mb-3 ${
+            luas ? "px-2" : "sm:px-0 sm:justify-center px-2"
           }`}
         >
           <Logo size={28} />
@@ -221,12 +250,42 @@ export default function SidebarNav({
           </button>
         </div>
 
-        {/* Alasan yang sama dengan judul grup: disembunyikan lewat CSS
-            supaya super admin tetap bisa ganti company dari drawer HP. */}
+        {/* Disembunyikan lewat CSS supaya super admin tetap bisa ganti
+            company dari drawer HP.
+
+            `invisible`, BUKAN `hidden`: tempatnya harus tetap dipesan,
+            kalau tidak menu di bawahnya melompat saat sidebar melebar.
+            Lebarnya dikunci supaya isinya tidak melipat ulang waktu
+            panelnya menyempit jadi 68px; sisanya terpotong oleh
+            overflow-x-hidden panel, dan memang tidak terlihat. */}
         {isSuperAdmin && (
-          <div className={luas ? "" : "sm:hidden"}>
-            <OrgSwitcher organizations={organizations} currentOrgId={currentOrgId} />
-          </div>
+          <>
+            {/* Disembunyikan lewat CSS supaya super admin tetap bisa ganti
+                company dari drawer HP. Lebarnya dikunci supaya isinya
+                tidak melipat ulang waktu panelnya menyempit; sisanya
+                terpotong oleh overflow-x-hidden dan memang tidak
+                terlihat. */}
+            <div className={`shrink-0 sm:w-[198px] ${luas ? "" : "sm:hidden"}`}>
+              <OrgSwitcher organizations={organizations} currentOrgId={currentOrgId} />
+            </div>
+            {/* Penggantinya saat rail diam. Tingginya PERSIS sama dengan
+                switcher (37px + mb-3), kalau tidak seluruh menu di
+                bawahnya melompat saat sidebar melebar. Diisi penanda
+                company, bukan dibiarkan kosong: ruang yang dipesan lalu
+                dibiarkan menganga terbaca sebagai layar yang belum jadi,
+                dan penandanya sendiri berguna, nama lengkapnya keluar
+                sebagai tooltip tanpa perlu melebarkan sidebar. */}
+            {!luas && (
+              <div className="hidden sm:flex justify-center h-[37px] mb-3 shrink-0">
+                <div
+                  title={currentOrgNama}
+                  className="w-[37px] h-full flex items-center justify-center rounded-lg bg-white/10 border border-white/10 text-white/80 text-[12px] font-semibold tracking-wide"
+                >
+                  {inisialOrg(currentOrgNama)}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <nav className="flex flex-col flex-1 gap-0.5">
@@ -239,16 +298,22 @@ export default function SidebarNav({
                   menghapusnya di HP, dan kelompoknya jadi tidak berjudul
                   di layar yang justru paling butuh penanda. */}
               <div
-                className={`text-[10px] uppercase tracking-[0.12em] text-white/35 px-3 pb-1 ${
-                  i === 0 ? "pt-1" : "pt-4"
-                } ${luas ? "" : "sm:hidden"}`}
+                className={`h-8 flex items-end px-3 pb-1.5 text-[10px] uppercase tracking-[0.12em] text-white/35 ${
+                  luas ? "" : "sm:hidden"
+                }`}
               >
                 {grup}
               </div>
-              {/* Pengganti judul saat rail diam: kelompoknya tetap
-                  kelihatan tanpa memaksa teks ke lebar 68px. */}
-              {!luas && i > 0 && (
-                <div className="hidden sm:block h-px bg-white/10 mx-2 my-2" />
+              {/* Pengganti judul saat rail diam: kotak setinggi PERSIS
+                  sama (h-8), berisi garis tipis. Tingginya harus sama,
+                  bukan sekadar mirip, kalau tidak tiap kelompok menambah
+                  pergeseran sendiri saat sidebar melebar. Kelompok
+                  pertama dapat kotak kosong, karena garis yang menempel
+                  di bawah header cuma jadi coretan. */}
+              {!luas && (
+                <div className="hidden sm:flex h-8 items-center px-2" aria-hidden>
+                  <div className="h-px w-full bg-white/10" />
+                </div>
               )}
 
               {items.map((item) => {
@@ -260,7 +325,11 @@ export default function SidebarNav({
                     href={item.href}
                     title={item.label}
                     aria-label={item.label}
-                    className={`flex items-center gap-2.5 py-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+                    /* h-10, bukan py-2.5: baris berisi ikon saja lebih
+                       pendek daripada baris berisi teks, dan selisih 3px
+                       per baris itu menumpuk jadi belasan piksel di menu
+                       paling bawah. */
+                    className={`flex items-center gap-2.5 h-10 shrink-0 rounded-lg text-[13.5px] font-medium transition-all ${
                       luas ? "px-3" : "sm:justify-center sm:px-0 px-3"
                     } ${
                       active

@@ -949,6 +949,38 @@ tidak pernah bergeser cuma karena kursor lewat. Kalau nanti tergoda
 menghapus pengganjalnya dan mengembalikan sidebar ke alur flex, yang
 hilang bukan kerapian melainkan seluruh gunanya.
 
+**Geometri vertikalnya WAJIB identik di kedua keadaan.** Ini aturan
+terpenting di bab ini, dan versi pertama melanggarnya tanpa terasa waktu
+ditulis. Kalau menu bergeser saat sidebar melebar, orang yang mengarahkan
+kursor ke Sales akan menekan menu lain: sidebar-nya melebar duluan, dan
+yang berada di bawah kursor sudah berubah. Menu yang lari dari kursornya
+sendiri terasa rusak, bukan sekadar kurang rapi.
+
+Diukur sebelum diperbaiki, mengarah ke Sales berakhir di Products.
+Pergeserannya 52px sampai 114px dan tidak seragam, karena penyebabnya
+ada empat dan semuanya menumpuk:
+
+| Penyebab | Pengunci |
+| --- | --- |
+| Judul "Industry Management" muncul, header memanjang | header `h-[52px]` tetap |
+| Baris ikon saja lebih pendek daripada baris berteks (~3px, dikali 10 baris) | tiap baris menu `h-10` tetap |
+| Judul grup (teks) vs garis pemisah, tingginya beda | dua-duanya kotak `h-8` |
+| OrgSwitcher muncul untuk super admin | rail memesan tinggi yang sama persis (37px + `mb-3`) |
+
+Cara memeriksanya bukan dengan melihat: catat titik tengah tiap `<a>`
+saat rail, arahkan kursor, catat lagi, dan selisihnya harus **0 untuk
+semua baris**. Selisih 3px pun berarti ada kotak yang tingginya masih
+mengikuti isi.
+
+**Ruang yang dipesan jangan dibiarkan menganga.** Tempat OrgSwitcher yang
+kosong di rail terbaca sebagai layar yang belum jadi, jadi diisi penanda
+company berisi inisial (`inisialOrg`, "PT Damar Nubio Aestetik" jadi
+"DN"), dengan nama lengkap sebagai tooltip. Sengaja teks, bukan ikon
+gedung: ikon itu sudah dipakai menu Companies, dan dua ikon kembar di
+satu rail membuat orang mengira penandanya bisa diklik ke sana. Bentuk
+badan usaha dibuang dulu karena hampir semua company di sini diawali PT,
+jadi memakainya menghasilkan "PD" dan "PS" yang tidak membedakan apa pun.
+
 **Fokus keyboard ikut melebarkan, bukan cuma hover.** Tanpa itu orang
 yang menekan Tab masuk ke sidebar berpindah antar ikon tanpa tahu dia
 sedang menyorot menu apa. `onBlurCapture` memeriksa `relatedTarget`
