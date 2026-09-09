@@ -589,6 +589,14 @@ tidak bisa diketik per dokumen, persis seperti di sisi penjualan. Kolom
 dihapus. Yang dipilih di layar cuma modelnya, lewat
 `components/TaxModeSwitch.tsx`.
 
+**Tarifnya dibaca ulang di server, tidak pernah dipercaya dari form.**
+`bekukanPajak` di `purchase-orders/actions.ts` dan `createReceiving`
+sama-sama memanggil `getTaxSettings()` sendiri; yang datang dari layar
+cuma modelnya, karena cuma itu yang memang keputusan per dokumen. Alasan
+yang sama dengan `createInvoice` di sisi penjualan: tab yang sudah lama
+terbuka tidak boleh menerbitkan dokumen bertarif aturan lama sementara
+kolomnya tertulis aturan baru.
+
 Rumusnya TIDAK ditulis ulang: `hitungTotalPembelian` di
 `lib/purchaseTax.ts` cuma memanggil `hitungTotalDokumen` dengan diskon 0
 (sisi pembelian tidak punya kolom diskon dokumen, potongan supplier
@@ -627,6 +635,17 @@ datang bersama barang adalah kenyataannya.
 memberitahu, dan form jatuh ke `Exclude`. `Non` adalah pernyataan bahwa
 supplier ini memang tidak memungut PPN, dan itu tidak boleh ditimpa
 tebakan.
+
+**Modelnya juga bisa diisi di muka di form Supplier**, tanpa menunggu
+dokumen pertama. Berguna untuk supplier yang sudah diketahui non-PKP:
+isi `Tanpa PPN` sekali, dan PO pertamanya sudah benar.
+
+**`POInput.tax_mode` boleh null, artinya "pakai bawaan suppliernya".**
+Satu-satunya pemanggil yang memakainya adalah Guide Order, yang
+menerbitkan PO ke banyak supplier sekaligus dalam sekali klik. Tidak ada
+satu model yang benar untuk semuanya di situ, jadi layar itu memang tidak
+punya switch dan setiap PO-nya lahir dengan bawaan suppliernya
+masing-masing.
 
 **Isian otomatis berhenti begitu switch-nya disentuh** (`taxManual` di
 POForm dan ReceivingForm). Polanya sama dengan `hargaManual` di
@@ -683,9 +702,15 @@ Settings diganti.
 
 Berbeda dengan `sales_invoices`, kolomnya TIDAK diisi trigger. Di sana
 invoice lahir dari tiga jalur RPC yang salah satunya bahkan tidak
-di-track di repo; di sini cuma ada dua jalur dan dua-duanya memang harus
-memilih modelnya secara sadar. Trigger yang mengisi diam-diam justru
+di-track di repo, jadi jalur yang lupa mengisinya tidak bisa dilihat dari
+kode mana pun. Di sini ketiga jalurnya (`createPO`, `update_po_tx`,
+`create_receiving_tx`) semuanya ada di repo dan semuanya memang harus
+memilih modelnya secara sadar. Trigger yang mengisi diam-diam justru akan
 menyembunyikan jalur yang lupa bertanya.
+
+Yang tetap dikerjakan trigger cuma satu, dan sengaja: menyalin modelnya
+ke BAWAAN supplier. Itu bukan isian dokumen, melainkan efek samping yang
+harus berlaku untuk semua jalur.
 
 Dokumen sebelum migrasi `20260822` di-backfill: `ppn_percent` 0 jadi
 `Non`, selebihnya `Exclude` tanpa DPP Nilai Lain (tarifnya waktu itu 11
@@ -726,6 +751,14 @@ Di kedua form, switch pajaknya berdiri di kartu SENDIRI di sebelah kiri
 panel rekap, bukan di dalamnya. Kiri satu pilihan tentang kertas
 suppliernya, kanan akibatnya ke angka: sebab dan akibat terbaca
 sekaligus, dan panel rekap tidak berjejal oleh kontrol.
+
+**Kartu itu wajib memuat keterangan tarifnya** (`keteranganTarif`, prop
+`catatan` di `TaxModeSwitch`). Begitu kolom ketik "PPN (%)" dihapus,
+pertanyaan pertama orang pasti "tarifnya dari mana", dan jawabannya harus
+ada di tempat pertanyaannya muncul, bukan cuma di Settings. Angka tarif
+memang cuma boleh tampil di dua tempat: Settings, dan keterangan ini.
+Yang tetap dilarang adalah mencetaknya di sebelah label pajaknya
+("PPN (11%)"), karena 11% bukan tarif melainkan hasil akhir.
 
 
 # Batal invoice konsinyasi: asal stok harus dicatat dulu
