@@ -691,6 +691,29 @@ Dokumen sebelum migrasi `20260822` di-backfill: `ppn_percent` 0 jadi
 `Non`, selebihnya `Exclude` tanpa DPP Nilai Lain (tarifnya waktu itu 11
 dan dikenakan ke harga penuh). Tidak ada satu pun angka yang bergerak.
 
+## Laporan PPN: masukan vs keluaran
+
+`/reports?type=tax` menjajarkan pajak keluaran (dari `sales_invoices`)
+dengan pajak masukan (dari `receivings`), lengkap dengan rekap per masa
+pajak dan selisih kurang/lebih bayarnya.
+
+Tiga hal yang menentukan isinya:
+
+- **Angkanya dihitung ulang, tidak dibaca dari kolom total.** Tiap baris
+  lewat `hitungTotalDokumen` / `hitungTotalPembelian` dengan model yang
+  dibekukan di dokumen itu sendiri. Dalam satu periode, faktur Exclude
+  dan Include memang bercampur, dan di sisi pembelian itu justru keadaan
+  normalnya.
+- **Retur pembelian ikut, bertanda minus.** Barangnya sudah kembali dan
+  tagihannya sudah dipotong, jadi pajak masukannya ikut hangus.
+  `purchase_returns` cuma menyimpan `total_nilai`, jadi rinciannya
+  dibongkar balik lewat `rincianDariTotal` di `lib/purchaseTax.ts`. Itu
+  bukan rumus baru, cuma membalik arahnya: subtotalnya dihitung dulu,
+  lalu diserahkan ke `hitungTotalPembelian` yang sama.
+- **Bukan pengganti SPT Masa PPN**, dan kalimat itu ditulis di kaki
+  laporannya. Isinya cuma dokumen yang tercatat di sistem; faktur pajak
+  yang tidak lewat aplikasi ini tidak akan pernah muncul di situ.
+
 ## Panel rekap pembelian cuma satu komponen
 
 `components/PurchaseTotals.tsx` merender seluruh barisnya untuk enam
@@ -698,6 +721,11 @@ layar: form PO, form Penerimaan, detail PO, detail Penerimaan, cetak PO,
 cetak Penerimaan (prop `cetak` yang membedakan gayanya). `Sub Total Exc
 Tax` cuma muncul pada `Include`, dan `DPP` + `PPN` disembunyikan pada
 `Non`. Sebelumnya markup tiga barisnya disalin di tiap layar.
+
+Di kedua form, switch pajaknya berdiri di kartu SENDIRI di sebelah kiri
+panel rekap, bukan di dalamnya. Kiri satu pilihan tentang kertas
+suppliernya, kanan akibatnya ke angka: sebab dan akibat terbaca
+sekaligus, dan panel rekap tidak berjejal oleh kontrol.
 
 
 # Batal invoice konsinyasi: asal stok harus dicatat dulu

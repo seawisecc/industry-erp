@@ -59,6 +59,20 @@ export const PURCHASE_TAX_HINT: Record<PurchaseTaxMode, string> = {
   Include: "Harga di faktur sudah termasuk PPN. Total tidak bertambah, pajaknya diurai dari dalam harga.",
 };
 
+/**
+ * Kalimat yang menerangkan tarif yang berlaku, untuk ditulis di bawah
+ * switch. Ada di layar supaya orang tahu dari mana angkanya datang,
+ * sekaligus menjawab pertanyaan yang pasti muncul begitu kolom ketik
+ * "PPN (%)" dihapus dari form.
+ */
+export function keteranganTarif(tax: TaxSettings): string {
+  const persen = (n: number) =>
+    n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+  return tax.dppNilaiLain
+    ? `Tarif PPN ${persen(tax.taxPercent)}% atas DPP Nilai Lain (11/12 harga), efektif ${persen(tarifEfektif(tax.taxPercent, tax.dppNilaiLain))}%. Diatur di Settings, menu Pajak (PPN).`
+    : `Tarif PPN ${persen(tax.taxPercent)}% atas harga penuh. Diatur di Settings, menu Pajak (PPN).`;
+}
+
 /** Baca nilai kolom `tax_mode` apa adanya, apa pun isinya. */
 export function parsePurchaseTaxMode(raw: unknown): PurchaseTaxMode {
   return raw === "Non" || raw === "Include" || raw === "Exclude"
@@ -112,6 +126,28 @@ export function totalPembelian(
     tarifDokumen(mode, tax),
     tax.dppNilaiLain
   );
+}
+
+/**
+ * Rincian pajak sebuah dokumen yang cuma menyimpan TOTAL-nya, bukan
+ * subtotalnya. Dipakai retur pembelian: `purchase_returns.total_nilai`
+ * adalah nilai yang dipotongkan dari tagihan, dan rincian DPP/PPN-nya
+ * harus dibongkar balik supaya bisa mengurangi pajak masukan.
+ *
+ * Bukan rumus baru, cuma membalik arahnya: subtotalnya dihitung dulu,
+ * lalu diserahkan ke hitungTotalPembelian yang sama.
+ */
+export function rincianDariTotal(
+  total: number,
+  mode: PurchaseTaxMode,
+  taxPercent: number,
+  dppNilaiLain: boolean
+): InvoiceTotals {
+  const pembagi = 1 + tarifEfektif(taxPercent, dppNilaiLain) / 100;
+  // Pada Include totalnya SUDAH sama dengan subtotal: pajaknya di dalam.
+  const subtotal =
+    mode === "Include" || pembagi <= 0 ? total : total / pembagi;
+  return hitungTotalPembelian(subtotal, mode, taxPercent, dppNilaiLain);
 }
 
 /**

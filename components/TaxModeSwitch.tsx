@@ -27,6 +27,8 @@ export default function TaxModeSwitch({
   bawaanSupplier,
   disabled,
   label = "Pajak Faktur Supplier",
+  judul,
+  catatan,
 }: {
   value: PurchaseTaxMode;
   onChange: (mode: PurchaseTaxMode) => void;
@@ -34,9 +36,18 @@ export default function TaxModeSwitch({
   bawaanSupplier?: PurchaseTaxMode | null;
   disabled?: boolean;
   label?: string;
+  /** Judul kartu. Diisi kalau switch-nya berdiri sendiri di satu panel. */
+  judul?: string;
+  /** Keterangan tambahan di kaki, mis. tarif yang berlaku dari Settings. */
+  catatan?: React.ReactNode;
 }) {
   return (
     <div>
+      {judul ? (
+        <h2 className="font-display text-[15.5px] font-semibold text-ink mb-1">
+          {judul}
+        </h2>
+      ) : null}
       <label className="block text-[12.5px] font-medium text-muted mb-1.5">
         {label}
       </label>
@@ -66,10 +77,19 @@ export default function TaxModeSwitch({
           );
         })}
       </div>
-      <p className="text-[11px] text-muted mt-1 leading-snug">
+      <p className="text-[12px] text-muted mt-2 leading-snug">
         {PURCHASE_TAX_HINT[value]}
-        {bawaanSupplier === value && " Tersimpan sebagai bawaan supplier ini."}
       </p>
+      {bawaanSupplier === value && (
+        <p className="text-[11.5px] text-botanical-700 mt-1.5 leading-snug">
+          Tersimpan sebagai bawaan supplier ini.
+        </p>
+      )}
+      {catatan && (
+        <p className="text-[11px] text-muted/90 mt-2.5 pt-2.5 border-t border-line leading-snug">
+          {catatan}
+        </p>
+      )}
     </div>
   );
 }

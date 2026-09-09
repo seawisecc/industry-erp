@@ -9,6 +9,7 @@ import NumberInput from "@/components/NumberInput";
 import TaxModeSwitch from "@/components/TaxModeSwitch";
 import PurchaseTotals from "@/components/PurchaseTotals";
 import {
+  keteranganTarif,
   totalPembelian,
   PURCHASE_TAX_MODE_DEFAULT,
   type PurchaseTaxMode,
@@ -362,20 +363,27 @@ export default function ReceivingForm({
       )}
 
       {rows.length > 0 && (
-        <div className="glass rounded-2xl p-6 flex flex-col gap-2.5 sm:max-w-sm sm:ml-auto sm:w-full text-[13.5px]">
-          <TaxModeSwitch
-            value={taxMode}
-            onChange={(mode) => {
-              setTaxMode(mode);
-              setTaxManual(true);
-            }}
-            label="Pajak di Faktur Supplier"
-          />
-          <PurchaseTotals
-            totals={totals}
-            mode={taxMode}
-            judulTotal="Total Invoice"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
+          <div className="glass rounded-2xl p-6">
+            <TaxModeSwitch
+              judul="Pajak Faktur Supplier"
+              label="Model perhitungan"
+              value={taxMode}
+              onChange={(mode) => {
+                setTaxMode(mode);
+                setTaxManual(true);
+              }}
+              catatan={keteranganTarif(taxSettings)}
+            />
+          </div>
+
+          <div className="glass rounded-2xl p-6 flex flex-col gap-2 text-[13.5px]">
+            <PurchaseTotals
+              totals={totals}
+              mode={taxMode}
+              judulTotal="Total Invoice"
+            />
+          </div>
         </div>
       )}
 

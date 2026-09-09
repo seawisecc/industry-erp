@@ -11,6 +11,7 @@ import TaxModeSwitch from "@/components/TaxModeSwitch";
 import PurchaseTotals from "@/components/PurchaseTotals";
 import {
   parsePurchaseTaxMode,
+  keteranganTarif,
   parseSupplierTaxMode,
   totalPembelian,
   PURCHASE_TAX_MODE_DEFAULT,
@@ -610,16 +611,27 @@ export default function POForm({ suppliers, items, taxSettings, po }: Props) {
         )}
       </div>
 
-      <div className="glass rounded-2xl p-6 flex flex-col gap-2.5 sm:max-w-sm sm:ml-auto sm:w-full text-[13.5px]">
-        <TaxModeSwitch
-          value={taxMode}
-          onChange={(mode) => {
-            setTaxMode(mode);
-            setTaxManual(true);
-          }}
-          bawaanSupplier={selectedSupplier ? selectedSupplier.tax_mode : null}
-        />
-        <PurchaseTotals totals={totals} mode={taxMode} />
+      {/* Kiri: satu pilihan tentang kertas suppliernya. Kanan: akibatnya
+          ke angka. Keduanya sejajar supaya sebab dan akibatnya terbaca
+          sekaligus, dan supaya panel rekap tidak berjejal. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
+        <div className="glass rounded-2xl p-6">
+          <TaxModeSwitch
+            judul="Pajak Faktur Supplier"
+            label="Model perhitungan"
+            value={taxMode}
+            onChange={(mode) => {
+              setTaxMode(mode);
+              setTaxManual(true);
+            }}
+            bawaanSupplier={selectedSupplier ? selectedSupplier.tax_mode : null}
+            catatan={keteranganTarif(taxSettings)}
+          />
+        </div>
+
+        <div className="glass rounded-2xl p-6 flex flex-col gap-2 text-[13.5px]">
+          <PurchaseTotals totals={totals} mode={taxMode} />
+        </div>
       </div>
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}

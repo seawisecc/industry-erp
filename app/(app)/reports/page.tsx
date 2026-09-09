@@ -5,6 +5,11 @@ import DataTable from "@/components/DataTable";
 import { localDateStr, localMonthKey } from "@/lib/dates";
 import { getMarginReport } from "@/lib/margin";
 import { hitungTotalDokumen, parseTaxMode } from "@/lib/invoiceMath";
+import {
+  hitungTotalPembelian,
+  parsePurchaseTaxMode,
+  rincianDariTotal,
+} from "@/lib/purchaseTax";
 import type { ExecutionData } from "@/app/(app)/production/actions";
 
 type ReportType =
@@ -14,7 +19,8 @@ type ReportType =
   | "production"
   | "stock"
   | "margin"
-  | "finance";
+  | "finance"
+  | "tax";
 
 const TYPES: { key: ReportType; label: string; desc: string }[] = [
   { key: "sales", label: "Sales", desc: "Invoices & POS per period" },
@@ -24,6 +30,7 @@ const TYPES: { key: ReportType; label: string; desc: string }[] = [
   { key: "stock", label: "Stock Movement", desc: "Material stock movement & finished goods corrections" },
   { key: "margin", label: "Product Margin", desc: "Real COGS vs actual selling price per product" },
   { key: "finance", label: "Receivables & Payables", desc: "Open sales & purchase balances" },
+  { key: "tax", label: "Tax (PPN)", desc: "Pajak keluaran dari penjualan & pajak masukan dari pembelian" },
 ];
 
 function formatRupiah(n: number) {
@@ -342,7 +349,7 @@ export default async function ReportsPage({
     const { data } = await supabase
       .from("receivings")
       .select(
-        "tanggal_terima, no_invoice, supplier_nama, total_invoice, top_days, status_bayar, purchase_orders(no_po)"
+        "tanggal_terima, no_invoice, supplier_nama, subtotal, ppn_percent, tax_mode, tax_dpp_nilai_lain, total_invoice, top_days, status_bayar, purchase_orders(no_po)"
       )
       .eq("organization_id", organizationId)
       .gte("tanggal_terima", from)
@@ -353,6 +360,10 @@ export default async function ReportsPage({
       tanggal_terima: string;
       no_invoice: string | null;
       supplier_nama: string | null;
+      subtotal: number;
+      ppn_percent: number;
+      tax_mode: string | null;
+      tax_dpp_nilai_lain: boolean | null;
       total_invoice: number;
       top_days: number | null;
       status_bayar: string;
@@ -363,6 +374,23 @@ export default async function ReportsPage({
     const totalLunas = rows
       .filter((r) => r.status_bayar === "Lunas")
       .reduce((s, r) => s + Number(r.total_invoice), 0);
+
+    // Rincian pajak per faktur memakai model yang dibekukan di dokumennya:
+    // dalam satu periode biasa ada supplier Exclude dan Include sekaligus.
+    const rincianBeli = rows.map((r) =>
+      hitungTotalPembelian(
+        Number(r.subtotal),
+        parsePurchaseTaxMode(r.tax_mode),
+        Number(r.ppn_percent),
+        r.tax_dpp_nilai_lain !== false
+      )
+    );
+    const totalDpp = rincianBeli.reduce(
+      (s, t, i) =>
+        s + (parsePurchaseTaxMode(rows[i].tax_mode) === "Non" ? 0 : t.dpp),
+      0
+    );
+    const totalPpn = rincianBeli.reduce((s, t) => s + t.tax, 0);
 
     const perSupplier = new Map<string, number>();
     for (const r of rows) {
@@ -375,12 +403,14 @@ export default async function ReportsPage({
 
     content = (
       <>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           {[
             { label: "Jumlah Faktur", value: String(rows.length) },
             { label: "Total Pembelian", value: formatRupiah(total) },
             { label: "Sudah Dibayar", value: formatRupiah(totalLunas) },
             { label: "Hutang", value: formatRupiah(total - totalLunas) },
+            { label: "Total DPP", value: formatRupiah(totalDpp) },
+            { label: "PPN Masukan", value: formatRupiah(totalPpn) },
           ].map((c) => (
             <div key={c.label} className="glass rounded-xl p-3.5">
               <div className="text-[10.5px] uppercase tracking-wide text-muted">
@@ -1480,6 +1510,417 @@ export default async function ReportsPage({
           menghasilkan beberapa ukuran dibagi menurut netto tiap varian. Batch
           yang ditolak QA tidak ikut. Omzet memakai subtotal baris, jadi belum
           dipotong diskon dan pajak tingkat invoice.
+        </p>
+      </>
+    );
+  }
+
+  // ============================================================
+  // PPN: keluaran (penjualan) vs masukan (pembelian)
+  //
+  // Angkanya TIDAK dibaca dari kolom pajak dokumen, tapi dihitung ulang
+  // dengan model yang DIBEKUKAN di tiap dokumen. Dalam satu periode bisa
+  // ada dokumen Exclude dan Include sekaligus, dan itu justru yang biasa
+  // terjadi di sisi pembelian: modelnya milik suppliernya masing-masing.
+  //
+  // Retur pembelian ikut dihitung sebagai PENGURANG pajak masukan, karena
+  // barangnya sudah kembali dan tagihannya sudah dipotong.
+  // ============================================================
+  if (type === "tax") {
+    const [{ data: jualRaw }, { data: beliRaw }, { data: returRaw }] =
+      await Promise.all([
+        supabase
+          .from("sales_invoices")
+          .select(
+            "no_invoice, tipe, tanggal, subtotal, diskon_percent, pakai_tax, tax_percent, tax_mode, tax_dpp_nilai_lain, total, nama_pembeli, clients(company_brand)"
+          )
+          .eq("organization_id", organizationId)
+          .gte("tanggal", from)
+          .lte("tanggal", to)
+          .order("tanggal"),
+        supabase
+          .from("receivings")
+          .select(
+            "no_invoice, tanggal_terima, supplier_nama, subtotal, ppn_percent, tax_mode, tax_dpp_nilai_lain, total_invoice, purchase_orders(no_po)"
+          )
+          .eq("organization_id", organizationId)
+          .gte("tanggal_terima", from)
+          .lte("tanggal_terima", to)
+          .order("tanggal_terima"),
+        supabase
+          .from("purchase_returns")
+          .select(
+            "no_retur, tanggal, supplier_nama, total_nilai, receivings(ppn_percent, tax_mode, tax_dpp_nilai_lain)"
+          )
+          .eq("organization_id", organizationId)
+          .gte("tanggal", from)
+          .lte("tanggal", to)
+          .order("tanggal"),
+      ]);
+
+    type BarisPajak = {
+      tanggal: string;
+      nomor: string;
+      pihak: string;
+      jenis: string;
+      model: string;
+      dpp: number;
+      ppn: number;
+      total: number;
+    };
+
+    const keluaran: BarisPajak[] = (
+      (jualRaw || []) as unknown as {
+        no_invoice: string | null;
+        tipe: string;
+        tanggal: string;
+        subtotal: number;
+        diskon_percent: number;
+        pakai_tax: boolean;
+        tax_percent: number;
+        tax_mode: string | null;
+        tax_dpp_nilai_lain: boolean | null;
+        total: number;
+        nama_pembeli: string | null;
+        clients: { company_brand: string } | null;
+      }[]
+    ).map((r) => {
+      const t = hitungTotalDokumen(
+        Number(r.subtotal),
+        Number(r.diskon_percent),
+        r.pakai_tax,
+        Number(r.tax_percent),
+        parseTaxMode(r.tax_mode),
+        r.tax_dpp_nilai_lain !== false
+      );
+      return {
+        tanggal: r.tanggal,
+        nomor: r.no_invoice || "-",
+        pihak: r.clients?.company_brand || r.nama_pembeli || "Walk-in",
+        jenis: r.tipe,
+        model: r.pakai_tax ? parseTaxMode(r.tax_mode) : "Tanpa PPN",
+        dpp: r.pakai_tax ? t.dpp : 0,
+        ppn: t.tax,
+        total: Number(r.total),
+      };
+    });
+
+    const masukanFaktur: BarisPajak[] = (
+      (beliRaw || []) as unknown as {
+        no_invoice: string | null;
+        tanggal_terima: string;
+        supplier_nama: string | null;
+        subtotal: number;
+        ppn_percent: number;
+        tax_mode: string | null;
+        tax_dpp_nilai_lain: boolean | null;
+        total_invoice: number;
+        purchase_orders: { no_po: string | null } | null;
+      }[]
+    ).map((r) => {
+      const mode = parsePurchaseTaxMode(r.tax_mode);
+      const t = hitungTotalPembelian(
+        Number(r.subtotal),
+        mode,
+        Number(r.ppn_percent),
+        r.tax_dpp_nilai_lain !== false
+      );
+      return {
+        tanggal: r.tanggal_terima,
+        nomor: r.no_invoice || r.purchase_orders?.no_po || "-",
+        pihak: r.supplier_nama || "-",
+        jenis: "Faktur",
+        model: mode === "Non" ? "Tanpa PPN" : mode,
+        dpp: mode === "Non" ? 0 : t.dpp,
+        ppn: t.tax,
+        total: Number(r.total_invoice),
+      };
+    });
+
+    // Retur masuk dengan tanda minus: pajak masukannya ikut hangus.
+    const masukanRetur: BarisPajak[] = (
+      (returRaw || []) as unknown as {
+        no_retur: string;
+        tanggal: string;
+        supplier_nama: string | null;
+        total_nilai: number;
+        receivings: {
+          ppn_percent: number;
+          tax_mode: string | null;
+          tax_dpp_nilai_lain: boolean | null;
+        } | null;
+      }[]
+    ).map((r) => {
+      const mode = parsePurchaseTaxMode(r.receivings?.tax_mode);
+      const t = rincianDariTotal(
+        Number(r.total_nilai),
+        mode,
+        Number(r.receivings?.ppn_percent ?? 0),
+        r.receivings?.tax_dpp_nilai_lain !== false
+      );
+      return {
+        tanggal: r.tanggal,
+        nomor: r.no_retur,
+        pihak: r.supplier_nama || "-",
+        jenis: "Retur",
+        model: mode === "Non" ? "Tanpa PPN" : mode,
+        dpp: mode === "Non" ? 0 : -t.dpp,
+        ppn: -t.tax,
+        total: -Number(r.total_nilai),
+      };
+    });
+
+    const masukan = [...masukanFaktur, ...masukanRetur].sort((a, b) =>
+      a.tanggal.localeCompare(b.tanggal)
+    );
+
+    const sum = (rows: BarisPajak[], f: (r: BarisPajak) => number) =>
+      rows.reduce((s, r) => s + f(r), 0);
+
+    const ppnKeluaran = sum(keluaran, (r) => r.ppn);
+    const dppKeluaran = sum(keluaran, (r) => r.dpp);
+    const ppnMasukan = sum(masukan, (r) => r.ppn);
+    const dppMasukan = sum(masukan, (r) => r.dpp);
+    const selisih = ppnKeluaran - ppnMasukan;
+
+    // Rekap per bulan, supaya periode panjang tetap bisa dibaca per masa
+    // pajak tanpa harus mengganti filter berkali-kali.
+    const perBulan = new Map<string, { keluaran: number; masukan: number }>();
+    for (const r of keluaran) {
+      const k = r.tanggal.slice(0, 7);
+      const e = perBulan.get(k) || { keluaran: 0, masukan: 0 };
+      e.keluaran += r.ppn;
+      perBulan.set(k, e);
+    }
+    for (const r of masukan) {
+      const k = r.tanggal.slice(0, 7);
+      const e = perBulan.get(k) || { keluaran: 0, masukan: 0 };
+      e.masukan += r.ppn;
+      perBulan.set(k, e);
+    }
+    const bulanRekap = Array.from(perBulan, ([bulan, v]) => ({
+      bulan,
+      ...v,
+      selisih: v.keluaran - v.masukan,
+    })).sort((a, b) => a.bulan.localeCompare(b.bulan));
+
+    const namaBulan = (k: string) =>
+      new Date(k + "-01T00:00:00").toLocaleDateString("id-ID", {
+        month: "long",
+        year: "numeric",
+      });
+
+    const kolomPajak = (labelPihak: string) =>
+      [
+        {
+          key: "tanggal",
+          header: "Tanggal",
+          role: "subtitle" as const,
+          className: "whitespace-nowrap",
+          cell: (r: BarisPajak) => formatTanggal(r.tanggal),
+        },
+        {
+          key: "nomor",
+          header: "No. Dokumen",
+          role: "primary" as const,
+          className: "font-mono text-[11.5px] whitespace-nowrap",
+          cell: (r: BarisPajak) => r.nomor,
+        },
+        {
+          key: "pihak",
+          header: labelPihak,
+          role: "title" as const,
+          cell: (r: BarisPajak) => (
+            <div className="max-w-[200px] truncate">{r.pihak}</div>
+          ),
+          cardCell: (r: BarisPajak) => r.pihak,
+        },
+        {
+          key: "jenis",
+          header: "Jenis",
+          role: "badge" as const,
+          cell: (r: BarisPajak) => r.jenis,
+        },
+        {
+          key: "model",
+          header: "Model",
+          role: "secondary" as const,
+          className: "whitespace-nowrap",
+          cell: (r: BarisPajak) => r.model,
+        },
+        {
+          key: "dpp",
+          header: "DPP",
+          role: "primary" as const,
+          align: "right" as const,
+          className: "whitespace-nowrap",
+          cell: (r: BarisPajak) => formatRupiah(r.dpp),
+        },
+        {
+          key: "ppn",
+          header: "PPN",
+          role: "primary" as const,
+          align: "right" as const,
+          className: "whitespace-nowrap font-medium",
+          cell: (r: BarisPajak) => formatRupiah(r.ppn),
+        },
+        {
+          key: "total",
+          header: "Nilai Dokumen",
+          role: "secondary" as const,
+          align: "right" as const,
+          className: "whitespace-nowrap",
+          cell: (r: BarisPajak) => formatRupiah(r.total),
+        },
+      ];
+
+    const kakiPajak = (rows: BarisPajak[], judul: string) => ({
+      row: (
+        <tr className="border-t-2 border-line font-semibold">
+          <td className={`${td} sticky-col`} colSpan={5}>
+            {judul} ({rows.length} dokumen)
+          </td>
+          <td className={`${td} text-right whitespace-nowrap`}>
+            {formatRupiah(sum(rows, (r) => r.dpp))}
+          </td>
+          <td className={`${td} text-right whitespace-nowrap`}>
+            {formatRupiah(sum(rows, (r) => r.ppn))}
+          </td>
+          <td className={`${td} text-right whitespace-nowrap`}>
+            {formatRupiah(sum(rows, (r) => r.total))}
+          </td>
+        </tr>
+      ),
+      card: (
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[12px] text-muted">
+            {judul} ({rows.length} dokumen)
+          </span>
+          <span className="font-semibold">
+            {formatRupiah(sum(rows, (r) => r.ppn))}
+          </span>
+        </div>
+      ),
+    });
+
+    content = (
+      <>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+          <div className="glass rounded-2xl p-5">
+            <div className="text-[10.5px] uppercase tracking-wide text-muted">
+              PPN Keluaran · Penjualan
+            </div>
+            <div className="font-display text-[22px] font-semibold text-ink mt-1">
+              {formatRupiah(ppnKeluaran)}
+            </div>
+            <div className="text-[12px] text-muted mt-1.5">
+              DPP {formatRupiah(dppKeluaran)} · {keluaran.length} dokumen
+            </div>
+          </div>
+          <div className="glass rounded-2xl p-5">
+            <div className="text-[10.5px] uppercase tracking-wide text-muted">
+              PPN Masukan · Pembelian
+            </div>
+            <div className="font-display text-[22px] font-semibold text-ink mt-1">
+              {formatRupiah(ppnMasukan)}
+            </div>
+            <div className="text-[12px] text-muted mt-1.5">
+              DPP {formatRupiah(dppMasukan)} · {masukanFaktur.length} faktur
+              {masukanRetur.length > 0
+                ? ` · ${masukanRetur.length} retur (pengurang)`
+                : ""}
+            </div>
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-5 mb-4 flex flex-wrap items-baseline justify-between gap-3">
+          <div>
+            <div className="text-[10.5px] uppercase tracking-wide text-muted">
+              {selisih >= 0 ? "PPN Kurang Bayar" : "PPN Lebih Bayar"}
+            </div>
+            <div className="text-[12px] text-muted mt-1">
+              Keluaran {formatRupiah(ppnKeluaran)} dikurangi masukan{" "}
+              {formatRupiah(ppnMasukan)}
+            </div>
+          </div>
+          <div
+            className={`font-display text-[24px] font-semibold ${
+              selisih >= 0 ? "text-ink" : "text-botanical-700"
+            }`}
+          >
+            {formatRupiah(Math.abs(selisih))}
+          </div>
+        </div>
+
+        {bulanRekap.length > 0 && (
+          <div className="glass rounded-2xl overflow-x-auto mb-5 max-w-2xl">
+            <table className="w-full text-[12.5px]">
+              <thead>
+                <tr className={thead}>
+                  <th className={th}>Masa Pajak</th>
+                  <th className={`${th} text-right`}>Keluaran</th>
+                  <th className={`${th} text-right`}>Masukan</th>
+                  <th className={`${th} text-right`}>Selisih</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bulanRekap.map((b) => (
+                  <tr key={b.bulan} className="border-b border-line last:border-0">
+                    <td className={td}>{namaBulan(b.bulan)}</td>
+                    <td className={`${td} text-right whitespace-nowrap`}>
+                      {formatRupiah(b.keluaran)}
+                    </td>
+                    <td className={`${td} text-right whitespace-nowrap`}>
+                      {formatRupiah(b.masukan)}
+                    </td>
+                    <td
+                      className={`${td} text-right whitespace-nowrap font-medium ${
+                        b.selisih < 0 ? "text-botanical-700" : ""
+                      }`}
+                    >
+                      {formatRupiah(b.selisih)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <h3 className="font-display text-[15px] font-semibold text-ink mb-2">
+          Pajak Keluaran · Penjualan
+        </h3>
+        <div className="mb-5">
+          <DataTable
+            rows={keluaran}
+            rowKey={(_r, i) => "k" + i}
+            minWidth={900}
+            empty="Tidak ada penjualan pada periode ini."
+            footer={kakiPajak(keluaran, "TOTAL KELUARAN")}
+            columns={kolomPajak("Pembeli")}
+          />
+        </div>
+
+        <h3 className="font-display text-[15px] font-semibold text-ink mb-2">
+          Pajak Masukan · Pembelian
+        </h3>
+        <div className="mb-4">
+          <DataTable
+            rows={masukan}
+            rowKey={(_r, i) => "m" + i}
+            minWidth={900}
+            empty="Tidak ada pembelian pada periode ini."
+            footer={kakiPajak(masukan, "TOTAL MASUKAN")}
+            columns={kolomPajak("Supplier")}
+          />
+        </div>
+
+        <p className="text-[11.5px] text-muted leading-snug max-w-3xl">
+          Rincian tiap dokumen dihitung dengan model pajak yang dibekukan di
+          dokumen itu sendiri, jadi faktur Exclude dan Include boleh bercampur
+          dalam satu periode. Baris retur pembelian bertanda minus karena
+          mengurangi pajak masukan. Rekap ini dibuat dari dokumen yang tercatat
+          di sistem dan bukan pengganti SPT Masa PPN.
         </p>
       </>
     );
