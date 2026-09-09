@@ -4,6 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveSupplier, type SupplierInput } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import TaxModeSwitch from "@/components/TaxModeSwitch";
+import {
+  parseSupplierTaxMode,
+  PURCHASE_TAX_LABEL,
+  PURCHASE_TAX_MODE_DEFAULT,
+  type PurchaseTaxMode,
+} from "@/lib/purchaseTax";
 
 export default function SupplierForm({
   id,
@@ -20,6 +27,9 @@ export default function SupplierForm({
   const [noTelp, setNoTelp] = useState(initial?.no_telp || "");
   const [email, setEmail] = useState(initial?.email || "");
   const [npwp, setNpwp] = useState(initial?.npwp || "");
+  const [taxMode, setTaxMode] = useState<PurchaseTaxMode>(
+    parseSupplierTaxMode(initial?.tax_mode) ?? PURCHASE_TAX_MODE_DEFAULT
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,6 +43,7 @@ export default function SupplierForm({
         { label: "Nama", nilai: nama },
         { label: "Kontak", nilai: namaKontak || "-" },
         { label: "No. Telp", nilai: noTelp || "-" },
+        { label: "Pajak Faktur", nilai: PURCHASE_TAX_LABEL[taxMode] },
       ],
     });
     if (!lanjut) return;
@@ -48,6 +59,7 @@ export default function SupplierForm({
           no_telp: noTelp || null,
           email: email || null,
           npwp: npwp || null,
+          tax_mode: taxMode,
         },
         id
       );
@@ -130,6 +142,16 @@ export default function SupplierForm({
           />
         </div>
       </div>
+
+      <TaxModeSwitch
+        value={taxMode}
+        onChange={setTaxMode}
+        label="Pajak di Faktur Supplier Ini"
+      />
+      <p className="text-[11px] text-muted -mt-2 leading-snug">
+        Dipakai sebagai isian awal saat membuat PO untuk supplier ini, dan
+        ikut diperbarui sendiri mengikuti dokumen terakhir yang disimpan.
+      </p>
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}
 

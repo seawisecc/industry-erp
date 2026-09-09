@@ -139,6 +139,10 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `retur_outlet_tx` | Menyesuaikan bentuk kembalian `consignment_take` |
 | | `cancel_invoice_tx` | Diperluas: invoice konsinyasi mengembalikan qty ke pengiriman asalnya |
 | `20260821_opname_varian_yatim` | `create_stock_opname_tx` | Diperluas: lembar opname produk jadi berhenti memuat varian yatim yang stoknya nol |
+| `20260822_purchase_tax_mode` | `sync_supplier_tax_mode` | Trigger: bawaan pajak supplier ikut dokumen terakhir |
+| | `update_po_tx` | Diperluas: ikut menulis `tax_mode` & `tax_dpp_nilai_lain` |
+| | `create_receiving_tx` | Diperluas: total lewat `invoice_tax_calc`, HPP batch disimpan tanpa pajak |
+| | `create_purchase_return_tx` | Diperluas: nilai retur ikut model faktur, baris dinilai `harga_faktur` |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -564,6 +568,137 @@ totalnya turun dari 111.000 ke 100.000 dengan DPP 82.582,58 + PPN
 **Dokumen yang sudah punya baris `sales_payments` sengaja tidak
 disentuh**: totalnya adalah angka yang sudah dipakai orang untuk membayar,
 dan mengubahnya membuat ledger cicilan tidak cocok lagi dengan tagihannya.
+
+# Pajak pembelian: modelnya milik SUPPLIER, per dokumen
+
+Di penjualan, model harga adalah keputusan perusahaan sendiri, jadi satu
+pengaturan di Settings berlaku untuk semua invoice. Di pembelian
+keputusan itu ada di seberang meja: tiap supplier menerbitkan fakturnya
+dengan gayanya sendiri, dan tiga-tiganya ada di lapangan.
+
+| `tax_mode` | Faktur supplier | Total tagihan |
+| --- | --- | --- |
+| `Non` | supplier non-PKP, tidak memuat PPN | = subtotal |
+| `Exclude` (bawaan) | harga belum kena PPN | subtotal + PPN |
+| `Include` | harga sudah final, PPN di dalamnya | = subtotal |
+
+Yang TIDAK berbeda antar supplier adalah tarifnya. PPN 12% dengan DPP
+Nilai Lain adalah regulasi, jadi angkanya tetap datang dari Settings dan
+tidak bisa diketik per dokumen, persis seperti di sisi penjualan. Kolom
+"PPN (%)" yang dulu ada di form PO, Penerimaan, dan Guide Order sudah
+dihapus. Yang dipilih di layar cuma modelnya, lewat
+`components/TaxModeSwitch.tsx`.
+
+Rumusnya TIDAK ditulis ulang: `hitungTotalPembelian` di
+`lib/purchaseTax.ts` cuma memanggil `hitungTotalDokumen` dengan diskon 0
+(sisi pembelian tidak punya kolom diskon dokumen, potongan supplier
+sudah masuk ke harga per baris), dan sisi SQL memanggil
+`invoice_tax_calc` yang sama dengan konsinyasi. Pelajarannya sama persis
+dengan `fg_stock_calc`: salinan ketiga adalah cara paling pasti membuat
+angka di layar berbeda dengan angka yang dihitung ulang di database.
+
+Faktur yang jadi acuan (Amidis Depo Bali, MZI0085, Include):
+
+| Baris | Nilai |
+| --- | --- |
+| 10 x 18.000 | 180.000 |
+| SUB TOTAL EXC TAX | 162.162,16 |
+| DPP | 148.648,65 |
+| PPN | 17.837,84 |
+| TOTAL | 180.000 |
+
+Kertas suppliernya menulis 162.162 dengan label "DPP". Itu sebenarnya
+harga jual tanpa pajak; DPP Nilai Lain-nya 11/12 dari situ. Rupiah yang
+dibayar sama, cuma penamaan barisnya yang berbeda.
+
+## Bawaan supplier belajar dari dokumen, lewat trigger
+
+`suppliers.tax_mode` menyimpan modelnya, dan PO berikutnya ke supplier
+yang sama terisi otomatis. Yang memperbaruinya trigger
+`sync_supplier_tax_mode`, BUKAN server action, alasan yang sama dengan
+audit trail: PO lahir dari dua jalur (insert biasa di `createPO` dan
+`update_po_tx`), penerimaan dari satu jalur lagi, dan jalur yang lupa
+memanggil helper tidak menimbulkan error apa pun, cuma supplier yang
+tidak pernah belajar. Penerimaan menang atas PO kalau keduanya berbeda,
+dan itu memang urutannya di lapangan: PO adalah dugaan kita, faktur yang
+datang bersama barang adalah kenyataannya.
+
+**Null dibedakan dari `Non`.** Null cuma berarti belum ada dokumen yang
+memberitahu, dan form jatuh ke `Exclude`. `Non` adalah pernyataan bahwa
+supplier ini memang tidak memungut PPN, dan itu tidak boleh ditimpa
+tebakan.
+
+**Isian otomatis berhenti begitu switch-nya disentuh** (`taxManual` di
+POForm dan ReceivingForm). Polanya sama dengan `hargaManual` di
+`InvoiceForm`, dan alasannya sama: ganti supplier di tengah pengisian
+tidak boleh mengembalikan pilihan yang sengaja dibuat orang. Dikerjakan
+di handler `onChange`, bukan `useEffect` yang mengawasi `supplierId`.
+
+## Dua harga per batch: yang di kertas dan yang jadi HPP
+
+`purchase_batches` menyimpan dua kolom, dan bedanya harus dijaga:
+
+| Kolom | Isinya |
+| --- | --- |
+| `harga_faktur` | apa yang tertulis di kertas supplier |
+| `harga_per_unit` | HPP, SELALU tanpa pajak |
+
+Pada `Non` dan `Exclude` keduanya sama persis. Pada `Include`,
+`harga_per_unit = harga_faktur / (1 + tarif efektif)`.
+
+Kalau harga Include dipakai apa adanya sebagai HPP, barang yang sama jadi
+lebih mahal cuma karena suppliernya menulis fakturnya dengan gaya yang
+berbeda, padahal uang yang keluar sama saja. Itu akan menyebar diam-diam
+ke HPP produksi, margin produk, dan nilai stok.
+
+Aturan turunannya, dan ini yang gampang salah waktu menambah layar:
+
+- **Yang membaca BIAYA memakai `harga_per_unit`**: produksi, pemakaian
+  bahan, nilai stok, margin. Tidak perlu tahu soal pajak sama sekali.
+- **Yang membaca DOKUMEN memakai `harga_faktur`**: baris faktur
+  penerimaan (layar & cetak), nilai retur ke supplier, dan prefill harga
+  di PO berikutnya. Angka itulah yang akan dicocokkan orang dengan kertas
+  di tangannya.
+- Data lama `harga_faktur`-nya di-backfill sama dengan `harga_per_unit`,
+  dan tiap pembacanya tetap menulis `?? harga_per_unit` karena batch yang
+  lahir dari Stock Adjustment tidak punya faktur.
+
+## Retur pembelian ikut model fakturnya
+
+`create_purchase_return_tx` dulu menghitung
+`subtotal * (1 + ppn_percent / 100)`. Itu benar untuk `Exclude` tapi
+MENGGELEMBUNGKAN retur atas faktur `Include`, yang harganya sudah memuat
+pajak. Sekarang totalnya lewat `invoice_tax_calc` dengan model faktur
+aslinya, dan baris returnya dinilai dengan `harga_faktur` karena yang
+dikurangi adalah tagihan supplier.
+
+## Yang dibekukan per dokumen
+
+`purchase_orders` dan `receivings` sama-sama menyimpan `tax_mode`,
+`ppn_percent` (TARIF regulasinya, 12), dan `tax_dpp_nilai_lain`. Halaman
+cetak dan detail menghitung ulang rinciannya dari ketiga kolom itu, bukan
+dari pengaturan yang berlaku sekarang: PO yang sudah dikirim ke supplier
+dan faktur yang sudah dibayar tidak boleh bergeser angkanya cuma karena
+Settings diganti.
+
+Berbeda dengan `sales_invoices`, kolomnya TIDAK diisi trigger. Di sana
+invoice lahir dari tiga jalur RPC yang salah satunya bahkan tidak
+di-track di repo; di sini cuma ada dua jalur dan dua-duanya memang harus
+memilih modelnya secara sadar. Trigger yang mengisi diam-diam justru
+menyembunyikan jalur yang lupa bertanya.
+
+Dokumen sebelum migrasi `20260822` di-backfill: `ppn_percent` 0 jadi
+`Non`, selebihnya `Exclude` tanpa DPP Nilai Lain (tarifnya waktu itu 11
+dan dikenakan ke harga penuh). Tidak ada satu pun angka yang bergerak.
+
+## Panel rekap pembelian cuma satu komponen
+
+`components/PurchaseTotals.tsx` merender seluruh barisnya untuk enam
+layar: form PO, form Penerimaan, detail PO, detail Penerimaan, cetak PO,
+cetak Penerimaan (prop `cetak` yang membedakan gayanya). `Sub Total Exc
+Tax` cuma muncul pada `Include`, dan `DPP` + `PPN` disembunyikan pada
+`Non`. Sebelumnya markup tiga barisnya disalin di tiap layar.
+
 
 # Batal invoice konsinyasi: asal stok harus dicatat dulu
 
@@ -1630,15 +1765,15 @@ sekaligus, dan nomor dokumennya sendiri.
 bisa tanda tangan tapi tidak punya tempat mencatat "1 botol penyok" di
 kertas yang sama, jadi keberatan seperti itu tercatat di luar sistem.
 
-**Sisi PEMBELIAN masih memakai PPN 11% datar.** PO dan Penerimaan
-menghitung `subtotal * ppn_percent / 100` dengan bawaan `11`, tidak lewat
-`invoice_tax_calc` dan tidak membaca pengaturan Pajak perusahaan.
-Rupiahnya kebetulan sama (11% dari subtotal = 12% x 11/12), jadi tidak
-ada angka yang salah, tapi dua hal belum benar: fakturnya tidak memuat
-rincian DPP seperti sisi penjualan, dan mengganti tarif di Settings tidak
-berpengaruh apa pun di situ. Kalau nanti disatukan, ingat bahwa
-`purchase_orders.ppn_percent` dan `receivings.ppn_percent` juga dibekukan
-per dokumen dan tidak boleh ikut bergeser.
+**Model pajak penerimaan tidak bisa dibetulkan tanpa mengulang
+dokumennya.** HPP batch dihitung saat penerimaan disimpan, jadi faktur
+yang terlanjur dicatat dengan model yang salah harus dibatalkan lalu
+dimasukkan ulang. Menyunting `receivings.tax_mode` langsung di database
+TIDAK menghitung ulang `harga_per_unit` batch-nya: totalnya berubah,
+HPP-nya tetap salah, dan tidak ada tanda apa pun. Kalau nanti dibuat
+layar koreksi, yang harus ikut dikerjakan bukan cuma header fakturnya
+melainkan seluruh batch yang lahir darinya, dan cuma selama belum ada
+yang terpakai produksi.
 
 **Retur konsinyasi tidak mencatat asal stoknya, jadi tidak bisa
 dibatalkan.** `retur_outlet_tx` memanggil `consignment_take` tapi sengaja

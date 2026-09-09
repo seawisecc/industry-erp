@@ -6,6 +6,11 @@ import { createPurchaseReturn } from "./actions";
 import { ALASAN_RETUR } from "@/lib/purchaseReturn";
 import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
+import PurchaseTotals from "@/components/PurchaseTotals";
+import {
+  hitungTotalPembelian,
+  type PurchaseTaxMode,
+} from "@/lib/purchaseTax";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
 
@@ -32,6 +37,8 @@ export type ReturFaktur = {
   tanggal_terima: string;
   supplier_nama: string | null;
   ppn_percent: number;
+  tax_mode: PurchaseTaxMode;
+  tax_dpp_nilai_lain: boolean;
   total_invoice: number;
   total_retur: number;
   sisa: number;
@@ -72,8 +79,16 @@ export default function PurchaseReturnForm({
     (s, b) => s + qtyOf(b.id) * Number(b.harga_per_unit),
     0
   );
-  const ppn = subtotal * (Number(faktur.ppn_percent) || 0) / 100;
-  const totalNilai = subtotal + ppn;
+  // Model pajak faktur aslinya, dibekukan di dokumen penerimaan.
+  // Cerminan create_purchase_return_tx, yang menghitung ulang angka ini
+  // sendiri saat retur disimpan.
+  const totals = hitungTotalPembelian(
+    subtotal,
+    faktur.tax_mode,
+    Number(faktur.ppn_percent) || 0,
+    faktur.tax_dpp_nilai_lain
+  );
+  const totalNilai = totals.total;
 
   const adaLebih = batches.some((b) => qtyOf(b.id) > b.maks + 0.000001);
   const lebihDariFaktur = totalNilai > faktur.sisa + 0.01;
@@ -294,24 +309,17 @@ export default function PurchaseReturnForm({
 
       {/* ===== Nilai retur & dampaknya ke hutang ===== */}
       <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto sm:w-full text-[13.5px]">
-        <div className="flex justify-between">
-          <span className="text-muted">Sub-Total</span>
-          <span>{formatRupiah(subtotal)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted">
-            PPN {Number(faktur.ppn_percent).toLocaleString("id-ID")}%
-          </span>
-          <span>{formatRupiah(ppn)}</span>
-        </div>
-        <div className="flex justify-between font-semibold text-[15px] border-t border-line pt-2 mt-1">
-          <span>NILAI RETUR</span>
-          <span>{formatRupiah(totalNilai)}</span>
-        </div>
-        <div className="flex justify-between text-[12px] text-muted pt-1">
-          <span>Sisa tagihan setelah retur</span>
-          <span>{formatRupiah(Math.max(faktur.sisa - totalNilai, 0))}</span>
-        </div>
+        <PurchaseTotals
+          totals={totals}
+          mode={faktur.tax_mode}
+          judulTotal="NILAI RETUR"
+          extraRows={
+            <div className="flex justify-between text-[12px] text-muted pt-1">
+              <span>Sisa tagihan setelah retur</span>
+              <span>{formatRupiah(Math.max(faktur.sisa - totalNilai, 0))}</span>
+            </div>
+          }
+        />
       </div>
 
       {lebihDariFaktur && (

@@ -47,6 +47,7 @@ export default async function EditSupplierPage({
           no_telp: supplier.no_telp,
           email: supplier.email,
           npwp: supplier.npwp,
+          tax_mode: supplier.tax_mode,
         }}
       />
     </div>

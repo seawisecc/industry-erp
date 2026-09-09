@@ -56,7 +56,6 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
     return init;
   });
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
-  const [ppn, setPpn] = useState("11");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<string>("");
@@ -116,7 +115,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
     setError("");
     setResult("");
     try {
-      const res = await createPOsFromGuide(lines, tanggal, parseNum(ppn));
+      const res = await createPOsFromGuide(lines, tanggal);
       if (res.ok) {
         const gagal = res.failed && res.failed.length > 0
           ? `, ${res.failed.length} gagal: ${res.failed
@@ -144,7 +143,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
   return (
     <div className="flex flex-col gap-4">
       {/* ===== Pengaturan PO ===== */}
-      <div className="glass rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="glass rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">
             Tanggal PO
@@ -156,21 +155,15 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
             className={inputCls}
           />
         </div>
-        <div>
-          <label className="block text-[12.5px] font-medium text-muted mb-1.5">
-            PPN (%)
-          </label>
-          <NumberInput
-            value={ppn}
-            onChange={(nilai) => setPpn(nilai)}
-            className={inputCls}
-          />
-        </div>
         <div className="flex items-end">
           <div className="text-[12.5px] text-muted">
             {perSupplier.size > 0
               ? `${perSupplier.size} PO akan dibuat · total ${formatRupiah(totalNilai)}`
               : "Isi qty minimal satu item"}
+            <div className="text-[11px] text-muted/80 mt-1">
+              Model pajak tiap PO mengikuti bawaan suppliernya, bisa diubah
+              di PO-nya masing-masing.
+            </div>
           </div>
         </div>
       </div>

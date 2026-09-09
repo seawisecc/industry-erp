@@ -2,6 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { Plus, Wand2, Printer, Pencil, Eye } from "lucide-react";
+import {
+  hitungTotalPembelian,
+  parsePurchaseTaxMode,
+} from "@/lib/purchaseTax";
 import PembelianShell from "@/components/PembelianShell";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
@@ -31,6 +35,8 @@ type PORow = {
   tanggal_po: string;
   status: POStatus;
   ppn_percent: number;
+  tax_mode: string | null;
+  tax_dpp_nilai_lain: boolean | null;
   top_days: number | null;
   suppliers: { nama: string } | null;
   po_items: { qty_pesan: number; harga_per_unit: number }[];
@@ -94,7 +100,7 @@ export default async function PurchaseOrdersPage({
   let query = supabase
     .from("purchase_orders")
     .select(
-      "id, no_po, tanggal_po, status, ppn_percent, top_days, suppliers(nama), po_items(qty_pesan, harga_per_unit)",
+      "id, no_po, tanggal_po, status, ppn_percent, tax_mode, tax_dpp_nilai_lain, top_days, suppliers(nama), po_items(qty_pesan, harga_per_unit)",
       { count: "exact" }
     )
     .eq("organization_id", organizationId);
@@ -112,13 +118,21 @@ export default async function PurchaseOrdersPage({
   const list = (pos || []) as unknown as PORow[];
   const info = pageInfo(sp.page, count, list.length);
 
-  /** Nilai PO termasuk PPN, subtotal baris item lalu ditambah pajak. */
+  /**
+   * Nilai PO menurut model pajak yang dibekukan di dokumennya. Pada
+   * Include totalnya berhenti di subtotal, pajaknya ada di dalam harga.
+   */
   const totalPO = (po: PORow) => {
     const subtotal = po.po_items.reduce(
       (s, r) => s + Number(r.qty_pesan) * Number(r.harga_per_unit),
       0
     );
-    return subtotal * (1 + Number(po.ppn_percent) / 100);
+    return hitungTotalPembelian(
+      subtotal,
+      parsePurchaseTaxMode(po.tax_mode),
+      Number(po.ppn_percent),
+      po.tax_dpp_nilai_lain !== false
+    ).total;
   };
 
   return (

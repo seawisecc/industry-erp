@@ -5,6 +5,10 @@ import { getDocSigners } from "@/lib/docSignServer";
 import PrintButton from "../../po/[id]/PrintButton";
 import QrSignBlock from "../../QrSignBlock";
 import PrintKop from "@/components/PrintKop";
+import {
+  hitungTotalPembelian,
+  parsePurchaseTaxMode,
+} from "@/lib/purchaseTax";
 
 type ReturPrint = {
   id: string;
@@ -18,6 +22,8 @@ type ReturPrint = {
     no_invoice: string | null;
     tanggal_terima: string;
     ppn_percent: number;
+    tax_mode: string | null;
+    tax_dpp_nilai_lain: boolean | null;
     total_invoice: number;
     total_retur: number;
     purchase_orders: { no_po: string | null } | null;
@@ -66,7 +72,7 @@ export default async function PrintPurchaseReturnPage({
       .from("purchase_returns")
       .select(
         `id, no_retur, tanggal, supplier_nama, alasan, catatan, total_nilai,
-         receivings(no_invoice, tanggal_terima, ppn_percent, total_invoice, total_retur,
+         receivings(no_invoice, tanggal_terima, ppn_percent, tax_mode, tax_dpp_nilai_lain, total_invoice, total_retur,
            purchase_orders(no_po)),
          purchase_return_items(qty, harga_per_unit, subtotal,
            items(kode, nama, satuan),
@@ -90,7 +96,15 @@ export default async function PrintPurchaseReturnPage({
     (s, r) => s + Number(r.subtotal),
     0
   );
-  const ppn = Number(retur.total_nilai) - subtotal;
+  // Ikut model faktur aslinya. Pada Include, selisih total dikurangi
+  // subtotal bernilai nol padahal pajaknya ada di dalam harga.
+  const taxMode = parsePurchaseTaxMode(retur.receivings?.tax_mode);
+  const totals = hitungTotalPembelian(
+    subtotal,
+    taxMode,
+    Number(retur.receivings?.ppn_percent ?? 0),
+    retur.receivings?.tax_dpp_nilai_lain !== false
+  );
   const sisaTagihan = Math.max(
     Number(retur.receivings?.total_invoice ?? 0) -
       Number(retur.receivings?.total_retur ?? 0),
@@ -229,15 +243,36 @@ export default async function PrintPurchaseReturnPage({
                 {formatRupiah(subtotal)}
               </td>
             </tr>
-            <tr>
-              <td colSpan={7} className="py-1 pr-2 text-right text-neutral-600">
-                PPN{" "}
-                {Number(retur.receivings?.ppn_percent ?? 0).toLocaleString("id-ID")}%
-              </td>
-              <td className="py-1 text-right whitespace-nowrap">
-                {formatRupiah(ppn)}
-              </td>
-            </tr>
+            {taxMode === "Include" && (
+              <tr>
+                <td colSpan={7} className="py-1 pr-2 text-right text-neutral-600">
+                  Sub Total Exc Tax
+                </td>
+                <td className="py-1 text-right whitespace-nowrap">
+                  {formatRupiah(totals.exTax)}
+                </td>
+              </tr>
+            )}
+            {taxMode !== "Non" && (
+              <>
+                <tr>
+                  <td colSpan={7} className="py-1 pr-2 text-right text-neutral-600">
+                    DPP
+                  </td>
+                  <td className="py-1 text-right whitespace-nowrap">
+                    {formatRupiah(totals.dpp)}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={7} className="py-1 pr-2 text-right text-neutral-600">
+                    PPN
+                  </td>
+                  <td className="py-1 text-right whitespace-nowrap">
+                    {formatRupiah(totals.tax)}
+                  </td>
+                </tr>
+              </>
+            )}
             <tr className="border-t-2 border-[#1a1a1a]">
               <td colSpan={7} className="py-2 pr-2 text-right font-semibold">
                 Total Nilai Retur

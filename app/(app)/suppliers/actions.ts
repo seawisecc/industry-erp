@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { parseSupplierTaxMode, type PurchaseTaxMode } from "@/lib/purchaseTax";
 
 export type SupplierInput = {
   nama: string;
@@ -11,6 +12,16 @@ export type SupplierInput = {
   no_telp: string | null;
   email: string | null;
   npwp: string | null;
+  /**
+   * Model pajak faktur supplier ini, dipakai sebagai bawaan saat membuat
+   * PO. Null = belum diketahui, dan itu sengaja dibedakan dari "Non":
+   * yang pertama cuma berarti belum ada dokumen yang memberitahu.
+   *
+   * Kolomnya juga ikut diperbarui trigger sync_supplier_tax_mode setiap
+   * PO / penerimaan disimpan, jadi isian di sini adalah titik awal, bukan
+   * kunci.
+   */
+  tax_mode: PurchaseTaxMode | null;
 };
 
 // Simpan supplier (baru atau edit). Return {ok, error} · tidak throw,
@@ -45,6 +56,7 @@ export async function saveSupplier(
       no_telp: input.no_telp?.trim() || null,
       email: input.email?.trim() || null,
       npwp: input.npwp?.trim() || null,
+      tax_mode: parseSupplierTaxMode(input.tax_mode),
     };
 
     const { error } = id

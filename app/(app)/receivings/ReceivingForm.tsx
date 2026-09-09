@@ -6,12 +6,21 @@ import { createReceiving } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
+import TaxModeSwitch from "@/components/TaxModeSwitch";
+import PurchaseTotals from "@/components/PurchaseTotals";
+import {
+  totalPembelian,
+  PURCHASE_TAX_MODE_DEFAULT,
+  type PurchaseTaxMode,
+} from "@/lib/purchaseTax";
+import type { TaxSettings } from "@/lib/invoiceMath";
 
 export type POOption = {
   id: string;
   no_po: string | null;
   status: "Dikirim" | "Diterima Sebagian";
-  ppn_percent: number;
+  /** Model pajak yang dibekukan di PO-nya, dipakai sebagai isian awal. */
+  tax_mode: PurchaseTaxMode;
   top_days: number | null;
   supplier_nama: string;
   items: {
@@ -47,14 +56,33 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
-export default function ReceivingForm({ pos }: { pos: POOption[] }) {
+// Dialog konfirmasi harus bisa dibaca sekilas, jadi modelnya ditulis
+// sebagai kalimat, bukan nilai datanya.
+const RINGKASAN_PAJAK: Record<PurchaseTaxMode, string> = {
+  Non: "Tanpa PPN",
+  Exclude: "PPN ditambahkan",
+  Include: "Harga sudah termasuk PPN",
+};
+
+export default function ReceivingForm({
+  pos,
+  taxSettings,
+}: {
+  pos: POOption[];
+  /** Tarif & aturan DPP perusahaan. Yang dipilih per faktur cuma modelnya. */
+  taxSettings: TaxSettings;
+}) {
   const router = useRouter();
   const konfirmasi = useConfirmSave();
 
   const [poId, setPoId] = useState("");
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [noInvoice, setNoInvoice] = useState("");
-  const [ppn, setPpn] = useState("11");
+  const [taxMode, setTaxMode] = useState<PurchaseTaxMode>(
+    PURCHASE_TAX_MODE_DEFAULT
+  );
+  // Sekali switch-nya disentuh, ganti PO berhenti menimpanya.
+  const [taxManual, setTaxManual] = useState(false);
   const [top, setTop] = useState(""); // hari; "" = tidak diset, "0" = Tunai/CIA
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,7 +98,10 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
       setRows([]);
       return;
     }
-    setPpn(String(po.ppn_percent));
+    // Isian awal dari PO-nya, tapi yang menentukan tetap faktur di
+    // tangan: supplier bisa saja menerbitkan fakturnya dengan model lain
+    // daripada yang kita duga waktu memesan.
+    if (!taxManual) setTaxMode(po.tax_mode);
     setTop(po.top_days == null ? "" : String(po.top_days));
     setRows(
       po.items
@@ -98,8 +129,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
   }
 
   const subtotal = rows.reduce((s, r) => s + parseNum(r.qty) * parseNum(r.harga), 0);
-  const ppnValue = (subtotal * parseNum(ppn)) / 100;
-  const total = subtotal + ppnValue;
+  const totals = totalPembelian(subtotal, taxMode, taxSettings);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -124,7 +154,8 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
         { label: "Tanggal Terima", nilai: tanggal },
         { label: "No. Faktur", nilai: noInvoice || "-" },
         { label: "Item", nilai: rows.length + " baris" },
-        { label: "Total", nilai: formatRupiah(total) },
+        { label: "Pajak", nilai: RINGKASAN_PAJAK[taxMode] },
+        { label: "Total", nilai: formatRupiah(totals.total) },
       ],
       tombol: "Ya, Terima Barang",
     });
@@ -135,7 +166,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
         po_id: poId,
         tanggal_terima: tanggal,
         no_invoice: noInvoice || null,
-        ppn_percent: parseNum(ppn),
+        tax_mode: taxMode,
         top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
         items: rows.map((r) => ({
           po_item_id: r.po_item_id,
@@ -197,7 +228,7 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2">
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
               No. Invoice / Surat Jalan{" "}
@@ -207,16 +238,6 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
               value={noInvoice}
               onChange={(e) => setNoInvoice(e.target.value)}
               placeholder="Nomor faktur dari supplier"
-              className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
-            />
-          </div>
-          <div>
-            <label className="block text-[12.5px] font-medium text-muted mb-1.5">
-              PPN (%)
-            </label>
-            <NumberInput
-              value={ppn}
-              onChange={(nilai) => setPpn(nilai)}
               className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
             />
           </div>
@@ -262,7 +283,10 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
           </h2>
           <p className="text-muted text-[12.5px] -mt-2">
             Qty terisi otomatis sebesar sisa PO, ubah kalau barang datang sebagian.
-            Item yang tidak datang, isi qty 0. Harga diisi sesuai faktur aktual.
+            Item yang tidak datang, isi qty 0. Harga diisi persis seperti yang
+            tertulis di faktur supplier.
+            {taxMode === "Include" &&
+              " Faktur ini Include, jadi harga yang diketik sudah memuat PPN; HPP batch stoknya disimpan tanpa pajak supaya setara dengan pembelian dari supplier lain."}
           </p>
 
           {rows.map((row, idx) => (
@@ -338,19 +362,20 @@ export default function ReceivingForm({ pos }: { pos: POOption[] }) {
       )}
 
       {rows.length > 0 && (
-        <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto sm:w-full text-[13.5px]">
-          <div className="flex justify-between">
-            <span className="text-muted">Subtotal</span>
-            <span>{formatRupiah(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted">PPN {ppn || 0}%</span>
-            <span>{formatRupiah(ppnValue)}</span>
-          </div>
-          <div className="flex justify-between font-semibold text-[15px] border-t border-line pt-2 mt-1">
-            <span>Total Invoice</span>
-            <span>{formatRupiah(total)}</span>
-          </div>
+        <div className="glass rounded-2xl p-6 flex flex-col gap-2.5 sm:max-w-sm sm:ml-auto sm:w-full text-[13.5px]">
+          <TaxModeSwitch
+            value={taxMode}
+            onChange={(mode) => {
+              setTaxMode(mode);
+              setTaxManual(true);
+            }}
+            label="Pajak di Faktur Supplier"
+          />
+          <PurchaseTotals
+            totals={totals}
+            mode={taxMode}
+            judulTotal="Total Invoice"
+          />
         </div>
       )}
 

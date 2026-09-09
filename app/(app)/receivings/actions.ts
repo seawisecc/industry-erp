@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { getFeatures } from "@/lib/featuresServer";
 import { toResult, type ActionResult } from "@/lib/actionResult";
 import { addDaysStr } from "@/lib/dates";
+import { getTaxSettings } from "@/lib/taxServer";
+import { tarifDokumen, type PurchaseTaxMode } from "@/lib/purchaseTax";
 
 export type ReceivingItemInput = {
   po_item_id: string;
@@ -20,7 +22,8 @@ export type ReceivingInput = {
   po_id: string;
   tanggal_terima: string; // yyyy-mm-dd
   no_invoice: string | null;
-  ppn_percent: number;
+  /** Model pajak faktur supplier, dipilih di layar penerimaan. */
+  tax_mode: PurchaseTaxMode;
   top_days: number | null; // 0 = Tunai/CIA, null = tidak diset
   items: ReceivingItemInput[];
 };
@@ -58,13 +61,20 @@ async function createReceivingImpl(data: ReceivingInput) {
   // tidak pernah ikut terupdate.
   const { qc: qcOn } = await getFeatures(organizationId);
 
+  // Tarif & aturan DPP dibaca di server, tidak pernah dipercaya dari form.
+  // Yang datang dari layar cuma modelnya: itu fakta tentang faktur yang
+  // sedang dipegang, sedangkan tarifnya angka regulasi.
+  const tax = await getTaxSettings(organizationId);
+
   const { error } = await supabase.rpc("create_receiving_tx", {
     p_organization_id: organizationId,
     p_header: {
       po_id: data.po_id,
       tanggal_terima: data.tanggal_terima,
       no_invoice: data.no_invoice?.trim() || null,
-      ppn_percent: data.ppn_percent,
+      tax_mode: data.tax_mode,
+      ppn_percent: tarifDokumen(data.tax_mode, tax),
+      tax_dpp_nilai_lain: tax.dppNilaiLain,
       top_days: data.top_days,
       jatuh_tempo:
         data.top_days == null

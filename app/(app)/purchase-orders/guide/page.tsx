@@ -38,7 +38,7 @@ export default async function GuideOrderPage() {
       .not("item_id", "is", null),
     supabase
       .from("purchase_batches")
-      .select("item_id, harga_per_unit, created_at")
+      .select("item_id, harga_per_unit, harga_faktur, created_at")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false }),
   ]);
@@ -50,9 +50,15 @@ export default async function GuideOrderPage() {
       supplierOf.set(l.item_id, { id: l.supplier_id, nama: l.suppliers.nama });
     }
   }
+  // Harga FAKTUR, karena angka ini masuk ke baris PO dan akan dicocokkan
+  // dengan kertas supplier berikutnya, bukan dipakai sebagai biaya.
   const lastHarga = new Map<string, number>();
-  for (const b of (batches || []) as { item_id: string; harga_per_unit: number }[]) {
-    const h = Number(b.harga_per_unit);
+  for (const b of (batches || []) as {
+    item_id: string;
+    harga_per_unit: number;
+    harga_faktur: number | null;
+  }[]) {
+    const h = Number(b.harga_faktur ?? b.harga_per_unit);
     if (h > 0 && !lastHarga.has(b.item_id)) lastHarga.set(b.item_id, h);
   }
 

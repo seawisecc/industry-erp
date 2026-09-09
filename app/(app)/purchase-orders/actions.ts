@@ -4,6 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import { toResult, type ActionResult } from "@/lib/actionResult";
+import { getTaxSettings } from "@/lib/taxServer";
+import {
+  parseSupplierTaxMode,
+  tarifDokumen,
+  PURCHASE_TAX_MODE_DEFAULT,
+  type PurchaseTaxMode,
+} from "@/lib/purchaseTax";
 
 export type POItemInput = {
   item_id: string;
@@ -14,10 +21,49 @@ export type POItemInput = {
 export type POInput = {
   supplier_id: string;
   tanggal_po: string; // yyyy-mm-dd
-  ppn_percent: number;
+  /**
+   * Model pajak faktur supplier. Null = pakai bawaan suppliernya,
+   * dipakai Guide Order yang membuat banyak PO sekaligus untuk supplier
+   * yang berbeda-beda dan tidak punya satu pilihan yang benar untuk semua.
+   */
+  tax_mode: PurchaseTaxMode | null;
   catatan: string | null;
   items: POItemInput[];
 };
+
+/**
+ * Model, tarif, dan aturan DPP yang DIBEKUKAN di dokumen.
+ *
+ * Tarifnya dibaca di server, tidak pernah dipercaya dari form: tab yang
+ * sudah lama terbuka tidak boleh menerbitkan PO bertarif aturan lama
+ * sementara kolomnya tertulis aturan baru. Yang datang dari layar cuma
+ * modelnya, karena cuma itu yang memang keputusan per dokumen.
+ */
+async function bekukanPajak(
+  organizationId: string,
+  supplierId: string,
+  mode: PurchaseTaxMode | null
+) {
+  const supabase = await createClient();
+  const tax = await getTaxSettings(organizationId);
+
+  let dipakai = mode;
+  if (!dipakai) {
+    const { data: sup } = await supabase
+      .from("suppliers")
+      .select("tax_mode")
+      .eq("id", supplierId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    dipakai = parseSupplierTaxMode(sup?.tax_mode) ?? PURCHASE_TAX_MODE_DEFAULT;
+  }
+
+  return {
+    tax_mode: dipakai,
+    ppn_percent: tarifDokumen(dipakai, tax),
+    tax_dpp_nilai_lain: tax.dppNilaiLain,
+  };
+}
 
 function validatePO(data: POInput) {
   if (!data.supplier_id) throw new Error("Supplier wajib dipilih");
@@ -81,13 +127,19 @@ async function createPOImpl(data: POInput) {
   validatePO(data);
   await assertMoq(organizationId, data.items);
 
+  const pajak = await bekukanPajak(
+    organizationId,
+    data.supplier_id,
+    data.tax_mode
+  );
+
   // 1. Insert PO, no_po diisi otomatis oleh trigger database (PO-MMYY-001)
   const { data: po, error } = await supabase
     .from("purchase_orders")
     .insert({
       supplier_id: data.supplier_id,
       tanggal_po: data.tanggal_po,
-      ppn_percent: data.ppn_percent,
+      ...pajak,
       catatan: data.catatan?.trim() || null,
       dibuat_oleh: profile?.id || null,
       organization_id: organizationId,
@@ -245,6 +297,12 @@ async function updatePOImpl(id: string, data: POInput) {
   validatePO(data);
   await assertMoq(organizationId, data.items);
 
+  const pajak = await bekukanPajak(
+    organizationId,
+    data.supplier_id,
+    data.tax_mode
+  );
+
   // Header + ganti seluruh baris item dalam satu transaksi. Versi lama
   // menghapus po_items lalu insert dari sini, insert yang gagal
   // meninggalkan PO tanpa satu pun item.
@@ -254,7 +312,7 @@ async function updatePOImpl(id: string, data: POInput) {
     p_header: {
       supplier_id: data.supplier_id,
       tanggal_po: data.tanggal_po,
-      ppn_percent: data.ppn_percent,
+      ...pajak,
       catatan: data.catatan?.trim() || null,
     },
     p_items: data.items.map((it) => ({

@@ -5,6 +5,11 @@ import { getDocSigners } from "@/lib/docSignServer";
 import PrintButton from "./PrintButton";
 import QrSignBlock from "../../QrSignBlock";
 import PrintKop from "@/components/PrintKop";
+import PurchaseTotals from "@/components/PurchaseTotals";
+import {
+  hitungTotalPembelian,
+  parsePurchaseTaxMode,
+} from "@/lib/purchaseTax";
 
 type POPrint = {
   id: string;
@@ -12,6 +17,8 @@ type POPrint = {
   tanggal_po: string;
   status: string;
   ppn_percent: number;
+  tax_mode: string | null;
+  tax_dpp_nilai_lain: boolean | null;
   catatan: string | null;
   suppliers: {
     nama: string;
@@ -51,7 +58,7 @@ export default async function PrintPOPage({
     supabase
       .from("purchase_orders")
       .select(
-        `id, no_po, tanggal_po, status, ppn_percent, catatan,
+        `id, no_po, tanggal_po, status, ppn_percent, tax_mode, tax_dpp_nilai_lain, catatan,
          suppliers(nama, alamat, nama_kontak, no_telp),
          po_items(qty_pesan, harga_per_unit, items(kode, nama, satuan))`
       )
@@ -73,8 +80,16 @@ export default async function PrintPOPage({
     (s, r) => s + Number(r.qty_pesan) * Number(r.harga_per_unit),
     0
   );
-  const ppnValue = (subtotal * Number(po.ppn_percent)) / 100;
-  const total = subtotal + ppnValue;
+  // Model & tarif yang dibekukan di dokumen, bukan pengaturan yang
+  // berlaku sekarang: PO yang sudah dicetak dan dikirim ke supplier tidak
+  // boleh berubah angkanya cuma karena Settings diganti.
+  const taxMode = parsePurchaseTaxMode(po.tax_mode);
+  const totals = hitungTotalPembelian(
+    subtotal,
+    taxMode,
+    Number(po.ppn_percent),
+    po.tax_dpp_nilai_lain !== false
+  );
 
   // Kolom tanda tangan sesuai pengaturan Document Signing (per jenis dokumen)
   const signers = await getDocSigners(organizationId!, "po");
@@ -181,18 +196,12 @@ export default async function PrintPOPage({
         {/* ===== TOTAL ===== */}
         <div className="flex justify-end mt-3">
           <div className="w-[70mm] text-[12.5px]">
-            <div className="flex justify-between py-1">
-              <span className="text-neutral-600">Subtotal</span>
-              <span>{formatRupiah(subtotal)}</span>
-            </div>
-            <div className="flex justify-between py-1">
-              <span className="text-neutral-600">PPN {Number(po.ppn_percent)}%</span>
-              <span>{formatRupiah(ppnValue)}</span>
-            </div>
-            <div className="flex justify-between py-1.5 border-t-2 border-[#1a1a1a] font-bold text-[13.5px]">
-              <span>TOTAL</span>
-              <span>{formatRupiah(total)}</span>
-            </div>
+            <PurchaseTotals
+              totals={totals}
+              mode={taxMode}
+              cetak
+              judulTotal="TOTAL"
+            />
           </div>
         </div>
 

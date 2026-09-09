@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { localDateStr } from "@/lib/dates";
 import { sisaHutang } from "@/lib/purchaseReturn";
+import { parsePurchaseTaxMode } from "@/lib/purchaseTax";
 import PurchaseReturnForm, {
   type ReturBatch,
   type ReturFaktur,
@@ -17,6 +18,8 @@ type RcvRaw = {
   tanggal_terima: string;
   supplier_nama: string | null;
   ppn_percent: number;
+  tax_mode: string | null;
+  tax_dpp_nilai_lain: boolean | null;
   total_invoice: number;
   total_retur: number;
   purchase_orders: { no_po: string | null } | null;
@@ -28,6 +31,7 @@ type BatchRaw = {
   no_lot_supplier: string | null;
   exp_date: string | null;
   harga_per_unit: number;
+  harga_faktur: number | null;
   qty_masuk: number;
   qty_sisa: number;
   qty_karantina: number;
@@ -47,7 +51,7 @@ export default async function ReturBaruPage({
   const { data } = await supabase
     .from("receivings")
     .select(
-      "id, no_invoice, po_id, tanggal_terima, supplier_nama, ppn_percent, total_invoice, total_retur, purchase_orders(no_po)"
+      "id, no_invoice, po_id, tanggal_terima, supplier_nama, ppn_percent, tax_mode, tax_dpp_nilai_lain, total_invoice, total_retur, purchase_orders(no_po)"
     )
     .eq("id", receivingId)
     .eq("organization_id", organizationId)
@@ -57,7 +61,7 @@ export default async function ReturBaruPage({
   const rcv = data as unknown as RcvRaw;
 
   const kolom =
-    "id, item_id, no_lot_supplier, exp_date, harga_per_unit, qty_masuk, qty_sisa, qty_karantina, qc_status, items(kode, nama, satuan)";
+    "id, item_id, no_lot_supplier, exp_date, harga_per_unit, harga_faktur, qty_masuk, qty_sisa, qty_karantina, qc_status, items(kode, nama, satuan)";
 
   // Data lama belum punya receiving_id: dicocokkan lewat PO + tanggal terima,
   // pola yang sama dengan halaman detail penerimaan. RPC menerima fallback
@@ -115,7 +119,9 @@ export default async function ReturBaruPage({
       satuan: b.items?.satuan || "",
       no_lot: b.no_lot_supplier,
       exp_date: b.exp_date,
-      harga_per_unit: Number(b.harga_per_unit),
+      // Harga di kertas supplier: retur mengurangi TAGIHAN, dan tagihan
+      // itu memakai angka yang tertulis di fakturnya.
+      harga_per_unit: Number(b.harga_faktur ?? b.harga_per_unit),
       qty_masuk: Number(b.qty_masuk),
       maks,
       qc_status: b.qc_status,
@@ -130,6 +136,8 @@ export default async function ReturBaruPage({
     tanggal_terima: rcv.tanggal_terima,
     supplier_nama: rcv.supplier_nama,
     ppn_percent: Number(rcv.ppn_percent || 0),
+    tax_mode: parsePurchaseTaxMode(rcv.tax_mode),
+    tax_dpp_nilai_lain: rcv.tax_dpp_nilai_lain !== false,
     total_invoice: Number(rcv.total_invoice),
     total_retur: Number(rcv.total_retur || 0),
     sisa: sisaHutang(Number(rcv.total_invoice), Number(rcv.total_retur || 0)),

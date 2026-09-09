@@ -3,12 +3,15 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import ReceivingForm, { POOption } from "../ReceivingForm";
+import { getTaxSettings } from "@/lib/taxServer";
+import { parsePurchaseTaxMode } from "@/lib/purchaseTax";
 
 type PORaw = {
   id: string;
   no_po: string | null;
   status: "Dikirim" | "Diterima Sebagian";
   ppn_percent: number;
+  tax_mode: string | null;
   top_days: number | null;
   suppliers: { nama: string } | null;
   po_items: {
@@ -25,20 +28,23 @@ export default async function NewReceivingPage() {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: pos } = await supabase
-    .from("purchase_orders")
-    .select(
-      "id, no_po, status, ppn_percent, top_days, suppliers(nama), po_items(id, item_id, qty_pesan, qty_diterima, harga_per_unit, items(kode, nama, satuan))"
-    )
-    .eq("organization_id", organizationId)
-    .in("status", ["Dikirim", "Diterima Sebagian"])
-    .order("created_at", { ascending: false });
+  const [{ data: pos }, taxSettings] = await Promise.all([
+    supabase
+      .from("purchase_orders")
+      .select(
+        "id, no_po, status, ppn_percent, tax_mode, top_days, suppliers(nama), po_items(id, item_id, qty_pesan, qty_diterima, harga_per_unit, items(kode, nama, satuan))"
+      )
+      .eq("organization_id", organizationId)
+      .in("status", ["Dikirim", "Diterima Sebagian"])
+      .order("created_at", { ascending: false }),
+    getTaxSettings(organizationId!),
+  ]);
 
   const options: POOption[] = ((pos || []) as unknown as PORaw[]).map((po) => ({
     id: po.id,
     no_po: po.no_po,
     status: po.status,
-    ppn_percent: Number(po.ppn_percent),
+    tax_mode: parsePurchaseTaxMode(po.tax_mode),
     top_days: po.top_days == null ? null : Number(po.top_days),
     supplier_nama: po.suppliers?.nama || "-",
     items: po.po_items.map((it) => ({
@@ -79,7 +85,7 @@ export default async function NewReceivingPage() {
           .
         </div>
       ) : (
-        <ReceivingForm pos={options} />
+        <ReceivingForm pos={options} taxSettings={taxSettings} />
       )}
     </div>
   );

@@ -7,8 +7,23 @@ import { createPO, updatePO, deletePO } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { klasSorot, tombolCombo, enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
+import TaxModeSwitch from "@/components/TaxModeSwitch";
+import PurchaseTotals from "@/components/PurchaseTotals";
+import {
+  parsePurchaseTaxMode,
+  parseSupplierTaxMode,
+  totalPembelian,
+  PURCHASE_TAX_MODE_DEFAULT,
+  type PurchaseTaxMode,
+} from "@/lib/purchaseTax";
+import type { TaxSettings } from "@/lib/invoiceMath";
 
-export type SupplierOption = { id: string; nama: string };
+export type SupplierOption = {
+  id: string;
+  nama: string;
+  /** Model pajak yang tersimpan dari dokumen terakhir. Null = belum diketahui. */
+  tax_mode: PurchaseTaxMode | null;
+};
 
 export type ItemOption = {
   id: string;
@@ -31,11 +46,13 @@ type Row = {
 type Props = {
   suppliers: SupplierOption[];
   items: ItemOption[];
+  /** Tarif & aturan DPP perusahaan. Yang dipilih per dokumen cuma modelnya. */
+  taxSettings: TaxSettings;
   po?: {
     id: string;
     supplier_id: string;
     tanggal_po: string;
-    ppn_percent: number;
+    tax_mode: PurchaseTaxMode;
     catatan: string | null;
     items: { item_id: string; qty_pesan: number; harga_per_unit: number }[];
   };
@@ -67,7 +84,15 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
-export default function POForm({ suppliers, items, po }: Props) {
+// Dialog konfirmasi harus bisa dibaca sekilas, jadi modelnya ditulis
+// sebagai kalimat, bukan nilai datanya.
+const RINGKASAN_PAJAK: Record<PurchaseTaxMode, string> = {
+  Non: "Tanpa PPN",
+  Exclude: "PPN ditambahkan",
+  Include: "Harga sudah termasuk PPN",
+};
+
+export default function POForm({ suppliers, items, taxSettings, po }: Props) {
   const router = useRouter();
   const konfirmasi = useConfirmSave();
   const isEdit = !!po;
@@ -80,7 +105,15 @@ export default function POForm({ suppliers, items, po }: Props) {
   const [tanggal, setTanggal] = useState(
     po?.tanggal_po || new Date().toLocaleDateString("sv-SE")
   );
-  const [ppn, setPpn] = useState(String(po?.ppn_percent ?? 11));
+  // PO baru selalu mulai dari bawaan, isian aslinya datang begitu
+  // suppliernya dipilih (handleSupplierChange).
+  const [taxMode, setTaxMode] = useState<PurchaseTaxMode>(
+    po ? parsePurchaseTaxMode(po.tax_mode) : PURCHASE_TAX_MODE_DEFAULT
+  );
+  // Begitu switch-nya disentuh, ganti supplier berhenti menimpanya.
+  // Polanya sama dengan hargaManual di InvoiceForm: angka yang sengaja
+  // dipilih orang tidak boleh dikembalikan oleh isian otomatis.
+  const [taxManual, setTaxManual] = useState(false);
   const [catatan, setCatatan] = useState(po?.catatan || "");
   const [rows, setRows] = useState<Row[]>(() => {
     if (!po) return [emptyRow()];
@@ -132,6 +165,16 @@ export default function POForm({ suppliers, items, po }: Props) {
     setSupOpen(false);
     // Ganti supplier = daftar item beda → reset semua baris
     setRows([emptyRow()]);
+    // ...dan model pajaknya ikut supplier baru, selama belum disentuh.
+    // Dikerjakan di handler, bukan useEffect yang mengawasi supplierId:
+    // effect melanggar react-hooks/set-state-in-effect dan menambah satu
+    // render sesudah layar terlanjur dilukis.
+    if (!taxManual) {
+      const sup = suppliers.find((s) => s.id === nextId);
+      setTaxMode(
+        parseSupplierTaxMode(sup?.tax_mode) ?? PURCHASE_TAX_MODE_DEFAULT
+      );
+    }
   }
 
   function filteredFor(row: Row) {
@@ -150,8 +193,7 @@ export default function POForm({ suppliers, items, po }: Props) {
     (s, r) => s + (r.item ? parseNum(r.qty) * parseNum(r.harga) : 0),
     0
   );
-  const ppnValue = (subtotal * parseNum(ppn)) / 100;
-  const total = subtotal + ppnValue;
+  const totals = totalPembelian(subtotal, taxMode, taxSettings);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -177,7 +219,8 @@ export default function POForm({ suppliers, items, po }: Props) {
         { label: "Supplier", nilai: selectedSupplier?.nama || "-" },
         { label: "Tanggal", nilai: tanggal },
         { label: "Item", nilai: filled.length + " baris" },
-        { label: "Total", nilai: formatRupiah(total) },
+        { label: "Pajak", nilai: RINGKASAN_PAJAK[taxMode] },
+        { label: "Total", nilai: formatRupiah(totals.total) },
       ],
       tombol: isEdit ? "Ya, Simpan" : "Ya, Terbitkan",
     });
@@ -187,7 +230,7 @@ export default function POForm({ suppliers, items, po }: Props) {
     const payload = {
       supplier_id: supplierId,
       tanggal_po: tanggal,
-      ppn_percent: parseNum(ppn),
+      tax_mode: taxMode,
       catatan: catatan || null,
       items: filled.map((r) => ({
         item_id: r.item!.id,
@@ -567,27 +610,16 @@ export default function POForm({ suppliers, items, po }: Props) {
         )}
       </div>
 
-      <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto sm:w-full">
-        <div className="flex justify-between text-[13.5px]">
-          <span className="text-muted">Subtotal</span>
-          <span>{formatRupiah(subtotal)}</span>
-        </div>
-        <div className="flex justify-between items-center text-[13.5px]">
-          <span className="text-muted flex items-center gap-1.5">
-            PPN
-            <NumberInput
-              value={ppn}
-              onChange={(nilai) => setPpn(nilai)}
-              className="w-14 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
-            />
-            %
-          </span>
-          <span>{formatRupiah(ppnValue)}</span>
-        </div>
-        <div className="flex justify-between font-semibold text-[15px] border-t border-line pt-2 mt-1">
-          <span>Total</span>
-          <span>{formatRupiah(total)}</span>
-        </div>
+      <div className="glass rounded-2xl p-6 flex flex-col gap-2.5 sm:max-w-sm sm:ml-auto sm:w-full text-[13.5px]">
+        <TaxModeSwitch
+          value={taxMode}
+          onChange={(mode) => {
+            setTaxMode(mode);
+            setTaxManual(true);
+          }}
+          bawaanSupplier={selectedSupplier ? selectedSupplier.tax_mode : null}
+        />
+        <PurchaseTotals totals={totals} mode={taxMode} />
       </div>
 
       {error && <p className="text-clay-600 text-[12.5px]">{error}</p>}

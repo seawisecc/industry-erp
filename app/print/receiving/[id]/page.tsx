@@ -5,6 +5,11 @@ import { getDocSigners } from "@/lib/docSignServer";
 import PrintButton from "../../po/[id]/PrintButton";
 import QrSignBlock from "../../QrSignBlock";
 import PrintKop from "@/components/PrintKop";
+import PurchaseTotals from "@/components/PurchaseTotals";
+import {
+  hitungTotalPembelian,
+  parsePurchaseTaxMode,
+} from "@/lib/purchaseTax";
 
 type RcvPrint = {
   id: string;
@@ -12,6 +17,8 @@ type RcvPrint = {
   tanggal_terima: string;
   supplier_nama: string | null;
   ppn_percent: number;
+  tax_mode: string | null;
+  tax_dpp_nilai_lain: boolean | null;
   subtotal: number;
   total_ppn: number;
   total_invoice: number;
@@ -24,10 +31,21 @@ type RcvPrint = {
 type BatchRow = {
   qty_masuk: number;
   harga_per_unit: number;
+  /** Harga di kertas supplier. Beda dengan harga_per_unit pada faktur Include. */
+  harga_faktur: number | null;
   no_lot_supplier: string | null;
   exp_date: string | null;
   items: { kode: string; nama: string; satuan: string } | null;
 };
+
+/**
+ * Baris faktur SELALU memakai harga di kertas supplier. Pada faktur
+ * Include, harga_per_unit sudah tanpa pajak (itu HPP-nya) dan tidak akan
+ * cocok dengan dokumen yang sedang dicocokkan orang.
+ */
+function hargaFaktur(r: { harga_per_unit: number; harga_faktur: number | null }) {
+  return Number(r.harga_faktur ?? r.harga_per_unit);
+}
 
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
@@ -54,7 +72,7 @@ export default async function PrintReceivingPage({
     supabase
       .from("receivings")
       .select(
-        "id, no_invoice, tanggal_terima, supplier_nama, ppn_percent, subtotal, total_ppn, total_invoice, top_days, jatuh_tempo, po_id, purchase_orders(no_po)"
+        "id, no_invoice, tanggal_terima, supplier_nama, ppn_percent, tax_mode, tax_dpp_nilai_lain, subtotal, total_ppn, total_invoice, top_days, jatuh_tempo, po_id, purchase_orders(no_po)"
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -72,18 +90,28 @@ export default async function PrintReceivingPage({
 
   let { data: batches } = await supabase
     .from("purchase_batches")
-    .select("qty_masuk, harga_per_unit, no_lot_supplier, exp_date, items(kode, nama, satuan)")
+    .select("qty_masuk, harga_per_unit, harga_faktur, no_lot_supplier, exp_date, items(kode, nama, satuan)")
     .eq("receiving_id", id);
   if (!batches || batches.length === 0) {
     const fallback = await supabase
       .from("purchase_batches")
-      .select("qty_masuk, harga_per_unit, no_lot_supplier, exp_date, items(kode, nama, satuan)")
+      .select("qty_masuk, harga_per_unit, harga_faktur, no_lot_supplier, exp_date, items(kode, nama, satuan)")
       .eq("po_id", rcv.po_id)
       .eq("tanggal_terima", rcv.tanggal_terima)
       .eq("organization_id", organizationId);
     batches = fallback.data;
   }
   const rows = (batches || []) as unknown as BatchRow[];
+
+  // Rincian dari angka yang dibekukan di faktur ini, bukan pengaturan
+  // pajak yang berlaku sekarang.
+  const taxMode = parsePurchaseTaxMode(rcv.tax_mode);
+  const totals = hitungTotalPembelian(
+    Number(rcv.subtotal),
+    taxMode,
+    Number(rcv.ppn_percent),
+    rcv.tax_dpp_nilai_lain !== false
+  );
 
   // Kolom tanda tangan sesuai pengaturan Document Signing (per jenis dokumen)
   const signers = await getDocSigners(organizationId!, "receiving");
@@ -192,10 +220,10 @@ export default async function PrintReceivingPage({
                   {Number(r.qty_masuk).toLocaleString("id-ID")} {r.items?.satuan}
                 </td>
                 <td className="py-2 pr-2 text-right align-top whitespace-nowrap">
-                  {formatRupiah(Number(r.harga_per_unit))}
+                  {formatRupiah(hargaFaktur(r))}
                 </td>
                 <td className="py-2 text-right align-top whitespace-nowrap">
-                  {formatRupiah(Number(r.qty_masuk) * Number(r.harga_per_unit))}
+                  {formatRupiah(Number(r.qty_masuk) * hargaFaktur(r))}
                 </td>
               </tr>
             ))}
@@ -205,18 +233,12 @@ export default async function PrintReceivingPage({
         {/* ===== TOTAL ===== */}
         <div className="flex justify-end mt-3">
           <div className="w-[70mm] text-[12.5px]">
-            <div className="flex justify-between py-1">
-              <span className="text-neutral-600">Subtotal</span>
-              <span>{formatRupiah(Number(rcv.subtotal))}</span>
-            </div>
-            <div className="flex justify-between py-1">
-              <span className="text-neutral-600">PPN {Number(rcv.ppn_percent)}%</span>
-              <span>{formatRupiah(Number(rcv.total_ppn))}</span>
-            </div>
-            <div className="flex justify-between py-1.5 border-t-2 border-[#1a1a1a] font-bold text-[13.5px]">
-              <span>TOTAL</span>
-              <span>{formatRupiah(Number(rcv.total_invoice))}</span>
-            </div>
+            <PurchaseTotals
+              totals={totals}
+              mode={taxMode}
+              cetak
+              judulTotal="TOTAL"
+            />
           </div>
         </div>
 

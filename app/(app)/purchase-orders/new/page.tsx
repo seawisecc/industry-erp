@@ -2,17 +2,30 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import POForm, { ItemOption } from "../POForm";
+import POForm, { ItemOption, SupplierOption } from "../POForm";
+import { getTaxSettings } from "@/lib/taxServer";
+import { parseSupplierTaxMode } from "@/lib/purchaseTax";
 
 export default async function NewPOPage() {
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const { data: suppliers } = await supabase
-    .from("suppliers")
-    .select("id, nama")
-    .eq("organization_id", organizationId)
-    .order("nama");
+  const [{ data: suppliers }, taxSettings] = await Promise.all([
+    supabase
+      .from("suppliers")
+      .select("id, nama, tax_mode")
+      .eq("organization_id", organizationId)
+      .order("nama"),
+    getTaxSettings(organizationId!),
+  ]);
+
+  const supplierOptions: SupplierOption[] = (
+    (suppliers || []) as { id: string; nama: string; tax_mode: unknown }[]
+  ).map((s) => ({
+    id: s.id,
+    nama: s.nama,
+    tax_mode: parseSupplierTaxMode(s.tax_mode),
+  }));
 
   // Item yang bisa dipesan = item yang terhubung ke material (material menyimpan supplier-nya)
   const [{ data: materialLinks }, { data: priceRows }] = await Promise.all([
@@ -23,15 +36,21 @@ export default async function NewPOPage() {
       .not("item_id", "is", null),
     supabase
       .from("purchase_batches")
-      .select("item_id, harga_per_unit, created_at")
+      .select("item_id, harga_per_unit, harga_faktur, created_at")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false }),
   ]);
 
   // Harga beli terakhir per item, dipakai untuk prefill kolom harga
   const lastHarga = new Map<string, number>();
-  for (const b of (priceRows || []) as { item_id: string; harga_per_unit: number }[]) {
-    const h = Number(b.harga_per_unit);
+  // Harga FAKTUR, bukan HPP: yang diketik orang di PO adalah angka yang
+  // akan muncul di kertas supplier berikutnya.
+  for (const b of (priceRows || []) as {
+    item_id: string;
+    harga_per_unit: number;
+    harga_faktur: number | null;
+  }[]) {
+    const h = Number(b.harga_faktur ?? b.harga_per_unit);
     if (h > 0 && !lastHarga.has(b.item_id)) lastHarga.set(b.item_id, h);
   }
 
@@ -67,7 +86,11 @@ export default async function NewPOPage() {
         No. PO dibuat otomatis (PO-MMYY-001) saat disimpan.
       </p>
 
-      <POForm suppliers={suppliers || []} items={itemOptions} />
+      <POForm
+        suppliers={supplierOptions}
+        items={itemOptions}
+        taxSettings={taxSettings}
+      />
     </div>
   );
 }

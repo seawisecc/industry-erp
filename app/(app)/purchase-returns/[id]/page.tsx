@@ -4,6 +4,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import DataTable from "@/components/DataTable";
+import {
+  hitungTotalPembelian,
+  parsePurchaseTaxMode,
+} from "@/lib/purchaseTax";
 import CancelTxButton from "@/components/CancelTxButton";
 import AlasanBadge from "../AlasanBadge";
 import { cancelPurchaseReturn } from "../actions";
@@ -21,6 +25,8 @@ type ReturDetail = {
   receivings: {
     no_invoice: string | null;
     ppn_percent: number;
+    tax_mode: string | null;
+    tax_dpp_nilai_lain: boolean | null;
     total_invoice: number;
     total_retur: number;
   } | null;
@@ -66,7 +72,7 @@ export default async function PurchaseReturnDetailPage({
     .from("purchase_returns")
     .select(
       `id, no_retur, tanggal, supplier_nama, alasan, catatan, total_nilai, dibuat_oleh,
-       receivings(no_invoice, ppn_percent, total_invoice, total_retur),
+       receivings(no_invoice, ppn_percent, tax_mode, tax_dpp_nilai_lain, total_invoice, total_retur),
        purchase_return_items(qty, qty_dari_karantina, qty_dari_sisa, harga_per_unit, subtotal,
          items(kode, nama, satuan),
          purchase_batches(no_lot_supplier, exp_date, qc_status))`
@@ -96,7 +102,16 @@ export default async function PurchaseReturnDetailPage({
     (s, r) => s + Number(r.subtotal),
     0
   );
-  const ppn = Number(retur.total_nilai) - subtotal;
+  // Rincian pajaknya ikut model faktur ASLINYA, bukan selisih total
+  // dikurangi subtotal: pada faktur Include selisih itu nol, padahal
+  // pajaknya ada, cuma berada di dalam harga.
+  const taxMode = parsePurchaseTaxMode(retur.receivings?.tax_mode);
+  const totals = hitungTotalPembelian(
+    subtotal,
+    taxMode,
+    Number(retur.receivings?.ppn_percent ?? 0),
+    retur.receivings?.tax_dpp_nilai_lain !== false
+  );
 
   return (
     <div className="max-w-5xl">
@@ -280,14 +295,36 @@ export default async function PurchaseReturnDetailPage({
                   {formatRupiah(subtotal)}
                 </td>
               </tr>
-              <tr>
-                <td colSpan={5} className="px-4 py-2 text-right text-muted">
-                  PPN {Number(retur.receivings?.ppn_percent ?? 0).toLocaleString("id-ID")}%
-                </td>
-                <td className="px-4 py-2 text-right whitespace-nowrap">
-                  {formatRupiah(ppn)}
-                </td>
-              </tr>
+              {taxMode === "Include" && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-2 text-right text-muted">
+                    Sub Total Exc Tax
+                  </td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">
+                    {formatRupiah(totals.exTax)}
+                  </td>
+                </tr>
+              )}
+              {taxMode !== "Non" && (
+                <>
+                  <tr>
+                    <td colSpan={5} className="px-4 py-2 text-right text-muted">
+                      DPP
+                    </td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      {formatRupiah(totals.dpp)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={5} className="px-4 py-2 text-right text-muted">
+                      PPN
+                    </td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      {formatRupiah(totals.tax)}
+                    </td>
+                  </tr>
+                </>
+              )}
               <tr>
                 <td colSpan={5} className="px-4 py-2.5 text-right font-semibold">
                   Nilai Retur
@@ -304,10 +341,12 @@ export default async function PurchaseReturnDetailPage({
                 <span>Sub-Total</span>
                 <span>{formatRupiah(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-muted">
-                <span>PPN</span>
-                <span>{formatRupiah(ppn)}</span>
-              </div>
+              {taxMode !== "Non" && (
+                <div className="flex justify-between text-muted">
+                  <span>PPN</span>
+                  <span>{formatRupiah(totals.tax)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-semibold">
                 <span>Nilai Retur</span>
                 <span>{formatRupiah(Number(retur.total_nilai))}</span>

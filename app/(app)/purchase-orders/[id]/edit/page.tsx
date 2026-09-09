@@ -3,7 +3,14 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
-import POForm, { ItemOption } from "../../POForm";
+import POForm, { ItemOption, SupplierOption } from "../../POForm";
+import PurchaseTotals from "@/components/PurchaseTotals";
+import { getTaxSettings } from "@/lib/taxServer";
+import {
+  hitungTotalPembelian,
+  parsePurchaseTaxMode,
+  parseSupplierTaxMode,
+} from "@/lib/purchaseTax";
 import POStatusActions from "../../POStatusActions";
 import DataTable from "@/components/DataTable";
 
@@ -16,6 +23,8 @@ type PODetail = {
   supplier_id: string;
   status: POStatus;
   ppn_percent: number;
+  tax_mode: string | null;
+  tax_dpp_nilai_lain: boolean | null;
   top_days: number | null;
   catatan: string | null;
   suppliers: { nama: string } | null;
@@ -60,7 +69,7 @@ export default async function EditPOPage({
   const { data } = await supabase
     .from("purchase_orders")
     .select(
-      "id, no_po, tanggal_po, supplier_id, status, ppn_percent, top_days, catatan, suppliers(nama), po_items(item_id, qty_pesan, harga_per_unit, qty_diterima, items(kode, nama, satuan))"
+      "id, no_po, tanggal_po, supplier_id, status, ppn_percent, tax_mode, tax_dpp_nilai_lain, top_days, catatan, suppliers(nama), po_items(item_id, qty_pesan, harga_per_unit, qty_diterima, items(kode, nama, satuan))"
     )
     .eq("id", id)
     .eq("organization_id", organizationId)
@@ -69,6 +78,11 @@ export default async function EditPOPage({
   if (!data) notFound();
   const po = data as unknown as PODetail;
   const editable = po.status === "Dibuat";
+
+  // Model & tarif yang DIBEKUKAN di dokumen ini, bukan yang berlaku
+  // sekarang: PO yang sudah dikirim ke supplier tidak boleh berubah
+  // angkanya cuma karena Settings diganti.
+  const taxMode = parsePurchaseTaxMode(po.tax_mode);
   const canApprove =
     isSuperAdmin || profile?.role === "Admin" || !!profile?.can_approve_po;
 
@@ -87,7 +101,12 @@ export default async function EditPOPage({
       (s, r) => s + Number(r.qty_pesan) * Number(r.harga_per_unit),
       0
     );
-    const ppnValue = (subtotal * Number(po.ppn_percent)) / 100;
+    const totals = hitungTotalPembelian(
+      subtotal,
+      taxMode,
+      Number(po.ppn_percent),
+      po.tax_dpp_nilai_lain !== false
+    );
     return (
       <div className="max-w-5xl">
         <Link
@@ -208,29 +227,29 @@ export default async function EditPOPage({
         </div>
 
         <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto text-[13.5px]">
-          <div className="flex justify-between">
-            <span className="text-muted">Subtotal</span>
-            <span>{formatRupiah(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted">PPN {Number(po.ppn_percent)}%</span>
-            <span>{formatRupiah(ppnValue)}</span>
-          </div>
-          <div className="flex justify-between font-semibold text-[15px] border-t border-line pt-2 mt-1">
-            <span>Total</span>
-            <span>{formatRupiah(subtotal + ppnValue)}</span>
-          </div>
+          <PurchaseTotals totals={totals} mode={taxMode} />
         </div>
       </div>
     );
   }
 
   // ============ MODE EDIT (status masih "Dikirim") ============
-  const { data: suppliers } = await supabase
-    .from("suppliers")
-    .select("id, nama")
-    .eq("organization_id", organizationId)
-    .order("nama");
+  const [{ data: suppliers }, taxSettings] = await Promise.all([
+    supabase
+      .from("suppliers")
+      .select("id, nama, tax_mode")
+      .eq("organization_id", organizationId)
+      .order("nama"),
+    getTaxSettings(organizationId!),
+  ]);
+
+  const supplierOptions: SupplierOption[] = (
+    (suppliers || []) as { id: string; nama: string; tax_mode: unknown }[]
+  ).map((s) => ({
+    id: s.id,
+    nama: s.nama,
+    tax_mode: parseSupplierTaxMode(s.tax_mode),
+  }));
 
   const [{ data: materialLinks }, { data: priceRows }] = await Promise.all([
     supabase
@@ -240,15 +259,19 @@ export default async function EditPOPage({
       .not("item_id", "is", null),
     supabase
       .from("purchase_batches")
-      .select("item_id, harga_per_unit, created_at")
+      .select("item_id, harga_per_unit, harga_faktur, created_at")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false }),
   ]);
 
   // Harga beli terakhir per item, dipakai untuk prefill kolom harga
   const lastHarga = new Map<string, number>();
-  for (const b of (priceRows || []) as { item_id: string; harga_per_unit: number }[]) {
-    const h = Number(b.harga_per_unit);
+  for (const b of (priceRows || []) as {
+    item_id: string;
+    harga_per_unit: number;
+    harga_faktur: number | null;
+  }[]) {
+    const h = Number(b.harga_faktur ?? b.harga_per_unit);
     if (h > 0 && !lastHarga.has(b.item_id)) lastHarga.set(b.item_id, h);
   }
 
@@ -296,13 +319,14 @@ export default async function EditPOPage({
       {statusActions}
 
       <POForm
-        suppliers={suppliers || []}
+        suppliers={supplierOptions}
         items={itemOptions}
+        taxSettings={taxSettings}
         po={{
           id: po.id,
           supplier_id: po.supplier_id,
           tanggal_po: po.tanggal_po,
-          ppn_percent: Number(po.ppn_percent),
+          tax_mode: taxMode,
           catatan: po.catatan,
           items: po.po_items.map((r) => ({
             item_id: r.item_id,

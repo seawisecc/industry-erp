@@ -19,8 +19,7 @@ export type GuideLine = {
  */
 export async function createPOsFromGuide(
   lines: GuideLine[],
-  tanggal: string,
-  ppnPercent: number
+  tanggal: string
 ): Promise<{
   ok: boolean;
   error?: string;
@@ -51,7 +50,10 @@ export async function createPOsFromGuide(
         await createPO({
           supplier_id: supplierId,
           tanggal_po: tanggal,
-          ppn_percent: ppnPercent,
+          // Null = ikut bawaan masing-masing supplier. Satu layar ini
+          // menerbitkan PO ke banyak supplier sekaligus, dan tidak ada
+          // satu model pajak yang benar untuk semuanya.
+          tax_mode: null,
           catatan: "Dibuat dari Guide Order",
           items: group.map((g) => ({
             item_id: g.item_id,

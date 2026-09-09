@@ -5,6 +5,11 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Printer, Tags } from "lucide-react";
 import CancelTxButton from "@/components/CancelTxButton";
 import DataTable from "@/components/DataTable";
+import PurchaseTotals from "@/components/PurchaseTotals";
+import {
+  hitungTotalPembelian,
+  parsePurchaseTaxMode,
+} from "@/lib/purchaseTax";
 import RowActions, { IconAction } from "@/components/RowActions";
 import { cancelReceiving } from "../actions";
 
@@ -14,6 +19,8 @@ type RcvDetail = {
   tanggal_terima: string;
   supplier_nama: string | null;
   ppn_percent: number;
+  tax_mode: string | null;
+  tax_dpp_nilai_lain: boolean | null;
   subtotal: number;
   total_ppn: number;
   total_invoice: number;
@@ -28,10 +35,22 @@ type BatchRow = {
   id: string;
   qty_masuk: number;
   harga_per_unit: number;
+  /** Harga di kertas supplier. Beda dengan harga_per_unit pada faktur Include. */
+  harga_faktur: number | null;
   no_lot_supplier: string | null;
   exp_date: string | null;
   items: { kode: string; nama: string; satuan: string } | null;
 };
+
+/**
+ * Harga yang ditampilkan di baris faktur SELALU harga di kertas supplier.
+ * Pada faktur Include, harga_per_unit sudah dikeluarkan PPN-nya supaya HPP
+ * setara antar supplier, dan angka itu tidak akan cocok dengan kertas yang
+ * dipegang orang saat memeriksa dokumen ini.
+ */
+function hargaFaktur(r: { harga_per_unit: number; harga_faktur: number | null }) {
+  return Number(r.harga_faktur ?? r.harga_per_unit);
+}
 
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
@@ -59,7 +78,7 @@ export default async function ReceivingDetailPage({
   const { data } = await supabase
     .from("receivings")
     .select(
-      "id, no_invoice, tanggal_terima, supplier_nama, ppn_percent, subtotal, total_ppn, total_invoice, top_days, jatuh_tempo, status_bayar, po_id, purchase_orders(no_po)"
+      "id, no_invoice, tanggal_terima, supplier_nama, ppn_percent, tax_mode, tax_dpp_nilai_lain, subtotal, total_ppn, total_invoice, top_days, jatuh_tempo, status_bayar, po_id, purchase_orders(no_po)"
     )
     .eq("id", id)
     .eq("organization_id", organizationId)
@@ -71,13 +90,13 @@ export default async function ReceivingDetailPage({
   // Batch milik penerimaan ini (data lama tanpa receiving_id: fallback po+tanggal)
   let { data: batches } = await supabase
     .from("purchase_batches")
-    .select("id, qty_masuk, harga_per_unit, no_lot_supplier, exp_date, items(kode, nama, satuan)")
+    .select("id, qty_masuk, harga_per_unit, harga_faktur, no_lot_supplier, exp_date, items(kode, nama, satuan)")
     .eq("receiving_id", id);
 
   if (!batches || batches.length === 0) {
     const fallback = await supabase
       .from("purchase_batches")
-      .select("id, qty_masuk, harga_per_unit, no_lot_supplier, exp_date, items(kode, nama, satuan)")
+      .select("id, qty_masuk, harga_per_unit, harga_faktur, no_lot_supplier, exp_date, items(kode, nama, satuan)")
       .eq("po_id", rcv.po_id)
       .eq("tanggal_terima", rcv.tanggal_terima)
       .eq("organization_id", organizationId);
@@ -85,6 +104,16 @@ export default async function ReceivingDetailPage({
   }
 
   const rows = (batches || []) as unknown as BatchRow[];
+
+  // Rincian dihitung ulang dari angka yang DIBEKUKAN di faktur ini, bukan
+  // dari pengaturan pajak yang berlaku sekarang.
+  const taxMode = parsePurchaseTaxMode(rcv.tax_mode);
+  const totals = hitungTotalPembelian(
+    Number(rcv.subtotal),
+    taxMode,
+    Number(rcv.ppn_percent),
+    rcv.tax_dpp_nilai_lain !== false
+  );
 
   return (
     <div className="max-w-5xl">
@@ -232,7 +261,7 @@ export default async function ReceivingDetailPage({
             role: "secondary",
             align: "right",
             className: "whitespace-nowrap",
-            cell: (r) => formatRupiah(Number(r.harga_per_unit)),
+            cell: (r) => formatRupiah(hargaFaktur(r)),
           },
           {
             key: "subtotal",
@@ -241,7 +270,7 @@ export default async function ReceivingDetailPage({
             align: "right",
             className: "whitespace-nowrap",
             cell: (r) =>
-              formatRupiah(Number(r.qty_masuk) * Number(r.harga_per_unit)),
+              formatRupiah(Number(r.qty_masuk) * hargaFaktur(r)),
           },
           {
             key: "label",
@@ -263,18 +292,11 @@ export default async function ReceivingDetailPage({
       />
 
       <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto text-[13.5px]">
-        <div className="flex justify-between">
-          <span className="text-muted">Subtotal</span>
-          <span>{formatRupiah(Number(rcv.subtotal))}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted">PPN {Number(rcv.ppn_percent)}%</span>
-          <span>{formatRupiah(Number(rcv.total_ppn))}</span>
-        </div>
-        <div className="flex justify-between font-semibold text-[15px] border-t border-line pt-2 mt-1">
-          <span>Total Invoice</span>
-          <span>{formatRupiah(Number(rcv.total_invoice))}</span>
-        </div>
+        <PurchaseTotals
+          totals={totals}
+          mode={taxMode}
+          judulTotal="Total Invoice"
+        />
       </div>
     </div>
   );
