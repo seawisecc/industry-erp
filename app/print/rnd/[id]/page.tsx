@@ -5,6 +5,8 @@ import PrintButton from "../../po/[id]/PrintButton";
 import PrintKop from "@/components/PrintKop";
 import { faseKey, faseLabel, urutkanFormula } from "@/lib/formulaOrder";
 import { labelRevisi } from "@/lib/rnd";
+import { kunciBahan } from "@/lib/rndCost";
+import { getRndOptions } from "@/app/(app)/rnd/data";
 
 /* ============================================================
    Lembar kerja lab R&D.
@@ -32,11 +34,11 @@ type Detail = {
   alasan_revisi: string | null;
   clients: { company_brand: string } | null;
   rnd_formula_items: {
-    item_id: string;
+    material_id: string | null;
+    item_id: string | null;
     fase: string | null;
     percentage: number;
     fungsi: string | null;
-    items: { kode: string; nama: string; satuan: string } | null;
   }[];
   rnd_formula_specs: {
     urutan: number;
@@ -67,13 +69,13 @@ export default async function PrintRndPage({
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const [{ data }, { data: org }, { data: settings }] = await Promise.all([
+  const [{ data }, { data: org }, { data: settings }, opts] = await Promise.all([
     supabase
       .from("rnd_formulas")
       .select(
         "id, no_formula, revisi, nama_produk, brand, tanggal_develop, status, trial_gram, netto_gram, catatan, alasan_revisi, " +
           "clients(company_brand), " +
-          "rnd_formula_items(item_id, fase, percentage, fungsi, items(kode, nama, satuan)), " +
+          "rnd_formula_items(material_id, item_id, fase, percentage, fungsi), " +
           "rnd_formula_specs(urutan, grup, parameter, satuan, target)"
       )
       .eq("id", id)
@@ -85,6 +87,7 @@ export default async function PrintRndPage({
       .select("alamat, no_telp, email, logo")
       .eq("organization_id", organizationId)
       .maybeSingle(),
+    getRndOptions(organizationId!),
   ]);
 
   if (!data) notFound();
@@ -92,12 +95,17 @@ export default async function PrintRndPage({
 
   const trialGram = f.trial_gram == null ? null : Number(f.trial_gram);
 
+  // Nama & kode dibaca lewat daftar bahan yang sama dengan layarnya,
+  // supaya kertas dan layar tidak pernah menyebut bahan yang berbeda.
+  const bahanOf = (key: string) => opts.bahan.find((b) => b.key === key);
+
   const bahan = urutkanFormula(
     (f.rnd_formula_items || []).map((r) => {
       const pct = Number(r.percentage);
+      const b = bahanOf(kunciBahan(r.material_id, r.item_id));
       return {
-        kode: r.items?.kode || "-",
-        nama: r.items?.nama || "(item terhapus)",
+        kode: b?.kode || "-",
+        nama: b?.nama || "(bahan terhapus)",
         fase: r.fase,
         fungsi: r.fungsi,
         percentage: pct,

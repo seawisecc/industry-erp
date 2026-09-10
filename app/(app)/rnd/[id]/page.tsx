@@ -9,7 +9,7 @@ import { canAccessModule } from "@/lib/modules";
 import { localDateTimeStr } from "@/lib/dates";
 import { faseKey, faseLabel, urutkanFormula } from "@/lib/formulaOrder";
 import { klasStatusRnd, labelRevisi, statusBeku } from "@/lib/rnd";
-import { hitungBiayaFormula, takaranTrial } from "@/lib/rndCost";
+import { hitungBiayaFormula, kunciBahan, takaranTrial } from "@/lib/rndCost";
 import { getRndOptions } from "../data";
 import { deleteRndFormula } from "../actions";
 import HasilForm, { type SpecRow } from "./HasilForm";
@@ -37,13 +37,15 @@ type Detail = {
   dibuat_oleh: string | null;
   clients: { company_brand: string } | null;
   rnd_formula_items: {
-    item_id: string;
+    material_id: string | null;
+    item_id: string | null;
     fase: string | null;
     percentage: number;
     fungsi: string | null;
   }[];
   rnd_formula_specs: (SpecRow & { urutan: number })[];
   rnd_formula_packaging: {
+    material_id: string | null;
     item_id: string | null;
     nama: string | null;
     qty_per_pcs: number;
@@ -102,9 +104,9 @@ export default async function RndDetailPage({
         "id, no_formula, induk_id, revisi, nama_produk, brand, client_id, tanggal_develop, status, " +
           "trial_gram, netto_gram, catatan, alasan_revisi, hasil_develop, disetujui_oleh, disetujui_pada, dibuat_oleh, " +
           "clients(company_brand), " +
-          "rnd_formula_items(item_id, fase, percentage, fungsi), " +
+          "rnd_formula_items(material_id, item_id, fase, percentage, fungsi), " +
           "rnd_formula_specs(id, urutan, grup, parameter, satuan, target, hasil), " +
-          "rnd_formula_packaging(item_id, nama, qty_per_pcs, harga_estimasi)"
+          "rnd_formula_packaging(material_id, item_id, nama, qty_per_pcs, harga_estimasi)"
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -135,47 +137,51 @@ export default async function RndDetailPage({
     ((profiles || []) as { id: string; nama: string }[]).map((p) => [p.id, p.nama])
   );
 
-  const itemOf = (itemId: string) => opts.items.find((i) => i.id === itemId);
+  const bahanOf = (key: string) => opts.bahan.find((b) => b.key === key);
 
   const trialGram = f.trial_gram == null ? null : Number(f.trial_gram);
   const nettoGram = f.netto_gram == null ? null : Number(f.netto_gram);
 
   const barisFormula = (f.rnd_formula_items || []).map((r) => ({
-    item_id: r.item_id,
+    key: kunciBahan(r.material_id, r.item_id),
     percentage: Number(r.percentage),
   }));
   const barisKemasan = (f.rnd_formula_packaging || []).map((p) => ({
-    item_id: p.item_id,
+    key:
+      p.material_id || p.item_id ? kunciBahan(p.material_id, p.item_id) : null,
     nama: p.nama,
     qty_per_pcs: Number(p.qty_per_pcs),
     harga_estimasi: p.harga_estimasi == null ? null : Number(p.harga_estimasi),
   }));
 
-  const biaya = hitungBiayaFormula(barisFormula, barisKemasan, nettoGram, itemOf);
+  const biaya = hitungBiayaFormula(barisFormula, barisKemasan, nettoGram, bahanOf);
   const takaran = takaranTrial(barisFormula, trialGram);
 
   // Urutan baku formula, sama dengan detail produk, layar penimbangan,
   // dan Batch Record: per fase, persentase terbesar dulu.
-  const bahan = urutkanFormula(
+  const barisBahan = urutkanFormula(
     (f.rnd_formula_items || []).map((r) => {
-      const it = itemOf(r.item_id);
-      const pct = Number(r.percentage);
+      const key = kunciBahan(r.material_id, r.item_id);
+      const b = bahanOf(key);
       return {
-        item_id: r.item_id,
-        kode: it?.kode || "-",
-        nama: it?.nama || "(item terhapus)",
-        satuan: it?.satuan || "",
-        supplier: it?.supplier ?? null,
-        harga: it?.harga ?? null,
+        rowKey: key,
+        kode: b?.kode || "-",
+        nama: b?.nama || "(bahan terhapus)",
+        satuan: b?.satuan || "",
+        supplier: b?.supplier ?? null,
+        harga: b?.harga ?? null,
+        inci: b?.inci ?? null,
+        terdaftar: !!b?.item_id,
         fase: r.fase,
         fungsi: r.fungsi,
-        percentage: pct,
-        gram: takaran.get(r.item_id) ?? null,
+        percentage: Number(r.percentage),
+        gram: takaran.get(key) ?? null,
       };
     })
   );
 
-  const totalPct = bahan.reduce((s, b) => s + b.percentage, 0);
+  const totalPct = barisBahan.reduce((s, b) => s + b.percentage, 0);
+  const belumJadiItem = barisBahan.filter((b) => !b.terdaftar).length;
 
   const specs = [...(f.rnd_formula_specs || [])]
     .sort((a, b) => a.urutan - b.urutan)
@@ -375,14 +381,17 @@ export default async function RndDetailPage({
                   Formula Bahan Baku
                 </h2>
                 <span className="text-muted text-[12.5px]">
-                  {bahan.length} bahan · takaran untuk{" "}
+                  {barisBahan.length} bahan · takaran untuk{" "}
                   {trialGram ? `${angka(trialGram)} g` : "batch trial"}
+                  {belumJadiItem > 0
+                    ? ` · ${belumJadiItem} belum jadi item stok`
+                    : ""}
                 </span>
               </div>
 
               <DataTable
-                rows={bahan}
-                rowKey={(r) => r.item_id}
+                rows={barisBahan}
+                rowKey={(r) => r.rowKey}
                 minWidth={880}
                 chrome="bare"
                 maxHeight={false}
@@ -402,7 +411,17 @@ export default async function RndDetailPage({
                     role: "title",
                     cell: (r) => (
                       <>
-                        <div className="font-medium">{r.nama}</div>
+                        <div className="font-medium flex items-center gap-1.5">
+                          <span>{r.nama}</span>
+                          {!r.terdaftar && (
+                            <span
+                              className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-500 flex-shrink-0"
+                              title="Bahan ini belum punya item stok"
+                            >
+                              belum diadakan
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[11px] text-muted font-mono">
                           {r.kode}
                           {r.fungsi ? ` · ${r.fungsi}` : ""}
@@ -434,9 +453,11 @@ export default async function RndDetailPage({
                     align: "right",
                     className: "whitespace-nowrap",
                     cell: (r) =>
-                      r.harga == null
-                        ? "belum pernah dibeli"
-                        : `${rupiah(r.harga)}/${r.satuan}`,
+                      r.harga != null
+                        ? `${rupiah(r.harga)}/${r.satuan}`
+                        : r.terdaftar
+                          ? "belum pernah dibeli"
+                          : "belum jadi item stok",
                   },
                   {
                     key: "perkg",
@@ -455,6 +476,15 @@ export default async function RndDetailPage({
                     role: "secondary",
                     cell: (r) => r.supplier || "-",
                   },
+                  {
+                    key: "inci",
+                    header: "INCI",
+                    role: "secondary",
+                    cell: (r) => (
+                      <div className="max-w-[260px] truncate">{r.inci || "-"}</div>
+                    ),
+                    cardCell: (r) => r.inci || "-",
+                  },
                 ]}
                 footer={{
                   row: (
@@ -470,6 +500,7 @@ export default async function RndDetailPage({
                       <td className="px-4 py-2.5 text-right">
                         {rupiah(biaya.bahanPerKg)}
                       </td>
+                      <td className="px-4 py-2.5" />
                       <td className="px-4 py-2.5" />
                     </tr>
                   ),
@@ -498,7 +529,7 @@ export default async function RndDetailPage({
               </div>
               <DataTable
                 rows={biaya.rincianKemasan}
-                rowKey={(r, i) => `${r.item_id ?? "manual"}-${i}`}
+                rowKey={(r, i) => `${r.key ?? "manual"}-${i}`}
                 minWidth={640}
                 chrome="bare"
                 maxHeight={false}
@@ -513,7 +544,9 @@ export default async function RndDetailPage({
                       <>
                         <div className="font-medium">{r.nama}</div>
                         <div className="text-[11px] text-muted font-mono">
-                          {r.item_id ? r.kode : "belum ada di master item"}
+                          {r.key
+                            ? r.kode + (r.adaStok ? "" : " · belum jadi item stok")
+                            : "belum terdaftar di master"}
                         </div>
                       </>
                     ),
@@ -561,7 +594,7 @@ export default async function RndDetailPage({
             formula={barisFormula}
             kemasan={barisKemasan}
             nettoGram={nettoGram}
-            items={opts.items}
+            bahan={opts.bahan}
             ppicHref={bolehPpic ? "/ppic" : null}
           />
         )}

@@ -7,7 +7,7 @@ import { getRndOptions } from "../data";
 
 export default async function NewRndPage() {
   const { organizationId } = await getEffectiveOrg();
-  const { items, clients } = await getRndOptions(organizationId!);
+  const { bahan, clients } = await getRndOptions(organizationId!);
 
   return (
     <div className="max-w-5xl">
@@ -26,7 +26,7 @@ export default async function NewRndPage() {
         dicetak sesudahnya.
       </p>
 
-      <RndForm items={items} clients={clients} hariIni={localDateStr()} />
+      <RndForm bahan={bahan} clients={clients} hariIni={localDateStr()} />
     </div>
   );
 }

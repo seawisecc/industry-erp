@@ -5,15 +5,28 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { localDateStr } from "@/lib/dates";
 import { statusBeku } from "@/lib/rnd";
+import { kunciBahan } from "@/lib/rndCost";
 import RndForm, { type FormulaAwal } from "../../RndForm";
 import { getRndOptions } from "../../data";
 
-type Raw = FormulaAwal & {
+type Raw = Omit<FormulaAwal, "items" | "specs" | "packaging"> & {
   no_formula: string;
   status: string;
-  rnd_formula_items: FormulaAwal["items"];
+  rnd_formula_items: {
+    material_id: string | null;
+    item_id: string | null;
+    fase: string | null;
+    percentage: number;
+    fungsi: string | null;
+  }[];
   rnd_formula_specs: (FormulaAwal["specs"][number] & { urutan: number })[];
-  rnd_formula_packaging: FormulaAwal["packaging"];
+  rnd_formula_packaging: {
+    material_id: string | null;
+    item_id: string | null;
+    nama: string | null;
+    qty_per_pcs: number;
+    harga_estimasi: number | null;
+  }[];
 };
 
 export default async function EditRndPage({
@@ -30,9 +43,9 @@ export default async function EditRndPage({
       .from("rnd_formulas")
       .select(
         "id, no_formula, status, nama_produk, brand, client_id, tanggal_develop, trial_gram, netto_gram, catatan, " +
-          "rnd_formula_items(item_id, fase, percentage, fungsi), " +
+          "rnd_formula_items(material_id, item_id, fase, percentage, fungsi), " +
           "rnd_formula_specs(id, urutan, grup, parameter, satuan, target), " +
-          "rnd_formula_packaging(item_id, nama, qty_per_pcs, harga_estimasi)"
+          "rnd_formula_packaging(material_id, item_id, nama, qty_per_pcs, harga_estimasi)"
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -74,7 +87,7 @@ export default async function EditRndPage({
     netto_gram: f.netto_gram == null ? null : Number(f.netto_gram),
     catatan: f.catatan,
     items: (f.rnd_formula_items || []).map((r) => ({
-      item_id: r.item_id,
+      key: kunciBahan(r.material_id, r.item_id),
       fase: r.fase,
       percentage: Number(r.percentage),
       fungsi: r.fungsi,
@@ -89,7 +102,12 @@ export default async function EditRndPage({
         target: s.target,
       })),
     packaging: (f.rnd_formula_packaging || []).map((p) => ({
-      item_id: p.item_id,
+      // Baris kemasan boleh tidak menunjuk master apa pun; yang seperti
+      // itu tidak punya kunci dan cuma membawa namanya.
+      key:
+        p.material_id || p.item_id
+          ? kunciBahan(p.material_id, p.item_id)
+          : null,
       nama: p.nama,
       qty_per_pcs: Number(p.qty_per_pcs),
       harga_estimasi: p.harga_estimasi == null ? null : Number(p.harga_estimasi),
@@ -111,7 +129,7 @@ export default async function EditRndPage({
       <p className="text-muted text-sm mb-6 font-mono">{f.no_formula}</p>
 
       <RndForm
-        items={opts.items}
+        bahan={opts.bahan}
         clients={opts.clients}
         hariIni={localDateStr()}
         formula={awal}

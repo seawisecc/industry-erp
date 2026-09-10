@@ -13,13 +13,21 @@
    yang sama dengan angka berbeda adalah cara tercepat membuat orang
    berhenti percaya pada dua-duanya.
 
+   BAHAN YANG BELUM PUNYA ITEM STOK DIPISAH, BUKAN DIBILANG KURANG
+
+   Formula R&D boleh memuat bahan yang belum pernah diadakan. Bahan
+   seperti itu tidak punya stok untuk dibandingkan, dan menyebutnya
+   "kurang 12 kg" salah alamat: yang harus dikerjakan bukan membeli
+   lagi, melainkan mendaftarkannya dulu jadi item stok. Dua tindakan
+   berbeda, jadi dua daftar berbeda.
+
    Angkanya simulasi, tidak menulis apa pun. Yang ditulis ke stok
    tetap cuma dokumen produksi.
    ============================================================ */
 
 import { useState } from "react";
 import Link from "next/link";
-import { ShoppingCart } from "lucide-react";
+import { PackagePlus, ShoppingCart } from "lucide-react";
 import NumberInput from "@/components/NumberInput";
 import DataTable from "@/components/DataTable";
 import StokKurangAlert from "@/components/StokKurangAlert";
@@ -27,13 +35,14 @@ import { hitungKekurangan, type ItemStok } from "@/lib/stokCek";
 import {
   hitungBiayaFormula,
   kebutuhanProduksi,
+  keItemStok,
+  type BahanRnd,
   type BarisFormula,
   type BarisKemasan,
-  type ItemRnd,
 } from "@/lib/rndCost";
 
 type Baris = {
-  item_id: string;
+  rowKey: string;
   kode: string;
   nama: string;
   satuan: string;
@@ -42,6 +51,8 @@ type Baris = {
   kurang: number;
   supplier: string | null;
   harga: number | null;
+  /** false = belum punya item stok, jadi belum bisa dibeli sama sekali */
+  terdaftar: boolean;
 };
 
 function rupiah(n: number) {
@@ -55,51 +66,88 @@ export default function ProduksiCek({
   formula,
   kemasan,
   nettoGram,
-  items,
+  bahan,
   ppicHref,
 }: {
   formula: BarisFormula[];
   kemasan: BarisKemasan[];
   nettoGram: number | null;
-  items: ItemRnd[];
+  bahan: BahanRnd[];
   ppicHref: string | null;
 }) {
   const [pcsStr, setPcsStr] = useState("1000");
   const pcs = Math.max(0, Math.round(parseFloat(pcsStr.replace(",", ".")) || 0));
 
-  const itemOf = (id: string) => items.find((i) => i.id === id);
+  const bahanOf = (key: string) => bahan.find((b) => b.key === key);
+  // Dua materials bisa saja menunjuk item yang sama; yang pertama
+  // dipakai untuk nama & suppliernya, angkanya toh dari item itu juga.
+  const bahanByItem = new Map<string, BahanRnd>();
+  for (const b of bahan) {
+    if (b.item_id && !bahanByItem.has(b.item_id)) bahanByItem.set(b.item_id, b);
+  }
 
-  const biaya = hitungBiayaFormula(formula, kemasan, nettoGram, itemOf);
-  const { ruahanKg, perItem } = kebutuhanProduksi(formula, kemasan, pcs, nettoGram);
-
-  const kekurangan = hitungKekurangan(perItem, (id): ItemStok | undefined =>
-    itemOf(id)
+  const biaya = hitungBiayaFormula(formula, kemasan, nettoGram, bahanOf);
+  const { ruahanKg, perItem, belumAdaStok } = kebutuhanProduksi(
+    formula,
+    kemasan,
+    pcs,
+    nettoGram,
+    bahanOf
   );
 
-  const baris: Baris[] = Array.from(perItem, ([item_id, butuh]) => {
-    const it = itemOf(item_id);
-    const stok = it?.stok ?? 0;
+  const kekurangan = hitungKekurangan(perItem, (itemId): ItemStok | undefined => {
+    const b = bahanByItem.get(itemId);
+    return b ? keItemStok(b) : undefined;
+  });
+
+  const barisStok: Baris[] = Array.from(perItem, ([itemId, butuh]) => {
+    const b = bahanByItem.get(itemId);
+    const stok = b?.stok ?? 0;
     return {
-      item_id,
-      kode: it?.kode || "-",
-      nama: it?.nama || "Item tidak dikenal",
-      satuan: it?.satuan || "",
+      rowKey: `item:${itemId}`,
+      kode: b?.kode || "-",
+      nama: b?.nama || "Bahan tidak dikenal",
+      satuan: b?.satuan || "",
       butuh,
       stok,
       kurang: Math.max(0, butuh - stok),
-      supplier: it?.supplier ?? null,
-      harga: it?.harga ?? null,
+      supplier: b?.supplier ?? null,
+      harga: b?.harga ?? null,
+      terdaftar: true,
     };
-  }).sort((a, b) => b.kurang - a.kurang || a.kode.localeCompare(b.kode));
+  });
+
+  const barisBaru: Baris[] = Array.from(belumAdaStok, ([key, butuh]) => {
+    const b = bahanOf(key);
+    return {
+      rowKey: key,
+      kode: b?.kode || "-",
+      nama: b?.nama || "Bahan tidak dikenal",
+      satuan: b?.satuan || "",
+      butuh,
+      stok: 0,
+      kurang: butuh,
+      supplier: b?.supplier ?? null,
+      harga: b?.harga ?? null,
+      terdaftar: false,
+    };
+  });
+
+  const baris = [...barisStok, ...barisBaru].sort(
+    (a, b) =>
+      Number(a.terdaftar) - Number(b.terdaftar) ||
+      b.kurang - a.kurang ||
+      a.kode.localeCompare(b.kode)
+  );
 
   const totalProduksi =
     biaya.totalPerPcs == null ? null : biaya.totalPerPcs * pcs;
 
-  // Kemasan yang belum ada di master sengaja tidak ikut dicek stoknya
-  // (lihat kebutuhanProduksi), jadi disebut terpisah supaya tidak
+  // Kemasan yang tidak menunjuk master apa pun (cuma nama ketikan)
+  // sengaja tidak ikut dicek, jadi disebut terpisah supaya tidak
   // disangka sudah tersedia.
-  const kemasanBelumTerdaftar = kemasan
-    .filter((k) => !k.item_id && k.nama)
+  const kemasanTanpaMaster = kemasan
+    .filter((k) => !k.key && k.nama)
     .map((k) => k.nama as string);
 
   return (
@@ -163,6 +211,56 @@ export default function ProduksiCek({
         )}
       </div>
 
+      {barisBaru.length > 0 && (
+        <div className="glass rounded-2xl border-amber-100 p-4 sm:p-5 flex flex-col gap-3">
+          <div className="flex items-start gap-2.5">
+            <span className="bg-amber-100 text-amber-500 rounded-lg p-1.5 flex-shrink-0">
+              <PackagePlus size={16} />
+            </span>
+            <div className="min-w-0">
+              <div className="font-display text-[14.5px] font-semibold text-ink">
+                {barisBaru.length} bahan belum punya item stok
+              </div>
+              <p className="text-muted text-[12.5px] mt-0.5 leading-snug">
+                Bahan ini ada di master Materials tapi belum pernah diadakan di
+                gudang, jadi belum punya stok maupun harga. Sebelum bisa dibeli,
+                daftarkan dulu jadi item lewat Stock Items, Tambah Item dari
+                Material.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            {barisBaru.map((b) => (
+              <div
+                key={b.rowKey}
+                className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-0.5 sm:gap-3 rounded-lg bg-amber-100/30 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <span className="font-mono text-[11.5px] text-muted">
+                    {b.kode}
+                  </span>{" "}
+                  <span className="text-[13px] font-medium text-ink">
+                    {b.nama}
+                  </span>
+                </div>
+                <div className="text-[12px] whitespace-nowrap flex-shrink-0 text-muted">
+                  butuh {angka(b.butuh)} {b.satuan}
+                  {b.supplier ? ` · ${b.supplier}` : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Link
+            href="/items/from-material"
+            className="inline-flex items-center gap-1.5 text-botanical-700 text-[12.5px] font-medium hover:underline"
+          >
+            <PackagePlus size={14} /> Tambah Item dari Material
+          </Link>
+        </div>
+      )}
+
       <StokKurangAlert
         kekurangan={kekurangan}
         keterangan={`untuk ${pcs.toLocaleString("id-ID")} pcs`}
@@ -175,20 +273,26 @@ export default function ProduksiCek({
             Kebutuhan Bahan
           </h2>
           <span className="text-muted text-[12.5px]">
-            {kekurangan.length === 0
+            {kekurangan.length + barisBaru.length === 0
               ? "semua bahan tersedia"
-              : `${kekurangan.length} bahan perlu diadakan`}
+              : `${kekurangan.length + barisBaru.length} bahan perlu diadakan`}
           </span>
         </div>
 
         <DataTable
           rows={baris}
-          rowKey={(r) => r.item_id}
-          minWidth={880}
+          rowKey={(r) => r.rowKey}
+          minWidth={900}
           chrome="bare"
           maxHeight={false}
           empty="Isi gramasi produk dan jumlah pcs untuk melihat kebutuhannya."
-          rowClassName={(r) => (r.kurang > 0 ? "bg-clay-100/25" : "")}
+          rowClassName={(r) =>
+            !r.terdaftar
+              ? "bg-amber-100/25"
+              : r.kurang > 0
+                ? "bg-clay-100/25"
+                : ""
+          }
           columns={[
             {
               key: "item",
@@ -197,7 +301,10 @@ export default function ProduksiCek({
               cell: (r) => (
                 <>
                   <div className="font-medium">{r.nama}</div>
-                  <div className="text-[11px] text-muted font-mono">{r.kode}</div>
+                  <div className="text-[11px] text-muted font-mono">
+                    {r.kode}
+                    {!r.terdaftar ? " · belum jadi item stok" : ""}
+                  </div>
                 </>
               ),
             },
@@ -215,7 +322,12 @@ export default function ProduksiCek({
               role: "primary",
               align: "right",
               className: "whitespace-nowrap",
-              cell: (r) => `${angka(r.stok)} ${r.satuan}`,
+              cell: (r) =>
+                r.terdaftar ? (
+                  `${angka(r.stok)} ${r.satuan}`
+                ) : (
+                  <span className="text-muted">belum ada</span>
+                ),
             },
             {
               key: "kurang",
@@ -225,7 +337,7 @@ export default function ProduksiCek({
               className: "whitespace-nowrap font-medium",
               cell: (r) =>
                 r.kurang > 0 ? (
-                  <span className="text-clay-600">
+                  <span className={r.terdaftar ? "text-clay-600" : "text-amber-500"}>
                     {angka(r.kurang)} {r.satuan}
                   </span>
                 ) : (
@@ -238,8 +350,7 @@ export default function ProduksiCek({
               role: "secondary",
               align: "right",
               className: "whitespace-nowrap",
-              cell: (r) =>
-                r.harga == null ? "-" : rupiah(r.butuh * r.harga),
+              cell: (r) => (r.harga == null ? "-" : rupiah(r.butuh * r.harga)),
             },
             {
               key: "supplier",
@@ -250,10 +361,10 @@ export default function ProduksiCek({
           ]}
         />
 
-        {kemasanBelumTerdaftar.length > 0 && (
+        {kemasanTanpaMaster.length > 0 && (
           <p className="text-muted text-[12px] mt-3">
-            Belum ada di master item, jadi stoknya tidak ikut dicek:{" "}
-            {kemasanBelumTerdaftar.join(", ")}.
+            Belum terdaftar di master mana pun, jadi tidak ikut dicek:{" "}
+            {kemasanTanpaMaster.join(", ")}.
           </p>
         )}
 

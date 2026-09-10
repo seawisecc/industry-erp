@@ -3,8 +3,12 @@
 /* ============================================================
    Form develop formula R&D.
 
-   Tiga hal yang membedakannya dari form Produk:
+   Empat hal yang membedakannya dari form Produk:
 
+   - Bahannya datang dari master MATERIAL, bukan dari item stok.
+     Bahan yang belum pernah diadakan tetap bisa dipakai, dan itu
+     bukan kelonggaran melainkan alasan modul ini ada: formula selalu
+     disusun sebelum barangnya dibeli.
    - Persentase langsung diterjemahkan jadi TAKARAN TRIAL dalam gram
      di sebelah barisnya. Formulator bekerja dengan timbangan, bukan
      dengan persen, dan menghitung ulang 2,5% dari 500 g di kepala
@@ -12,9 +16,9 @@
    - Biaya ikut bergerak tiap angka diketik, karena keputusan
      "formula ini masuk akal atau tidak" hampir selalu soal harga
      satu dua bahan yang porsinya kecil.
-   - Bahan yang dinonaktifkan tetap boleh dipilih. R&D justru sering
-     menjajaki bahan yang sudah lama tidak dibeli, dan menyembunyikannya
-     berarti formulanya disusun di luar sistem.
+   - Daftar sarannya memuat INCI, supplier, harga, dan stok sekaligus.
+     Itu empat hal yang selama ini dibuka di empat layar berbeda waktu
+     memilih satu bahan.
    ============================================================ */
 
 import { useState } from "react";
@@ -29,12 +33,12 @@ import { specBawaan } from "@/lib/rnd";
 import {
   hitungBiayaFormula,
   takaranTrial,
-  type ItemRnd,
+  type BahanRnd,
 } from "@/lib/rndCost";
 import { GRUP_SARAN } from "@/lib/qcParams";
 
 type FRow = {
-  item: ItemRnd | null;
+  bahan: BahanRnd | null;
   query: string;
   open: boolean;
   fase: string;
@@ -51,7 +55,7 @@ type SRow = {
 };
 
 type KRow = {
-  item: ItemRnd | null;
+  bahan: BahanRnd | null;
   query: string;
   open: boolean;
   nama: string;
@@ -69,7 +73,7 @@ export type FormulaAwal = {
   netto_gram: number | null;
   catatan: string | null;
   items: {
-    item_id: string;
+    key: string;
     fase: string | null;
     percentage: number;
     fungsi: string | null;
@@ -82,7 +86,7 @@ export type FormulaAwal = {
     target: string | null;
   }[];
   packaging: {
-    item_id: string | null;
+    key: string | null;
     nama: string | null;
     qty_per_pcs: number;
     harga_estimasi: number | null;
@@ -103,19 +107,31 @@ function angka(n: number, desimal = 2) {
 }
 
 function barisFormulaKosong(): FRow {
-  return { item: null, query: "", open: false, fase: "", pct: "", fungsi: "" };
+  return { bahan: null, query: "", open: false, fase: "", pct: "", fungsi: "" };
 }
 function barisKemasanKosong(): KRow {
-  return { item: null, query: "", open: false, nama: "", qty: "1", harga: "" };
+  return { bahan: null, query: "", open: false, nama: "", qty: "1", harga: "" };
+}
+
+/** Keterangan satu baris saran: harga, stok, supplier, INCI. */
+function keteranganBahan(b: BahanRnd): string {
+  const bagian = [
+    b.harga == null ? "belum punya acuan harga" : `${rupiah(b.harga)}/${b.satuan}`,
+    b.item_id
+      ? `stok ${angka(b.stok, 3)} ${b.satuan}`
+      : "belum jadi item stok",
+    b.supplier,
+  ].filter(Boolean) as string[];
+  return bagian.join(" · ");
 }
 
 export default function RndForm({
-  items,
+  bahan,
   clients,
   hariIni,
   formula,
 }: {
-  items: ItemRnd[];
+  bahan: BahanRnd[];
   clients: ClientOption[];
   /** tanggal kalender zona operasional, dihitung di server */
   hariIni: string;
@@ -125,9 +141,9 @@ export default function RndForm({
   const konfirmasi = useConfirmSave();
   const isEdit = !!formula;
 
-  const itemOf = (id: string) => items.find((i) => i.id === id);
-  const bahanBaku = items.filter((i) => i.kategori === "Bahan Baku");
-  const kemasan = items.filter((i) => i.kategori === "Kemasan");
+  const bahanOf = (key: string) => bahan.find((b) => b.key === key);
+  const daftarBahanBaku = bahan.filter((b) => b.kategori === "Bahan Baku");
+  const daftarKemasan = bahan.filter((b) => b.kategori === "Kemasan");
 
   const [sorotF, setSorotF] = useState(0);
   const [sorotK, setSorotK] = useState(0);
@@ -145,7 +161,7 @@ export default function RndForm({
   const [fRows, setFRows] = useState<FRow[]>(() => {
     if (!formula || formula.items.length === 0) return [barisFormulaKosong()];
     return formula.items.map((f) => ({
-      item: items.find((i) => i.id === f.item_id) || null,
+      bahan: bahan.find((b) => b.key === f.key) || null,
       query: "",
       open: false,
       fase: f.fase || "",
@@ -175,7 +191,7 @@ export default function RndForm({
   const [kRows, setKRows] = useState<KRow[]>(() => {
     if (!formula || formula.packaging.length === 0) return [barisKemasanKosong()];
     return formula.packaging.map((p) => ({
-      item: p.item_id ? items.find((i) => i.id === p.item_id) || null : null,
+      bahan: p.key ? bahan.find((b) => b.key === p.key) || null : null,
       query: "",
       open: false,
       nama: p.nama || "",
@@ -190,21 +206,25 @@ export default function RndForm({
     setFRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
 
-  const dipakai = fRows.map((r) => r.item?.id).filter(Boolean);
-  const totalPct = fRows.reduce((s, r) => s + (r.item ? parseNum(r.pct) : 0), 0);
+  const dipakai = fRows.map((r) => r.bahan?.key).filter(Boolean);
+  const totalPct = fRows.reduce((s, r) => s + (r.bahan ? parseNum(r.pct) : 0), 0);
+
+  function cocok(b: BahanRnd, q: string) {
+    if (!q) return true;
+    return (
+      b.nama.toLowerCase().includes(q) ||
+      b.kode.toLowerCase().includes(q) ||
+      (b.supplier || "").toLowerCase().includes(q) ||
+      (b.inci || "").toLowerCase().includes(q)
+    );
+  }
 
   function saranBahan(row: FRow) {
     if (!row.open) return [];
     const q = row.query.toLowerCase();
-    return bahanBaku
-      .filter((it) => !dipakai.includes(it.id) || it.id === row.item?.id)
-      .filter(
-        (it) =>
-          !q ||
-          it.nama.toLowerCase().includes(q) ||
-          it.kode.toLowerCase().includes(q) ||
-          (it.supplier || "").toLowerCase().includes(q)
-      )
+    return daftarBahanBaku
+      .filter((b) => !dipakai.includes(b.key) || b.key === row.bahan?.key)
+      .filter((b) => cocok(b, q))
       .slice(0, 8);
   }
 
@@ -217,14 +237,7 @@ export default function RndForm({
   function saranKemasan(row: KRow) {
     if (!row.open) return [];
     const q = row.query.toLowerCase();
-    return kemasan
-      .filter(
-        (it) =>
-          !q ||
-          it.nama.toLowerCase().includes(q) ||
-          it.kode.toLowerCase().includes(q)
-      )
-      .slice(0, 8);
+    return daftarKemasan.filter((b) => cocok(b, q)).slice(0, 8);
   }
 
   /* ---------------- Spek ---------------- */
@@ -236,24 +249,26 @@ export default function RndForm({
   /* ---------------- Angka turunan ---------------- */
 
   const barisFormula = fRows
-    .filter((r) => r.item)
-    .map((r) => ({ item_id: r.item!.id, percentage: parseNum(r.pct) }));
+    .filter((r) => r.bahan)
+    .map((r) => ({ key: r.bahan!.key, percentage: parseNum(r.pct) }));
 
   const barisKemasan = kRows
-    .filter((r) => r.item || r.nama.trim())
+    .filter((r) => r.bahan || r.nama.trim())
     .map((r) => ({
-      item_id: r.item?.id ?? null,
-      nama: r.item ? null : r.nama.trim(),
+      key: r.bahan?.key ?? null,
+      nama: r.bahan ? null : r.nama.trim(),
       qty_per_pcs: parseNum(r.qty),
       // Kemasan yang sudah ada di master memakai harga pembeliannya, jadi
       // angka ketikan tidak ikut disimpan: dua sumber harga untuk satu
       // baris adalah cara paling gampang membuat layar dan laporan beda.
-      harga_estimasi: r.item ? null : r.harga ? parseNum(r.harga) : null,
+      harga_estimasi: r.bahan ? null : r.harga ? parseNum(r.harga) : null,
     }));
 
   const netto = nettoGram ? parseNum(nettoGram) : null;
-  const biaya = hitungBiayaFormula(barisFormula, barisKemasan, netto, itemOf);
+  const biaya = hitungBiayaFormula(barisFormula, barisKemasan, netto, bahanOf);
   const takaran = takaranTrial(barisFormula, trialGram ? parseNum(trialGram) : null);
+
+  const belumJadiItem = fRows.filter((r) => r.bahan && !r.bahan.item_id).length;
 
   /* ---------------- Simpan ---------------- */
 
@@ -275,6 +290,14 @@ export default function RndForm({
         { label: "Nama Produk", nilai: nama || "-" },
         { label: "Brand", nilai: brand || "-" },
         { label: "Bahan", nilai: `${barisFormula.length} bahan · total ${angka(totalPct)}%` },
+        ...(belumJadiItem > 0
+          ? [
+              {
+                label: "Belum jadi item stok",
+                nilai: `${belumJadiItem} bahan`,
+              },
+            ]
+          : []),
         { label: "Spek Target", nilai: `${sRows.filter((s) => s.parameter.trim()).length} parameter` },
         {
           label: "Biaya per pcs",
@@ -299,9 +322,12 @@ export default function RndForm({
           catatan: catatan.trim() || null,
         },
         fRows
-          .filter((r) => r.item)
+          .filter((r) => r.bahan)
           .map((r) => ({
-            item_id: r.item!.id,
+            // Material menang atas item: kaitannya ke stok dibaca lewat
+            // materials.item_id saat diperlukan, bukan dibekukan di sini.
+            material_id: r.bahan!.material_id,
+            item_id: r.bahan!.material_id ? null : r.bahan!.item_id,
             fase: r.fase.trim() || null,
             percentage: parseNum(r.pct),
             fungsi: r.fungsi.trim() || null,
@@ -318,7 +344,15 @@ export default function RndForm({
             target: s.target.trim() || null,
             hasil: null,
           })),
-        barisKemasan
+        kRows
+          .filter((r) => r.bahan || r.nama.trim())
+          .map((r) => ({
+            material_id: r.bahan?.material_id ?? null,
+            item_id: r.bahan?.material_id ? null : r.bahan?.item_id ?? null,
+            nama: r.bahan ? null : r.nama.trim(),
+            qty_per_pcs: parseNum(r.qty),
+            harga_estimasi: r.bahan ? null : r.harga ? parseNum(r.harga) : null,
+          }))
       );
 
       if (!hasil.ok) {
@@ -452,8 +486,8 @@ export default function RndForm({
               Formula Bahan Baku (%)
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              Persentase terhadap total ruahan. Takaran trial dihitung otomatis
-              dari ukuran batch di atas.
+              Dari master Materials, termasuk bahan yang belum diadakan di
+              gudang. Takaran trial dihitung otomatis dari ukuran batch di atas.
             </p>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -478,20 +512,28 @@ export default function RndForm({
 
         {fRows.map((row, idx) => {
           const options = saranBahan(row);
-          const gram = row.item ? takaran.get(row.item.id) : undefined;
+          const gram = row.bahan ? takaran.get(row.bahan.key) : undefined;
           return (
             <div key={idx} className="flex flex-col gap-1">
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_64px_100px_160px_32px] gap-2 items-start">
                 <div className="relative">
-                  {row.item ? (
+                  {row.bahan ? (
                     <div className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 text-sm">
                       <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
-                        {row.item.kode}
+                        {row.bahan.kode}
                       </span>
-                      <span className="truncate flex-1">{row.item.nama}</span>
+                      <span className="truncate flex-1">{row.bahan.nama}</span>
+                      {!row.bahan.item_id && (
+                        <span
+                          className="inline-flex px-1.5 py-0.5 rounded-full text-[10.5px] font-medium bg-amber-100 text-amber-500 flex-shrink-0"
+                          title="Bahan ini belum punya item stok, jadi belum ada stok maupun harganya"
+                        >
+                          belum diadakan
+                        </span>
+                      )}
                       <button
                         type="button"
-                        onClick={() => updateF(idx, { item: null, query: "" })}
+                        onClick={() => updateF(idx, { bahan: null, query: "" })}
                         className="text-muted hover:text-clay-600 flex-shrink-0"
                         aria-label="Hapus pilihan bahan"
                       >
@@ -522,13 +564,13 @@ export default function RndForm({
                             setBuka: (b) => updateF(idx, { open: b }),
                             pilih: (i) =>
                               updateF(idx, {
-                                item: options[i],
+                                bahan: options[i],
                                 query: "",
                                 open: false,
                               }),
                           })
                         }
-                        placeholder="Ketik kode / nama / supplier bahan..."
+                        placeholder="Ketik kode / nama / INCI / supplier..."
                         role="combobox"
                         aria-expanded={!!row.open}
                         aria-controls={`daftar-bahan-${idx}`}
@@ -538,11 +580,11 @@ export default function RndForm({
                         <div
                           id={`daftar-bahan-${idx}`}
                           role="listbox"
-                          className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-60 overflow-y-auto"
+                          className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-72 overflow-y-auto"
                         >
-                          {options.map((it, i) => (
+                          {options.map((b, i) => (
                             <button
-                              key={it.id}
+                              key={b.key}
                               type="button"
                               role="option"
                               aria-selected={i === sorotF}
@@ -553,7 +595,7 @@ export default function RndForm({
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 updateF(idx, {
-                                  item: it,
+                                  bahan: b,
                                   query: "",
                                   open: false,
                                 });
@@ -563,19 +605,25 @@ export default function RndForm({
                                 i === sorotF
                               )}`}
                             >
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 items-center">
                                 <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
-                                  {it.kode}
+                                  {b.kode}
                                 </span>
-                                <span className="truncate">{it.nama}</span>
+                                <span className="truncate">{b.nama}</span>
+                                {!b.item_id && (
+                                  <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-500 flex-shrink-0">
+                                    belum diadakan
+                                  </span>
+                                )}
                               </div>
                               <div className="text-muted text-[11px] mt-0.5 truncate">
-                                {it.harga == null
-                                  ? "belum pernah dibeli"
-                                  : `${rupiah(it.harga)}/${it.satuan}`}
-                                {it.supplier ? ` · ${it.supplier}` : ""}
-                                {` · stok ${angka(it.stok, 3)} ${it.satuan}`}
+                                {keteranganBahan(b)}
                               </div>
+                              {b.inci && (
+                                <div className="text-muted text-[10.5px] mt-0.5 truncate italic">
+                                  {b.inci}
+                                </div>
+                              )}
                             </button>
                           ))}
                         </div>
@@ -627,20 +675,26 @@ export default function RndForm({
                 </button>
               </div>
 
-              {row.item && (
+              {row.bahan && (
                 <div className="text-[11.5px] text-muted pl-0.5">
                   {gram != null && gram > 0
-                    ? `Takaran trial ${angka(gram, 3)} g`
-                    : "Takaran trial belum bisa dihitung"}
-                  {row.item.harga != null
-                    ? ` · ${rupiah(row.item.harga)}/${row.item.satuan}`
-                    : " · belum punya acuan harga"}
-                  {row.item.supplier ? ` · ${row.item.supplier}` : ""}
+                    ? `Takaran trial ${angka(gram, 3)} g · `
+                    : "Takaran trial belum bisa dihitung · "}
+                  {keteranganBahan(row.bahan)}
+                  {row.bahan.inci ? ` · ${row.bahan.inci}` : ""}
                 </div>
               )}
             </div>
           );
         })}
+
+        {belumJadiItem > 0 && (
+          <p className="text-muted text-[12px]">
+            {belumJadiItem} bahan belum punya item stok, jadi belum ada stok dan
+            harganya. Formulanya tetap boleh disimpan; pengadaannya diurus lewat
+            Stock Items setelah formulanya jadi.
+          </p>
+        )}
       </div>
 
       {/* ============ SPEK TARGET ============ */}
@@ -749,8 +803,9 @@ export default function RndForm({
               Rencana Kemasan per pcs
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
-              Kemasan yang belum ada di master boleh diketik namanya saja,
-              harganya diisi tangan sebagai perkiraan.
+              Dari master Materials juga. Kemasan yang belum terdaftar di mana
+              pun boleh diketik namanya saja, harganya diisi tangan sebagai
+              perkiraan.
             </p>
           </div>
           <button
@@ -770,15 +825,20 @@ export default function RndForm({
               className="grid grid-cols-1 sm:grid-cols-[1fr_90px_140px_32px] gap-2 items-start"
             >
               <div className="relative">
-                {row.item ? (
+                {row.bahan ? (
                   <div className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 text-sm">
                     <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
-                      {row.item.kode}
+                      {row.bahan.kode}
                     </span>
-                    <span className="truncate flex-1">{row.item.nama}</span>
+                    <span className="truncate flex-1">{row.bahan.nama}</span>
+                    {!row.bahan.item_id && (
+                      <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10.5px] font-medium bg-amber-100 text-amber-500 flex-shrink-0">
+                        belum diadakan
+                      </span>
+                    )}
                     <button
                       type="button"
-                      onClick={() => updateK(idx, { item: null, query: "" })}
+                      onClick={() => updateK(idx, { bahan: null, query: "" })}
                       className="text-muted hover:text-clay-600 flex-shrink-0"
                       aria-label="Hapus pilihan kemasan"
                     >
@@ -813,7 +873,7 @@ export default function RndForm({
                           setBuka: (b) => updateK(idx, { open: b }),
                           pilih: (i) =>
                             updateK(idx, {
-                              item: options[i],
+                              bahan: options[i],
                               query: "",
                               nama: "",
                               open: false,
@@ -830,11 +890,11 @@ export default function RndForm({
                       <div
                         id={`daftar-kemasan-${idx}`}
                         role="listbox"
-                        className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-52 overflow-y-auto"
+                        className="absolute left-0 right-0 top-full mt-1 bg-white border border-line shadow-xl rounded-lg overflow-hidden z-20 max-h-60 overflow-y-auto"
                       >
-                        {options.map((it, i) => (
+                        {options.map((b, i) => (
                           <button
-                            key={it.id}
+                            key={b.key}
                             type="button"
                             role="option"
                             aria-selected={i === sorotK}
@@ -845,7 +905,7 @@ export default function RndForm({
                             onMouseDown={(e) => {
                               e.preventDefault();
                               updateK(idx, {
-                                item: it,
+                                bahan: b,
                                 query: "",
                                 nama: "",
                                 open: false,
@@ -856,16 +916,19 @@ export default function RndForm({
                               i === sorotK
                             )}`}
                           >
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 items-center">
                               <span className="font-mono text-[11.5px] text-botanical-700 flex-shrink-0">
-                                {it.kode}
+                                {b.kode}
                               </span>
-                              <span className="truncate">{it.nama}</span>
+                              <span className="truncate">{b.nama}</span>
+                              {!b.item_id && (
+                                <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-500 flex-shrink-0">
+                                  belum diadakan
+                                </span>
+                              )}
                             </div>
-                            <div className="text-muted text-[11px] mt-0.5">
-                              {it.harga == null
-                                ? "belum pernah dibeli"
-                                : `${rupiah(it.harga)}/${it.satuan}`}
+                            <div className="text-muted text-[11px] mt-0.5 truncate">
+                              {keteranganBahan(b)}
                             </div>
                           </button>
                         ))}
@@ -882,14 +945,14 @@ export default function RndForm({
                 className={inputCls}
               />
 
-              {row.item ? (
+              {row.bahan ? (
                 <div
                   className={`${inputCls} text-muted truncate`}
-                  title="Harga diambil dari pembelian terakhir item ini"
+                  title="Harga diambil dari pembelian terakhir bahan ini"
                 >
-                  {row.item.harga == null
+                  {row.bahan.harga == null
                     ? "belum ada harga"
-                    : rupiah(row.item.harga)}
+                    : rupiah(row.bahan.harga)}
                 </div>
               ) : (
                 <NumberInput

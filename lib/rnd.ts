@@ -66,8 +66,19 @@ export function labelRevisi(revisi: number): string {
   return revisi === 0 ? "Asli" : `Revisi ${revisi}`;
 }
 
+/**
+ * Satu baris formula.
+ *
+ * `material_id` ATAU `item_id`, tidak pernah dua-duanya: bahan yang
+ * berasal dari master material disimpan sebagai material, dan kaitannya
+ * ke stok dibaca lewat `materials.item_id` saat diperlukan. Kalau
+ * kaitannya ikut dibekukan di sini, material yang BARU diadakan bulan
+ * depan tidak akan pernah nyambung ke formula yang sudah tersimpan.
+ * Constraint-nya dijaga di database (migrasi 20260824).
+ */
 export type FormulaItemInput = {
-  item_id: string;
+  material_id: string | null;
+  item_id: string | null;
   fase: string | null;
   percentage: number;
   fungsi: string | null;
@@ -84,7 +95,17 @@ export type SpecInput = {
   hasil: string | null;
 };
 
+/**
+ * Satu baris rencana kemasan.
+ *
+ * Aturannya sama dengan baris formula, dengan satu kelonggaran:
+ * kemasan boleh TIDAK menunjuk master apa pun dan cuma membawa nama
+ * ketikan. Kemasan yang sedang dijajaki sering belum punya kode di
+ * mana-mana, dan memaksa mendaftarkannya dulu cuma untuk menghitung
+ * perkiraan biaya akan mengotori master dengan barang yang batal.
+ */
 export type PackagingInput = {
+  material_id: string | null;
   item_id: string | null;
   nama: string | null;
   qty_per_pcs: number;

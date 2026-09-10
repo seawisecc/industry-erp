@@ -149,6 +149,9 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `revise_rnd_formula_tx` | Salin formula jadi versi berikutnya, nomor turunan dari INDUK |
 | | `approve_rnd_formula_tx` | Tandai formula yang berlaku, versi lama turun jadi Arsip |
 | | `delete_rnd_formula_tx` | Hapus percobaan yang batal, tolak yang punya turunan |
+| `20260824_rnd_material_source` | `rnd_tulis_baris` | Diperluas: baris formula & kemasan menunjuk `material_id` ATAU `item_id` |
+| | `save_rnd_formula_tx` | Diperluas: kunci bahan dobel dihitung dari material dulu, baru item |
+| | `revise_rnd_formula_tx` | Diperluas: ikut menyalin kolom sumber yang baru |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -472,12 +475,80 @@ menghitungnya sebagai nol akan memunculkan "kurang" untuk barang yang
 belum pernah dibeli. Itu bukan kabar baru buat siapa pun, jadi barisnya
 disebut terpisah di bawah tabel.
 
-## Item TIDAK disaring `aktif = true`
+## Bahannya dari `materials`, BUKAN `items`
 
-Alasannya dua, dan dua-duanya berlaku: yang sama dengan layar produksi
-(bahan yang dinonaktifkan setelah formulanya dibuat akan terbaca stok
-nol), ditambah alasan khas R&D, yaitu bahan yang sudah lama tidak
-dibeli justru sering yang dijajaki.
+Ini yang paling gampang salah, dan versi pertama modul ini memang
+salah. `items` isinya barang yang sudah punya tempat di gudang.
+Pekerjaan R&D dimulai sebelum itu: formulator menjajaki bahan dari
+katalog supplier, memasukkannya ke formula, baru memutuskan mau
+diadakan atau tidak.
+
+Akibat memakai `items` bukan sekadar merepotkan. Bahan yang belum
+pernah dibeli TIDAK ADA di sana, jadi satu-satunya jalan memasukkannya
+ke formula adalah membuat item stok palsu lebih dulu, dan item palsu
+itu langsung ikut muncul di lembar Stock Opname, di PPIC, dan di
+laporan nilai stok, sebagai barang bersaldo nol yang tidak pernah ada.
+
+Master yang benar `materials`: di situ ada kode, tradename, supplier,
+dan komposisi INCI-nya, dan barisnya boleh ada tanpa `item_id`, yang
+artinya persis "belum diadakan".
+
+**Satu baris formula menunjuk SATU hal saja**, `material_id` ATAU
+`item_id`, dijaga constraint `num_nonnulls(...) = 1`. Bahan dari master
+material disimpan sebagai `material_id`, dan kaitannya ke stok DIBACA
+saat diperlukan lewat `materials.item_id`.
+
+Itu bukan kerapian. Kalau `item_id` ikut disalin waktu formula
+disimpan, material yang BARU diadakan bulan depan tidak akan pernah
+nyambung ke formula yang sudah tersimpan, dan layar biaya terus bilang
+"belum pernah dibeli" untuk barang yang sudah ada di gudang. Satu
+sumber kebenaran, dibaca saat dipakai; pelajarannya sama dengan
+`fg_stock_calc`.
+
+**Item stok yang tidak punya baris material tetap ikut di daftar.**
+Tidak semua item lahir dari `materials` (ada yang dibuat langsung lewat
+menu Stock Items), dan tanpa ini bahan yang kemarin bisa dipilih akan
+hilang dari layar tanpa keterangan. Itulah kenapa `item_id` masih ada
+di tabelnya.
+
+**Unique index-nya PARSIAL, dua buah.** Di Postgres dua NULL tidak
+dianggap sama, jadi satu index gabungan atas `(formula_id, material_id,
+item_id)` akan meloloskan bahan yang sama dimasukkan berkali-kali
+begitu salah satu kolomnya null. Alasan yang sama membuat pemeriksaan
+bahan dobel di `save_rnd_formula_tx` memakai
+`coalesce(material_id, item_id)` sebagai kunci: tanpa itu, satu bahan
+bisa masuk dua kali selama yang satu dipilih dari master material dan
+satunya dari item stok, dan totalnya jadi dobel tanpa ada yang menolak.
+
+**Bahan tanpa item stok belum punya satuan tersimpan**, jadi bawaannya
+disamakan dengan yang dipakai layar "Tambah Item dari Material":
+`kg` untuk bahan baku, `pcs` untuk kemasan. Menebak yang lain akan
+membuat angka di lembar kerja berubah satuan begitu materialnya
+benar-benar diadakan.
+
+**Item TIDAK disaring `aktif = true`.** Alasannya dua, dan dua-duanya
+berlaku: yang sama dengan layar produksi (bahan yang dinonaktifkan
+setelah formulanya dibuat akan terbaca stok nol), ditambah alasan khas
+R&D, yaitu bahan yang sudah lama tidak dibeli justru sering yang
+dijajaki.
+
+## "Belum punya item stok" bukan "kurang"
+
+Konsekuensi yang harus dijaga di layar Biaya & Produksi: bahan yang
+belum pernah diadakan tidak punya stok untuk dibandingkan, jadi
+`kebutuhanProduksi` memisahkannya ke `belumAdaStok`, bukan
+memasukkannya ke `perItem` dengan stok nol.
+
+Bedanya bukan kosmetik, karena tindakannya berbeda. Yang di `perItem`
+tinggal dibelikan lagi lewat PPIC. Yang di `belumAdaStok` harus
+DIDAFTARKAN dulu jadi item sebelum bisa dibeli sama sekali, dan
+kalimat "kurang 12 kg" salah alamat untuk barang yang bahkan belum
+punya tempat di gudang. Karena itu peringatannya sendiri, warnanya
+sendiri, dan tautannya ke `/items/from-material`, bukan ke PPIC.
+
+Kemasan yang tidak menunjuk master apa pun (cuma nama ketikan) tidak
+ikut dicek sama sekali: dia tidak punya identitas yang bisa dilacak.
+Namanya tetap disebut di bawah tabel supaya tidak disangka tersedia.
 
 ## Spek target diambil dari master parameter QC produk jadi
 
@@ -2026,7 +2097,9 @@ harus disepakati, bukan ditebak.
 **Satuan bahan baku diasumsikan kg di seluruh hitungan R&D.** Sama
 dengan asumsi yang sudah dipakai modul produksi, jadi bahan yang
 satuannya liter atau pcs akan menghasilkan angka takaran yang benar
-secara proporsi tapi salah satuannya di lembar kerja.
+secara proporsi tapi salah satuannya di lembar kerja. Untuk bahan yang
+belum punya item stok asumsinya lebih tebal lagi, karena satuannya
+memang belum pernah ditulis di mana pun.
 
 **Logo perusahaan tidak tercetak di nota 58 mm.** Kertas thermal cuma
 punya satu warna dan logo berwarna lebih sering keluar jadi blok hitam
