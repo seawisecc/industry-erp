@@ -5,7 +5,11 @@ import PrintButton from "../../po/[id]/PrintButton";
 import PrintKop from "@/components/PrintKop";
 import { faseKey, faseLabel, urutkanFormula } from "@/lib/formulaOrder";
 import { labelRevisi } from "@/lib/rnd";
-import { kunciBahan } from "@/lib/rndCost";
+import {
+  ketersediaanBahan,
+  kunciBahan,
+  LABEL_KETERSEDIAAN,
+} from "@/lib/rndCost";
 import { getRndOptions } from "@/app/(app)/rnd/data";
 
 /* ============================================================
@@ -103,6 +107,10 @@ export default async function PrintRndPage({
     (f.rnd_formula_items || []).map((r) => {
       const pct = Number(r.percentage);
       const b = bahanOf(kunciBahan(r.material_id, r.item_id));
+      // Status ketersediaan ikut tercetak. Orang yang membawa lembar ini
+      // ke lab harus tahu bahan mana yang memang belum ada di gedung
+      // sebelum mulai menimbang, bukan sesudah membuka lemari.
+      const status = b ? ketersediaanBahan(b) : "ada";
       return {
         kode: b?.kode || "-",
         nama: b?.nama || "(bahan terhapus)",
@@ -110,11 +118,14 @@ export default async function PrintRndPage({
         fungsi: r.fungsi,
         percentage: pct,
         gram: trialGram && trialGram > 0 ? (pct / 100) * trialGram : null,
+        ket:
+          status === "ada" ? null : LABEL_KETERSEDIAAN[status].pendek.toLowerCase(),
       };
     })
   );
 
   const totalPct = bahan.reduce((s, b) => s + b.percentage, 0);
+  const belumAda = bahan.filter((b) => b.ket).length;
   const totalGram = bahan.reduce((s, b) => s + (b.gram ?? 0), 0);
 
   const specs = [...(f.rnd_formula_specs || [])].sort(
@@ -224,6 +235,7 @@ export default async function PrintRndPage({
         <div className="text-[11px] uppercase tracking-wide text-neutral-500 mt-5 mb-1">
           {bahan.length} bahan · timbang urut per fase, isi kolom aktual dengan
           angka timbangan
+          {belumAda > 0 ? ` · ${belumAda} bahan belum tersedia` : ""}
         </div>
         <table className="w-full border-collapse">
           <thead>
@@ -254,6 +266,9 @@ export default async function PrintRndPage({
                   </span>
                   {b.fungsi && (
                     <span className="text-neutral-500"> · {b.fungsi}</span>
+                  )}
+                  {b.ket && (
+                    <span className="text-neutral-500"> · {b.ket}</span>
                   )}
                 </td>
                 <td className="py-2.5 pr-2 text-right">

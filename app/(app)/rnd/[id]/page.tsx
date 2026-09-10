@@ -9,7 +9,13 @@ import { canAccessModule } from "@/lib/modules";
 import { localDateTimeStr } from "@/lib/dates";
 import { faseKey, faseLabel, urutkanFormula } from "@/lib/formulaOrder";
 import { klasStatusRnd, labelRevisi, statusBeku } from "@/lib/rnd";
-import { hitungBiayaFormula, kunciBahan, takaranTrial } from "@/lib/rndCost";
+import {
+  hitungBiayaFormula,
+  ketersediaanBahan,
+  kunciBahan,
+  takaranTrial,
+} from "@/lib/rndCost";
+import BahanStatus from "../BahanStatus";
 import { getRndOptions } from "../data";
 import { deleteRndFormula } from "../actions";
 import HasilForm, { type SpecRow } from "./HasilForm";
@@ -171,7 +177,7 @@ export default async function RndDetailPage({
         supplier: b?.supplier ?? null,
         harga: b?.harga ?? null,
         inci: b?.inci ?? null,
-        terdaftar: !!b?.item_id,
+        item_id: b?.item_id ?? null,
         fase: r.fase,
         fungsi: r.fungsi,
         percentage: Number(r.percentage),
@@ -181,7 +187,12 @@ export default async function RndDetailPage({
   );
 
   const totalPct = barisBahan.reduce((s, b) => s + b.percentage, 0);
-  const belumJadiItem = barisBahan.filter((b) => !b.terdaftar).length;
+  const belumDimiliki = barisBahan.filter(
+    (b) => ketersediaanBahan(b) === "belum-dimiliki"
+  ).length;
+  const belumDibeli = barisBahan.filter(
+    (b) => ketersediaanBahan(b) === "belum-dibeli"
+  ).length;
 
   const specs = [...(f.rnd_formula_specs || [])]
     .sort((a, b) => a.urutan - b.urutan)
@@ -383,9 +394,8 @@ export default async function RndDetailPage({
                 <span className="text-muted text-[12.5px]">
                   {barisBahan.length} bahan · takaran untuk{" "}
                   {trialGram ? `${angka(trialGram)} g` : "batch trial"}
-                  {belumJadiItem > 0
-                    ? ` · ${belumJadiItem} belum jadi item stok`
-                    : ""}
+                  {belumDimiliki > 0 ? ` · ${belumDimiliki} belum dimiliki` : ""}
+                  {belumDibeli > 0 ? ` · ${belumDibeli} belum pernah dibeli` : ""}
                 </span>
               </div>
 
@@ -413,14 +423,7 @@ export default async function RndDetailPage({
                       <>
                         <div className="font-medium flex items-center gap-1.5">
                           <span>{r.nama}</span>
-                          {!r.terdaftar && (
-                            <span
-                              className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-500 flex-shrink-0"
-                              title="Bahan ini belum punya item stok"
-                            >
-                              belum diadakan
-                            </span>
-                          )}
+                          <BahanStatus bahan={r} ukuran="kecil" />
                         </div>
                         <div className="text-[11px] text-muted font-mono">
                           {r.kode}
@@ -453,11 +456,7 @@ export default async function RndDetailPage({
                     align: "right",
                     className: "whitespace-nowrap",
                     cell: (r) =>
-                      r.harga != null
-                        ? `${rupiah(r.harga)}/${r.satuan}`
-                        : r.terdaftar
-                          ? "belum pernah dibeli"
-                          : "belum jadi item stok",
+                      r.harga == null ? "-" : `${rupiah(r.harga)}/${r.satuan}`,
                   },
                   {
                     key: "perkg",
@@ -542,11 +541,12 @@ export default async function RndDetailPage({
                     role: "title",
                     cell: (r) => (
                       <>
-                        <div className="font-medium">{r.nama}</div>
+                        <div className="font-medium flex items-center gap-1.5">
+                          <span>{r.nama}</span>
+                          {r.key && <BahanStatus bahan={r} ukuran="kecil" />}
+                        </div>
                         <div className="text-[11px] text-muted font-mono">
-                          {r.key
-                            ? r.kode + (r.adaStok ? "" : " · belum jadi item stok")
-                            : "belum terdaftar di master"}
+                          {r.key ? r.kode : "belum terdaftar di master"}
                         </div>
                       </>
                     ),

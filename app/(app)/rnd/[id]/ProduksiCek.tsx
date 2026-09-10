@@ -36,10 +36,12 @@ import {
   hitungBiayaFormula,
   kebutuhanProduksi,
   keItemStok,
+  LABEL_KETERSEDIAAN,
   type BahanRnd,
   type BarisFormula,
   type BarisKemasan,
 } from "@/lib/rndCost";
+import BahanStatus from "../BahanStatus";
 
 type Baris = {
   rowKey: string;
@@ -51,8 +53,8 @@ type Baris = {
   kurang: number;
   supplier: string | null;
   harga: number | null;
-  /** false = belum punya item stok, jadi belum bisa dibeli sama sekali */
-  terdaftar: boolean;
+  /** null = belum dimiliki, jadi belum bisa dibeli sama sekali */
+  item_id: string | null;
 };
 
 function rupiah(n: number) {
@@ -113,7 +115,7 @@ export default function ProduksiCek({
       kurang: Math.max(0, butuh - stok),
       supplier: b?.supplier ?? null,
       harga: b?.harga ?? null,
-      terdaftar: true,
+      item_id: itemId,
     };
   });
 
@@ -129,13 +131,13 @@ export default function ProduksiCek({
       kurang: butuh,
       supplier: b?.supplier ?? null,
       harga: b?.harga ?? null,
-      terdaftar: false,
+      item_id: null,
     };
   });
 
   const baris = [...barisStok, ...barisBaru].sort(
     (a, b) =>
-      Number(a.terdaftar) - Number(b.terdaftar) ||
+      Number(!!a.item_id) - Number(!!b.item_id) ||
       b.kurang - a.kurang ||
       a.kode.localeCompare(b.kode)
   );
@@ -219,13 +221,12 @@ export default function ProduksiCek({
             </span>
             <div className="min-w-0">
               <div className="font-display text-[14.5px] font-semibold text-ink">
-                {barisBaru.length} bahan belum punya item stok
+                {barisBaru.length} bahan belum dimiliki
               </div>
               <p className="text-muted text-[12.5px] mt-0.5 leading-snug">
-                Bahan ini ada di master Materials tapi belum pernah diadakan di
-                gudang, jadi belum punya stok maupun harga. Sebelum bisa dibeli,
-                daftarkan dulu jadi item lewat Stock Items, Tambah Item dari
-                Material.
+                {LABEL_KETERSEDIAAN["belum-dimiliki"].judul} Selama itu belum
+                dikerjakan, bahan ini tidak bisa ikut dihitung sebagai kurang
+                stok, karena stoknya memang belum ada untuk dibandingkan.
               </p>
             </div>
           </div>
@@ -287,7 +288,7 @@ export default function ProduksiCek({
           maxHeight={false}
           empty="Isi gramasi produk dan jumlah pcs untuk melihat kebutuhannya."
           rowClassName={(r) =>
-            !r.terdaftar
+            !r.item_id
               ? "bg-amber-100/25"
               : r.kurang > 0
                 ? "bg-clay-100/25"
@@ -300,11 +301,11 @@ export default function ProduksiCek({
               role: "title",
               cell: (r) => (
                 <>
-                  <div className="font-medium">{r.nama}</div>
-                  <div className="text-[11px] text-muted font-mono">
-                    {r.kode}
-                    {!r.terdaftar ? " · belum jadi item stok" : ""}
+                  <div className="font-medium flex items-center gap-1.5">
+                    <span>{r.nama}</span>
+                    <BahanStatus bahan={r} ukuran="kecil" />
                   </div>
+                  <div className="text-[11px] text-muted font-mono">{r.kode}</div>
                 </>
               ),
             },
@@ -323,7 +324,7 @@ export default function ProduksiCek({
               align: "right",
               className: "whitespace-nowrap",
               cell: (r) =>
-                r.terdaftar ? (
+                r.item_id ? (
                   `${angka(r.stok)} ${r.satuan}`
                 ) : (
                   <span className="text-muted">belum ada</span>
@@ -337,7 +338,7 @@ export default function ProduksiCek({
               className: "whitespace-nowrap font-medium",
               cell: (r) =>
                 r.kurang > 0 ? (
-                  <span className={r.terdaftar ? "text-clay-600" : "text-amber-500"}>
+                  <span className={r.item_id ? "text-clay-600" : "text-amber-500"}>
                     {angka(r.kurang)} {r.satuan}
                   </span>
                 ) : (

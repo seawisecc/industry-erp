@@ -75,6 +75,59 @@ export function kunciBahan(
   return materialId ? `mat:${materialId}` : `item:${itemId ?? ""}`;
 }
 
+/* ============================================================
+   Ketersediaan satu bahan, DUA keadaan yang sengaja dibedakan.
+
+   Keduanya sama-sama berarti "belum bisa dipakai sekarang", tapi
+   jalan keluarnya berbeda, dan itu yang harus terbaca dari labelnya:
+
+   - `belum-dimiliki`  belum terdaftar sebagai item stok sama sekali.
+                       Harus DIDAFTARKAN dulu lewat Stock Items,
+                       Tambah Item dari Material, baru bisa dibeli.
+   - `belum-dibeli`    sudah jadi item stok tapi belum pernah ada satu
+                       pun pembelian, jadi belum punya harga acuan.
+                       Tinggal dibelikan lewat PO seperti biasa.
+
+   Satu label untuk dua-duanya akan membuat orang mencari barangnya di
+   PPIC untuk bahan yang bahkan belum punya baris di gudang, dan
+   sebaliknya menyangka bahan yang sudah terdaftar perlu didaftarkan
+   ulang.
+
+   Stok yang sedang nol TIDAK dapat label. Angka stoknya sudah tertulis
+   apa adanya di sebelahnya, dan menambahkan pil ketiga membuat yang dua
+   di atas berhenti menarik perhatian. Menyusun formula dengan bahan
+   yang kebetulan sedang habis juga hal yang wajar.
+   ============================================================ */
+
+export type Ketersediaan = "belum-dimiliki" | "belum-dibeli" | "ada";
+
+export function ketersediaanBahan(
+  b: Pick<BahanRnd, "item_id" | "harga">
+): Ketersediaan {
+  if (!b.item_id) return "belum-dimiliki";
+  if (b.harga == null) return "belum-dibeli";
+  return "ada";
+}
+
+/** Teks label & keterangan panjangnya, satu sumber untuk layar & kertas. */
+export const LABEL_KETERSEDIAAN: Record<
+  Exclude<Ketersediaan, "ada">,
+  { pendek: string; judul: string }
+> = {
+  "belum-dimiliki": {
+    pendek: "Belum dimiliki",
+    judul:
+      "Bahan ini belum terdaftar sebagai item stok, jadi belum ada di gudang. " +
+      "Daftarkan lewat Stock Items, Tambah Item dari Material, sebelum bisa dibeli.",
+  },
+  "belum-dibeli": {
+    pendek: "Belum pernah dibeli",
+    judul:
+      "Sudah terdaftar sebagai item stok, tapi belum pernah ada pembelian, " +
+      "jadi belum punya harga acuan maupun stok.",
+  },
+};
+
 export type BarisFormula = { key: string; percentage: number };
 
 export type BarisKemasan = {
@@ -95,8 +148,8 @@ export type RincianBiaya = {
   qty: number;
   harga: number | null;
   subtotal: number;
-  /** false = bahan ini belum punya item stok */
-  adaStok: boolean;
+  /** item stok terkait; null = bahan ini belum dimiliki */
+  item_id: string | null;
 };
 
 export type BiayaFormula = {
@@ -148,7 +201,7 @@ export function hitungBiayaFormula(
       qty,
       harga,
       subtotal,
-      adaStok: !!b?.item_id,
+      item_id: b?.item_id ?? null,
     });
   }
 
@@ -173,7 +226,7 @@ export function hitungBiayaFormula(
       qty,
       harga,
       subtotal,
-      adaStok: !!b?.item_id,
+      item_id: b?.item_id ?? null,
     });
   }
 

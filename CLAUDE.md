@@ -532,6 +532,38 @@ setelah formulanya dibuat akan terbaca stok nol), ditambah alasan khas
 R&D, yaitu bahan yang sudah lama tidak dibeli justru sering yang
 dijajaki.
 
+## Dua label kuning, dan bedanya menentukan tindakan
+
+Bahan yang belum bisa dipakai punya DUA sebab yang berbeda, dan
+`ketersediaanBahan()` di `lib/rndCost.ts` yang membedakannya:
+
+| Keadaan | Label | Jalan keluarnya |
+| --- | --- | --- |
+| tidak punya `item_id` | **Belum dimiliki** | daftarkan dulu lewat Stock Items, Tambah Item dari Material |
+| punya item, `harga` null | **Belum pernah dibeli** | tinggal dibelikan lewat PO seperti biasa |
+
+Satu label untuk dua-duanya akan membuat orang mencari barangnya di
+PPIC untuk bahan yang bahkan belum punya baris di gudang, dan
+sebaliknya menyangka bahan yang sudah terdaftar perlu didaftarkan
+ulang. Dua pekerjaan yang berbeda tidak boleh berbagi satu kalimat.
+
+Pil-nya satu komponen, `app/(app)/rnd/BahanStatus.tsx`, dipakai pemilih
+di form, tabel formula, dan tabel kebutuhan produksi. Bahan yang sama
+harus terbaca sama di ketiganya: pil yang bunyinya beda antar layar
+membuat orang mengira keadaannya memang beda. Teks panjangnya
+(`title`) datang dari `LABEL_KETERSEDIAAN`, sumber yang sama yang
+dipakai peringatan di tab Biaya dan keterangan di lembar kerja lab.
+
+**Stok yang sedang nol TIDAK dapat label.** Angka stoknya sudah
+tertulis apa adanya di sebelahnya, dan pil ketiga membuat dua yang di
+atas berhenti menarik perhatian. Menyusun formula dengan bahan yang
+kebetulan sedang habis juga hal yang wajar.
+
+**Lembar kerja lab ikut mencetaknya**, sebagai teks biasa di ekor nama
+bahan, bukan pil berwarna. Orang yang membawa lembar itu ke lab harus
+tahu bahan mana yang memang belum ada di gedung sebelum mulai
+menimbang, bukan sesudah membuka lemari.
+
 ## "Belum punya item stok" bukan "kurang"
 
 Konsekuensi yang harus dijaga di layar Biaya & Produksi: bahan yang

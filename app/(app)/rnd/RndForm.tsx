@@ -32,9 +32,11 @@ import ClientPicker, { type ClientOption } from "@/components/ClientPicker";
 import { specBawaan } from "@/lib/rnd";
 import {
   hitungBiayaFormula,
+  ketersediaanBahan,
   takaranTrial,
   type BahanRnd,
 } from "@/lib/rndCost";
+import BahanStatus from "./BahanStatus";
 import { GRUP_SARAN } from "@/lib/qcParams";
 
 type FRow = {
@@ -113,16 +115,20 @@ function barisKemasanKosong(): KRow {
   return { bahan: null, query: "", open: false, nama: "", qty: "1", harga: "" };
 }
 
-/** Keterangan satu baris saran: harga, stok, supplier, INCI. */
+/**
+ * Keterangan satu baris saran: harga, stok, supplier.
+ *
+ * Status ketersediaannya TIDAK ikut di sini, itu tugas pil
+ * `BahanStatus` di baris atasnya. Menulisnya dua kali membuat baris
+ * saran jadi kalimat panjang yang justru berhenti dibaca.
+ */
 function keteranganBahan(b: BahanRnd): string {
   const bagian = [
-    b.harga == null ? "belum punya acuan harga" : `${rupiah(b.harga)}/${b.satuan}`,
-    b.item_id
-      ? `stok ${angka(b.stok, 3)} ${b.satuan}`
-      : "belum jadi item stok",
+    b.harga == null ? null : `${rupiah(b.harga)}/${b.satuan}`,
+    b.item_id ? `stok ${angka(b.stok, 3)} ${b.satuan}` : null,
     b.supplier,
   ].filter(Boolean) as string[];
-  return bagian.join(" · ");
+  return bagian.length > 0 ? bagian.join(" · ") : "belum ada harga & stok";
 }
 
 export default function RndForm({
@@ -268,7 +274,12 @@ export default function RndForm({
   const biaya = hitungBiayaFormula(barisFormula, barisKemasan, netto, bahanOf);
   const takaran = takaranTrial(barisFormula, trialGram ? parseNum(trialGram) : null);
 
-  const belumJadiItem = fRows.filter((r) => r.bahan && !r.bahan.item_id).length;
+  const belumDimiliki = fRows.filter(
+    (r) => r.bahan && ketersediaanBahan(r.bahan) === "belum-dimiliki"
+  ).length;
+  const belumDibeli = fRows.filter(
+    (r) => r.bahan && ketersediaanBahan(r.bahan) === "belum-dibeli"
+  ).length;
 
   /* ---------------- Simpan ---------------- */
 
@@ -290,13 +301,11 @@ export default function RndForm({
         { label: "Nama Produk", nilai: nama || "-" },
         { label: "Brand", nilai: brand || "-" },
         { label: "Bahan", nilai: `${barisFormula.length} bahan · total ${angka(totalPct)}%` },
-        ...(belumJadiItem > 0
-          ? [
-              {
-                label: "Belum jadi item stok",
-                nilai: `${belumJadiItem} bahan`,
-              },
-            ]
+        ...(belumDimiliki > 0
+          ? [{ label: "Belum dimiliki", nilai: `${belumDimiliki} bahan` }]
+          : []),
+        ...(belumDibeli > 0
+          ? [{ label: "Belum pernah dibeli", nilai: `${belumDibeli} bahan` }]
           : []),
         { label: "Spek Target", nilai: `${sRows.filter((s) => s.parameter.trim()).length} parameter` },
         {
@@ -523,14 +532,7 @@ export default function RndForm({
                         {row.bahan.kode}
                       </span>
                       <span className="truncate flex-1">{row.bahan.nama}</span>
-                      {!row.bahan.item_id && (
-                        <span
-                          className="inline-flex px-1.5 py-0.5 rounded-full text-[10.5px] font-medium bg-amber-100 text-amber-500 flex-shrink-0"
-                          title="Bahan ini belum punya item stok, jadi belum ada stok maupun harganya"
-                        >
-                          belum diadakan
-                        </span>
-                      )}
+                      <BahanStatus bahan={row.bahan} />
                       <button
                         type="button"
                         onClick={() => updateF(idx, { bahan: null, query: "" })}
@@ -610,11 +612,7 @@ export default function RndForm({
                                   {b.kode}
                                 </span>
                                 <span className="truncate">{b.nama}</span>
-                                {!b.item_id && (
-                                  <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-500 flex-shrink-0">
-                                    belum diadakan
-                                  </span>
-                                )}
+                                <BahanStatus bahan={b} ukuran="kecil" />
                               </div>
                               <div className="text-muted text-[11px] mt-0.5 truncate">
                                 {keteranganBahan(b)}
@@ -688,11 +686,20 @@ export default function RndForm({
           );
         })}
 
-        {belumJadiItem > 0 && (
+        {belumDimiliki + belumDibeli > 0 && (
           <p className="text-muted text-[12px]">
-            {belumJadiItem} bahan belum punya item stok, jadi belum ada stok dan
-            harganya. Formulanya tetap boleh disimpan; pengadaannya diurus lewat
-            Stock Items setelah formulanya jadi.
+            {[
+              belumDimiliki > 0
+                ? `${belumDimiliki} bahan belum dimiliki (belum terdaftar sebagai item stok)`
+                : null,
+              belumDibeli > 0
+                ? `${belumDibeli} bahan belum pernah dibeli`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(", ")}
+            . Formulanya tetap boleh disimpan, itu memang keadaan normal saat
+            develop; pengadaannya diurus sesudah formulanya jadi.
           </p>
         )}
       </div>
@@ -831,11 +838,7 @@ export default function RndForm({
                       {row.bahan.kode}
                     </span>
                     <span className="truncate flex-1">{row.bahan.nama}</span>
-                    {!row.bahan.item_id && (
-                      <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10.5px] font-medium bg-amber-100 text-amber-500 flex-shrink-0">
-                        belum diadakan
-                      </span>
-                    )}
+                    <BahanStatus bahan={row.bahan} />
                     <button
                       type="button"
                       onClick={() => updateK(idx, { bahan: null, query: "" })}
@@ -921,11 +924,7 @@ export default function RndForm({
                                 {b.kode}
                               </span>
                               <span className="truncate">{b.nama}</span>
-                              {!b.item_id && (
-                                <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-500 flex-shrink-0">
-                                  belum diadakan
-                                </span>
-                              )}
+                              <BahanStatus bahan={b} ukuran="kecil" />
                             </div>
                             <div className="text-muted text-[11px] mt-0.5 truncate">
                               {keteranganBahan(b)}
