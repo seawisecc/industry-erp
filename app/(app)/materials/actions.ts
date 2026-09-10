@@ -19,6 +19,17 @@ type MaterialPayload = {
   noc: string | null;
   kategori: "Bahan Baku" | "Kemasan";
   keterangan: string | null;
+  /**
+   * Harga penawaran supplier, TANPA PPN. Cuma dipakai kalau bahannya
+   * belum pernah dibeli; begitu ada pembelian, `harga_per_unit` yang
+   * menang. Tidak pernah jadi HPP.
+   */
+  harga_referensi: number | null;
+  /**
+   * MOQ supplier. Dipakai kalau materialnya belum punya item stok;
+   * yang sudah punya memakai `items.moq`.
+   */
+  moq: number | null;
   inci_rows: InciRow[];
 };
 
@@ -60,6 +71,8 @@ async function createMaterialImpl(data: MaterialPayload) {
       noc: data.noc || null,
       kategori: data.kategori,
       keterangan: data.keterangan,
+      harga_referensi: data.harga_referensi,
+      moq: data.moq,
       organization_id: organizationId,
     })
     .select()
@@ -128,6 +141,8 @@ async function updateMaterialImpl(id: string, data: MaterialPayload) {
       noc: data.noc || null,
       kategori: data.kategori,
       keterangan: data.keterangan,
+      harga_referensi: data.harga_referensi,
+      moq: data.moq,
     })
     .eq("id", id);
 

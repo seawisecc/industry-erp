@@ -23,6 +23,10 @@ type MaterialRow = {
   noc: string | null;
   kategori: "Bahan Baku" | "Kemasan";
   keterangan: string | null;
+  item_id: string | null;
+  harga_referensi: number | null;
+  moq: number | null;
+  items: { satuan: string; moq: number | null } | null;
   suppliers: { nama: string } | null;
   material_inci: { inci_name: string; percentage: number }[];
 };
@@ -58,7 +62,7 @@ export default async function MaterialsPage({
   let query = supabase
     .from("materials")
     .select(
-      "id, material_code, tradename, origin, noc, kategori, keterangan, suppliers(nama), material_inci(inci_name, percentage)",
+      "id, material_code, tradename, origin, noc, kategori, keterangan, item_id, harga_referensi, moq, items(satuan, moq), suppliers(nama), material_inci(inci_name, percentage)",
       { count: "exact" }
     )
     .eq("organization_id", organizationId);
@@ -76,6 +80,44 @@ export default async function MaterialsPage({
 
   const list = (materials || []) as unknown as MaterialRow[];
   const info = pageInfo(sp.page, count, list.length);
+
+  /* Harga pembelian terakhir per item, cuma untuk baris halaman ini.
+     Karena angkanya lahir dari query kedua seperti "Harga Terakhir" di
+     Stock Items, kolomnya sengaja TIDAK dapat tombol urut: yang bisa
+     diurutkan cuma satu halaman, dan hasilnya kelihatan benar padahal
+     bukan (lihat bab Urutan tabel di CLAUDE.md). */
+  const itemIds = list.map((m) => m.item_id).filter(Boolean) as string[];
+  const hargaBeli = new Map<string, number>();
+  if (itemIds.length > 0) {
+    const { data: batches } = await supabase
+      .from("purchase_batches")
+      .select("item_id, harga_per_unit, created_at")
+      .eq("organization_id", organizationId)
+      .in("item_id", itemIds)
+      .order("created_at", { ascending: false });
+    for (const b of (batches || []) as { item_id: string; harga_per_unit: number }[]) {
+      if (!hargaBeli.has(b.item_id)) {
+        hargaBeli.set(b.item_id, Number(b.harga_per_unit));
+      }
+    }
+  }
+
+  /* Aturannya satu kalimat, dan sama dengan yang dipakai modul R&D:
+     yang NYATA menang atas yang DIKETIK. Harga pembelian terakhir
+     mengalahkan harga referensi, MOQ item mengalahkan MOQ material. */
+  function hargaBerlaku(m: MaterialRow) {
+    const beli = m.item_id ? hargaBeli.get(m.item_id) : undefined;
+    if (beli != null) return { nilai: beli, dariPembelian: true };
+    if (m.harga_referensi != null)
+      return { nilai: Number(m.harga_referensi), dariPembelian: false };
+    return null;
+  }
+  function moqBerlaku(m: MaterialRow) {
+    const dariItem = m.item_id && m.items?.moq != null ? Number(m.items.moq) : null;
+    return dariItem ?? (m.moq == null ? null : Number(m.moq));
+  }
+  const satuanOf = (m: MaterialRow) =>
+    m.items?.satuan || (m.kategori === "Kemasan" ? "pcs" : "kg");
 
   return (
     <BahanShell>
@@ -114,7 +156,7 @@ export default async function MaterialsPage({
       <DataTable
         rows={list}
         rowKey={(m) => m.id}
-        minWidth={960}
+        minWidth={1120}
         empty={
           sp.q || sp.filter("kategori")
             ? "Tidak ada material yang cocok dengan pencarian/filter."
@@ -171,6 +213,40 @@ export default async function MaterialsPage({
               </div>
             ),
             cardCell: (m) => m.suppliers?.nama || "-",
+          },
+          {
+            key: "harga",
+            header: "Harga Acuan",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (m) => {
+              const h = hargaBerlaku(m);
+              if (!h) return <span className="text-muted">-</span>;
+              return (
+                <>
+                  Rp {h.nilai.toLocaleString("id-ID")}/{satuanOf(m)}
+                  {!h.dariPembelian && (
+                    <div className="text-[10.5px] text-muted">harga referensi</div>
+                  )}
+                </>
+              );
+            },
+          },
+          {
+            key: "moq",
+            header: "MOQ",
+            role: "primary",
+            align: "right",
+            className: "whitespace-nowrap",
+            cell: (m) => {
+              const q = moqBerlaku(m);
+              return q == null ? (
+                <span className="text-muted">-</span>
+              ) : (
+                `${q.toLocaleString("id-ID")} ${satuanOf(m)}`
+              );
+            },
           },
           {
             key: "inci",

@@ -124,8 +124,11 @@ function barisKemasanKosong(): KRow {
  */
 function keteranganBahan(b: BahanRnd): string {
   const bagian = [
-    b.harga == null ? null : `${rupiah(b.harga)}/${b.satuan}`,
+    b.harga == null
+      ? null
+      : `${rupiah(b.harga)}/${b.satuan}${b.pernahDibeli ? "" : " (referensi)"}`,
     b.item_id ? `stok ${angka(b.stok, 3)} ${b.satuan}` : null,
+    b.moq && b.moq > 0 ? `MOQ ${angka(b.moq, 3)} ${b.satuan}` : null,
     b.supplier,
   ].filter(Boolean) as string[];
   return bagian.length > 0 ? bagian.join(" · ") : "belum ada harga & stok";
@@ -1050,7 +1053,8 @@ export default function RndForm({
         {biaya.tanpaHarga.length > 0 && (
           <p className="text-clay-600 text-[12px] mt-3">
             Belum punya acuan harga: {biaya.tanpaHarga.join(", ")}. Angka di atas
-            menghitungnya sebagai nol.
+            menghitungnya sebagai nol. Isi Harga Referensi bahan itu di menu
+            Materials supaya perkiraannya jujur.
           </p>
         )}
       </div>

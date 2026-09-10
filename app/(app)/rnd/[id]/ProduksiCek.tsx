@@ -53,6 +53,10 @@ type Baris = {
   kurang: number;
   supplier: string | null;
   harga: number | null;
+  /** false = harganya cuma referensi dari master material */
+  pernahDibeli: boolean;
+  /** MOQ yang berlaku, untuk membaca "kurangnya sedikit tapi belinya sekarung" */
+  moq: number | null;
   /** null = belum dimiliki, jadi belum bisa dibeli sama sekali */
   item_id: string | null;
 };
@@ -62,6 +66,19 @@ function rupiah(n: number) {
 }
 function angka(n: number, desimal = 3) {
   return n.toLocaleString("id-ID", { maximumFractionDigits: desimal });
+}
+
+/**
+ * Qty yang benar-benar harus dibeli setelah dibulatkan ke kelipatan MOQ.
+ *
+ * Rumusnya sama persis dengan PPIC Planner dan Guide Order, termasuk
+ * toleransi 1e-9 untuk galat float. Angka yang berbeda antara layar R&D
+ * dan layar yang benar-benar menerbitkan PO akan membuat perkiraan biaya
+ * di sini selalu meleset di bawah.
+ */
+function bulatkanMoq(kurang: number, moq: number | null): number {
+  if (!moq || moq <= 0) return kurang;
+  return Math.ceil(kurang / moq - 1e-9) * moq;
 }
 
 export default function ProduksiCek({
@@ -115,6 +132,8 @@ export default function ProduksiCek({
       kurang: Math.max(0, butuh - stok),
       supplier: b?.supplier ?? null,
       harga: b?.harga ?? null,
+      pernahDibeli: !!b?.pernahDibeli,
+      moq: b?.moq ?? null,
       item_id: itemId,
     };
   });
@@ -131,6 +150,8 @@ export default function ProduksiCek({
       kurang: butuh,
       supplier: b?.supplier ?? null,
       harga: b?.harga ?? null,
+      pernahDibeli: !!b?.pernahDibeli,
+      moq: b?.moq ?? null,
       item_id: null,
     };
   });
@@ -336,14 +357,36 @@ export default function ProduksiCek({
               role: "primary",
               align: "right",
               className: "whitespace-nowrap font-medium",
+              cell: (r) => {
+                if (r.kurang <= 0) return <span className="text-muted">-</span>;
+                const beli = bulatkanMoq(r.kurang, r.moq);
+                return (
+                  <>
+                    <span
+                      className={r.item_id ? "text-clay-600" : "text-amber-500"}
+                    >
+                      {angka(r.kurang)} {r.satuan}
+                    </span>
+                    {/* MOQ sering jauh di atas kebutuhan trial. Butuh 2 kg
+                        tapi minimum belinya 25 kg adalah keputusan biaya,
+                        bukan detail pembelian, jadi disebut di sini. */}
+                    {beli > r.kurang && (
+                      <div className="text-[10.5px] text-muted font-normal">
+                        beli {angka(beli)} (MOQ {angka(r.moq ?? 0)})
+                      </div>
+                    )}
+                  </>
+                );
+              },
+            },
+            {
+              key: "moq",
+              header: "MOQ",
+              role: "secondary",
+              align: "right",
+              className: "whitespace-nowrap",
               cell: (r) =>
-                r.kurang > 0 ? (
-                  <span className={r.item_id ? "text-clay-600" : "text-amber-500"}>
-                    {angka(r.kurang)} {r.satuan}
-                  </span>
-                ) : (
-                  <span className="text-muted">-</span>
-                ),
+                r.moq && r.moq > 0 ? `${angka(r.moq)} ${r.satuan}` : "-",
             },
             {
               key: "nilai",
@@ -351,7 +394,19 @@ export default function ProduksiCek({
               role: "secondary",
               align: "right",
               className: "whitespace-nowrap",
-              cell: (r) => (r.harga == null ? "-" : rupiah(r.butuh * r.harga)),
+              cell: (r) =>
+                r.harga == null ? (
+                  "-"
+                ) : (
+                  <>
+                    {rupiah(r.butuh * r.harga)}
+                    {!r.pernahDibeli && (
+                      <div className="text-[10.5px] text-muted">
+                        harga referensi
+                      </div>
+                    )}
+                  </>
+                ),
             },
             {
               key: "supplier",

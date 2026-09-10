@@ -152,6 +152,7 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | `20260824_rnd_material_source` | `rnd_tulis_baris` | Diperluas: baris formula & kemasan menunjuk `material_id` ATAU `item_id` |
 | | `save_rnd_formula_tx` | Diperluas: kunci bahan dobel dihitung dari material dulu, baru item |
 | | `revise_rnd_formula_tx` | Diperluas: ikut menyalin kolom sumber yang baru |
+| `20260825_material_harga_moq` | (tanpa RPC) | `materials.harga_referensi` & `materials.moq`, plus backfill MOQ dari item yang ter-link |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -362,6 +363,89 @@ membuat orang berhenti curiga.
 Konsekuensinya kalau menambah jalur keluar-masuk produk jadi yang baru:
 tambahkan sebagai `union all` di `fg_stock_calc`, lalu cerminkan di
 fallback `lib/salesStock.ts`. Jangan menambahkan penyesuaian di pemanggil.
+
+# Harga & MOQ di master Material: yang nyata menang atas yang diketik
+
+Harga bahan dulu cuma lahir dari pembelian
+(`purchase_batches.harga_per_unit`). Itu benar untuk biaya, tapi
+meninggalkan lubang persis di tempat R&D bekerja: bahan yang BELUM
+PERNAH DIBELI tidak punya harga sama sekali, jadi perkiraan biaya
+formula menghitungnya sebagai nol. Formula yang setengah bahannya belum
+pernah dibeli akan tampak murah, dan angka itulah yang dipakai menyusun
+penawaran.
+
+Karena itu `materials` punya dua kolom sendiri, `harga_referensi` dan
+`moq`. Aturan pakainya satu kalimat:
+
+| Angka | Yang dipakai sistem |
+| --- | --- |
+| harga | pembelian terakhir; kalau belum pernah dibeli baru `materials.harga_referensi` |
+| MOQ | `items.moq` kalau materialnya sudah punya item; kalau belum baru `materials.moq` |
+
+Dua urutan itu kelihatan sama tapi alasannya berbeda, dan bedanya perlu
+diingat waktu menambah pembaca baru:
+
+- **Harga**: dua angkanya beda JENIS. Yang satu fakta (uang yang
+  benar-benar keluar), yang satu tebakan manusia dari penawaran
+  supplier. Fakta menang, selalu.
+- **MOQ**: dua-duanya angka ketikan. Yang menang `items.moq` bukan
+  karena lebih benar, tapi karena dialah yang benar-benar dipakai PPIC
+  Planner, Guide Order, dan validasi qty di `createPO`. Kalau yang
+  dipakai penjaga berbeda dengan yang tampil di master, orang akan
+  membetulkan angka yang salah.
+
+## `harga_referensi` TIDAK PERNAH jadi HPP
+
+Ini batas yang tidak boleh dilanggar. HPP tetap cuma dari
+`harga_per_unit` seperti yang tertulis di bab Dua harga per batch.
+`harga_referensi` berhenti di perkiraan biaya R&D dan di kolom harga
+acuan layar Materials.
+
+Kalau dia sampai bocor ke biaya produksi atau nilai stok, yang terjadi
+persis bug terburuk yang dijaga di seluruh dokumen ini: angka di layar
+berbeda dengan angka yang dihitung ulang sistem, dan kali ini
+sumbernya angka yang diketik orang berbulan-bulan lalu dari penawaran
+yang sudah kedaluwarsa.
+
+**Disimpan TANPA PPN**, sama seperti `harga_per_unit`. Penawaran
+supplier sering sudah memuat PPN, dan menyalinnya bulat-bulat membuat
+perkiraan biaya menggelembung sekitar 11% tanpa ada yang menyadarinya.
+Kalimat itu ditulis di bawah kolomnya, bukan cuma di sini.
+
+## Kolom yang tidak berlaku harus MENGATAKAN dirinya tidak berlaku
+
+Konsekuensi yang paling gampang dilanggar. Begitu sebuah material sudah
+pernah dibeli, `harga_referensi` berhenti dipakai; begitu materialnya
+punya item, `materials.moq` berhenti dipakai. Kolomnya tetap bisa
+diketik, dan kolom yang bisa diketik tapi tidak berpengaruh apa-apa
+adalah bentuk kebohongan layar yang paling sering terjadi.
+
+Karena itu form Material selalu menulis satu baris "Berlaku sekarang"
+di bawah kedua kolom itu: angka mana yang dipakai, dari mana asalnya,
+dan di mana mengubahnya. Nilainya dihitung di server (`BerlakuSekarang`
+di `MaterialForm.tsx`), bukan ditebak di klien, karena harga terakhir
+cuma ada di `purchase_batches`.
+
+Layar daftar Materials menulis hal yang sama dengan cara lebih pendek:
+harga yang berasal dari referensi diberi keterangan kecil "harga
+referensi" di bawah angkanya. Tanpa itu, dua baris yang tampak sama
+sebenarnya satu fakta dan satu tebakan.
+
+**Kolom Harga Acuan di daftar Materials tidak dapat tombol urut**,
+alasan yang sama dengan "Harga Terakhir" di Stock Items: angkanya lahir
+dari query kedua yang cuma mengambil baris halaman ini.
+
+## MOQ ikut turun waktu material didaftarkan jadi item
+
+`createItemsFromMaterials` menyalin `materials.moq` ke `items.moq`.
+MOQ adalah syarat SUPPLIER yang biasanya sudah diketahui sejak
+penawaran pertama, jauh sebelum barangnya masuk gudang, dan mengetiknya
+ulang di layar pembuatan item cuma menambah kesempatan meleset.
+
+Sesudah itu `items.moq` yang berlaku, dan form Material bilang begitu.
+Migrasi `20260825` ikut mem-backfill arah sebaliknya sekali (item yang
+MOQ-nya sudah diisi lama disalin ke materialnya) supaya kolomnya tidak
+tampil kosong di hari pertama dan terlihat seperti data yang hilang.
 
 # R&D Formulation: satu baris per versi, bukan satu baris yang disunting
 

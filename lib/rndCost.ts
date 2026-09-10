@@ -60,8 +60,18 @@ export type BahanRnd = {
   kategori: "Bahan Baku" | "Kemasan";
   /** 0 untuk bahan yang belum punya item stok */
   stok: number;
-  /** harga pembelian terakhir, null bila belum pernah dibeli */
+  /**
+   * Harga yang dipakai menghitung, null bila tidak ada acuan sama sekali.
+   *
+   * Isinya harga pembelian terakhir kalau bahannya pernah dibeli, kalau
+   * belum baru `materials.harga_referensi`. Yang NYATA menang atas yang
+   * DIKETIK, dan `pernahDibeli` yang membedakan keduanya di layar.
+   */
   harga: number | null;
+  /** true = `harga` berasal dari pembelian sungguhan, bukan angka referensi */
+  pernahDibeli: boolean;
+  /** MOQ yang berlaku: `items.moq` kalau ada itemnya, kalau tidak dari material */
+  moq: number | null;
   supplier: string | null;
   /** ringkasan komposisi INCI, null bila tidak ada */
   inci: string | null;
@@ -102,10 +112,10 @@ export function kunciBahan(
 export type Ketersediaan = "belum-dimiliki" | "belum-dibeli" | "ada";
 
 export function ketersediaanBahan(
-  b: Pick<BahanRnd, "item_id" | "harga">
+  b: Pick<BahanRnd, "item_id" | "pernahDibeli">
 ): Ketersediaan {
   if (!b.item_id) return "belum-dimiliki";
-  if (b.harga == null) return "belum-dibeli";
+  if (!b.pernahDibeli) return "belum-dibeli";
   return "ada";
 }
 
@@ -118,13 +128,15 @@ export const LABEL_KETERSEDIAAN: Record<
     pendek: "Belum dimiliki",
     judul:
       "Bahan ini belum terdaftar sebagai item stok, jadi belum ada di gudang. " +
-      "Daftarkan lewat Stock Items, Tambah Item dari Material, sebelum bisa dibeli.",
+      "Harganya memakai harga referensi di master Material. Daftarkan lewat " +
+      "Stock Items, Tambah Item dari Material, sebelum bisa dibeli.",
   },
   "belum-dibeli": {
     pendek: "Belum pernah dibeli",
     judul:
-      "Sudah terdaftar sebagai item stok, tapi belum pernah ada pembelian, " +
-      "jadi belum punya harga acuan maupun stok.",
+      "Sudah terdaftar sebagai item stok, tapi belum pernah ada pembelian. " +
+      "Harganya memakai harga referensi di master Material, bukan harga yang " +
+      "benar-benar dibayar.",
   },
 };
 
@@ -147,6 +159,8 @@ export type RincianBiaya = {
   /** qty untuk satu satuan hitung (1 kg ruahan, atau 1 pcs kemasan) */
   qty: number;
   harga: number | null;
+  /** false = `harga` cuma angka referensi dari master material */
+  pernahDibeli: boolean;
   subtotal: number;
   /** item stok terkait; null = bahan ini belum dimiliki */
   item_id: string | null;
@@ -200,6 +214,7 @@ export function hitungBiayaFormula(
       satuan: b?.satuan ?? TIDAK_DIKENAL.satuan,
       qty,
       harga,
+      pernahDibeli: !!b?.pernahDibeli,
       subtotal,
       item_id: b?.item_id ?? null,
     });
@@ -225,6 +240,7 @@ export function hitungBiayaFormula(
       satuan: b?.satuan ?? "pcs",
       qty,
       harga,
+      pernahDibeli: !!b?.pernahDibeli,
       subtotal,
       item_id: b?.item_id ?? null,
     });

@@ -37,6 +37,29 @@ export default async function EditMaterialPage({
     notFound();
   }
 
+  // Angka yang sedang berlaku, supaya form bisa bilang mana yang dipakai
+  // sistem. Yang nyata menang atas yang diketik: harga pembelian terakhir
+  // mengalahkan harga referensi, dan MOQ item mengalahkan MOQ material.
+  const [{ data: item }, { data: batch }] = await Promise.all([
+    material.item_id
+      ? supabase
+          .from("items")
+          .select("moq, satuan")
+          .eq("id", material.item_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    material.item_id
+      ? supabase
+          .from("purchase_batches")
+          .select("harga_per_unit")
+          .eq("item_id", material.item_id)
+          .eq("organization_id", organizationId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
   return (
     <div className="max-w-4xl">
       <Link href="/materials" className="flex items-center gap-1.5 text-muted text-[13px] mb-4 hover:text-ink">
@@ -48,6 +71,13 @@ export default async function EditMaterialPage({
       <MaterialForm
         suppliers={suppliers || []}
         inciOptions={inciOptions || []}
+        berlaku={{
+          adaItem: !!material.item_id,
+          hargaPembelian:
+            batch?.harga_per_unit == null ? null : Number(batch.harga_per_unit),
+          moqItem: item?.moq == null ? null : Number(item.moq),
+          satuan: item?.satuan ?? null,
+        }}
         material={{
           id: material.id,
           material_code: material.material_code,
@@ -57,6 +87,11 @@ export default async function EditMaterialPage({
           noc: material.noc,
           kategori: material.kategori || "Bahan Baku",
           keterangan: material.keterangan,
+          harga_referensi:
+            material.harga_referensi == null
+              ? null
+              : Number(material.harga_referensi),
+          moq: material.moq == null ? null : Number(material.moq),
           inci_rows: (inciRows || []).map((r) => ({
             inci_master_id: r.inci_master_id || "",
             inci_name: r.inci_name,

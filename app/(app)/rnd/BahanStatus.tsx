@@ -21,7 +21,7 @@ export default function BahanStatus({
   bahan,
   ukuran = "normal",
 }: {
-  bahan: Pick<BahanRnd, "item_id" | "harga"> | undefined | null;
+  bahan: Pick<BahanRnd, "item_id" | "pernahDibeli"> | undefined | null;
   /** "kecil" untuk daftar saran yang barisnya padat */
   ukuran?: "normal" | "kecil";
 }) {

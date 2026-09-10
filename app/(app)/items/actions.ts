@@ -120,7 +120,7 @@ export async function createItemsFromMaterials(
     // Ambil material terpilih & pastikan belum ter-link ke item
     const { data: materials, error: mError } = await supabase
       .from("materials")
-      .select("id, material_code, tradename, kategori, item_id")
+      .select("id, material_code, tradename, kategori, item_id, moq")
       .eq("organization_id", organizationId)
       .in(
         "id",
@@ -142,6 +142,11 @@ export async function createItemsFromMaterials(
           kategori: mat.kategori,
           satuan: r.satuan.trim(),
           stok_minimum: r.stok_minimum || 0,
+          // MOQ dibawa dari materialnya, kalau di sana sudah diisi. Itu
+          // syarat supplier yang biasanya sudah diketahui sejak penawaran,
+          // dan mengetiknya ulang di sini cuma menambah kesempatan meleset.
+          // Sesudah item ada, items.moq yang jadi angka yang berlaku.
+          moq: mat.moq ?? null,
           organization_id: organizationId,
         })
         .select()

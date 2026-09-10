@@ -7,13 +7,34 @@ import { createMaterial, updateMaterial, type InciRow } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
+import { keTampilan } from "@/lib/angka";
 
 type SupplierOption = { id: string; nama: string };
 type InciOption = { id: string; inci_name: string; cas_number: string | null };
 
+/**
+ * Angka yang sedang BERLAKU untuk material ini, dihitung di server.
+ *
+ * Dikirim ke form supaya kolom harga & MOQ tidak pernah jadi isian yang
+ * diam-diam tidak berpengaruh: kalau bahannya sudah pernah dibeli atau
+ * sudah punya item stok, layar bilang angka mana yang dipakai sistem
+ * dan dari mana asalnya.
+ */
+export type BerlakuSekarang = {
+  /** material ini sudah punya item stok */
+  adaItem: boolean;
+  /** harga pembelian terakhir, null bila belum pernah dibeli */
+  hargaPembelian: number | null;
+  /** MOQ yang tersimpan di item stok, null bila belum diisi di sana */
+  moqItem: number | null;
+  /** satuan item, untuk menulis "Rp x/kg" dengan benar */
+  satuan: string | null;
+};
+
 type Props = {
   suppliers: SupplierOption[];
   inciOptions: InciOption[];
+  berlaku?: BerlakuSekarang;
   material?: {
     id: string;
     material_code: string;
@@ -23,13 +44,26 @@ type Props = {
     noc: string | null;
     kategori: "Bahan Baku" | "Kemasan";
     keterangan: string | null;
+    harga_referensi: number | null;
+    moq: number | null;
     inci_rows: InciRow[];
   };
 };
 
 type RowState = { inci_master_id: string; inci_name: string; percentage: string };
 
-export default function MaterialForm({ suppliers, inciOptions, material }: Props) {
+/** NILAI (titik desimal) dari NumberInput jadi angka, null bila kosong. */
+function keAngka(nilai: string): number | null {
+  const n = parseFloat(nilai.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+export default function MaterialForm({
+  suppliers,
+  inciOptions,
+  material,
+  berlaku,
+}: Props) {
   const router = useRouter();
   const konfirmasi = useConfirmSave();
   const isEdit = !!material;
@@ -41,6 +75,12 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
   const [keterangan, setKeterangan] = useState(material?.keterangan || "");
   const [origin, setOrigin] = useState(material?.origin || "");
   const [noc, setNoc] = useState(material?.noc || "");
+  const [hargaRef, setHargaRef] = useState(
+    material?.harga_referensi == null ? "" : String(material.harga_referensi)
+  );
+  const [moq, setMoq] = useState(
+    material?.moq == null ? "" : String(material.moq)
+  );
   const [rows, setRows] = useState<RowState[]>(
     material?.inci_rows?.length
       ? material.inci_rows.map((r) => ({ ...r, percentage: String(r.percentage) }))
@@ -76,6 +116,10 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
         { label: "Kode", nilai: materialCode },
         { label: "Tradename", nilai: tradename },
         { label: "Kategori", nilai: kategori },
+        ...(hargaRef.trim()
+          ? [{ label: "Harga Referensi", nilai: `Rp ${keTampilan(hargaRef)}` }]
+          : []),
+        ...(moq.trim() ? [{ label: "MOQ", nilai: keTampilan(moq) }] : []),
         ...(kategori === "Kemasan"
           ? []
           : [
@@ -100,6 +144,8 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
         noc: noc || null,
         kategori,
         keterangan: kategori === "Kemasan" ? keterangan || null : null,
+        harga_referensi: hargaRef.trim() ? keAngka(hargaRef) : null,
+        moq: moq.trim() ? keAngka(moq) : null,
         inci_rows:
           kategori === "Kemasan"
             ? []
@@ -324,6 +370,83 @@ export default function MaterialForm({ suppliers, inciOptions, material }: Props
             placeholder="Misal: 98%"
             className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
           />
+        </div>
+      </div>
+
+      {/* ============ HARGA & MOQ ============
+
+          Dua angka SUPPLIER, bukan angka gudang. Diketahui sejak
+          penawaran pertama, jauh sebelum barangnya masuk, jadi tempatnya
+          memang di master material.
+
+          Yang nyata menang atas yang diketik: begitu bahannya pernah
+          dibeli, harga pembelian yang dipakai; begitu materialnya punya
+          item stok, MOQ item yang dipakai. Kalimat "berlaku sekarang" di
+          bawah tiap kolom yang mengatakan itu, supaya tidak ada isian
+          yang diam-diam tidak berpengaruh. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[12.5px] font-medium text-muted mb-1.5">
+            Harga Referensi{" "}
+            <span className="text-muted font-normal">(per satuan, tanpa PPN)</span>
+          </label>
+          <NumberInput
+            value={hargaRef}
+            onChange={setHargaRef}
+            placeholder="Harga penawaran supplier"
+            className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+          />
+          <p className="text-muted text-[11.5px] mt-1 leading-snug">
+            {berlaku?.hargaPembelian != null ? (
+              <>
+                Berlaku sekarang:{" "}
+                <span className="text-ink font-medium">
+                  Rp {berlaku.hargaPembelian.toLocaleString("id-ID")}
+                  {berlaku.satuan ? `/${berlaku.satuan}` : ""}
+                </span>{" "}
+                dari pembelian terakhir. Angka di atas cuma dipakai selama
+                bahannya belum pernah dibeli.
+              </>
+            ) : (
+              <>
+                Belum pernah dibeli, jadi angka ini yang dipakai perkiraan biaya
+                di R&amp;D. Isi tanpa PPN supaya sebanding dengan harga
+                pembelian.
+              </>
+            )}
+          </p>
+        </div>
+        <div>
+          <label className="block text-[12.5px] font-medium text-muted mb-1.5">
+            MOQ <span className="text-muted font-normal">(minimum order)</span>
+          </label>
+          <NumberInput
+            value={moq}
+            onChange={setMoq}
+            placeholder="Pembelian minimum dari supplier"
+            className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+          />
+          <p className="text-muted text-[11.5px] mt-1 leading-snug">
+            {berlaku?.adaItem ? (
+              <>
+                Berlaku sekarang:{" "}
+                <span className="text-ink font-medium">
+                  {berlaku.moqItem == null
+                    ? "belum diisi"
+                    : `${berlaku.moqItem.toLocaleString("id-ID")}${
+                        berlaku.satuan ? ` ${berlaku.satuan}` : ""
+                      }`}
+                </span>{" "}
+                dari item stoknya, dan itu yang dipakai PPIC serta validasi PO.
+                Ubah di menu Stock Items.
+              </>
+            ) : (
+              <>
+                Dipakai sebagai bawaan waktu material ini didaftarkan jadi item
+                stok.
+              </>
+            )}
+          </p>
         </div>
       </div>
 

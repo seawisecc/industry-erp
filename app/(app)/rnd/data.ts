@@ -8,6 +8,8 @@ type MaterialRaw = {
   tradename: string;
   kategori: "Bahan Baku" | "Kemasan";
   item_id: string | null;
+  harga_referensi: number | null;
+  moq: number | null;
   suppliers: { nama: string } | null;
   material_inci: { inci_name: string; percentage: number | null }[];
 };
@@ -18,9 +20,17 @@ type ItemRaw = {
   nama: string;
   satuan: string;
   kategori: "Bahan Baku" | "Kemasan";
+  moq: number | null;
 };
 
 type BatchRaw = { item_id: string; qty_sisa: number; harga_per_unit: number };
+
+/** Numeric Postgres datang sebagai string lewat PostgREST. */
+function angkaAtauNull(n: number | string | null | undefined): number | null {
+  if (n == null) return null;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : null;
+}
 
 /** Berapa nama INCI yang ditulis sebelum dipotong. */
 const INCI_TAMPIL = 4;
@@ -81,13 +91,13 @@ export async function getRndOptions(organizationId: string): Promise<{
     supabase
       .from("materials")
       .select(
-        "id, material_code, tradename, kategori, item_id, suppliers(nama), material_inci(inci_name, percentage)"
+        "id, material_code, tradename, kategori, item_id, harga_referensi, moq, suppliers(nama), material_inci(inci_name, percentage)"
       )
       .eq("organization_id", organizationId)
       .order("material_code"),
     supabase
       .from("items")
-      .select("id, kode, nama, satuan, kategori")
+      .select("id, kode, nama, satuan, kategori, moq")
       .eq("organization_id", organizationId)
       .order("kode"),
     supabase
@@ -120,6 +130,7 @@ export async function getRndOptions(organizationId: string): Promise<{
   for (const m of (materials || []) as unknown as MaterialRaw[]) {
     const it = m.item_id ? itemById.get(m.item_id) : undefined;
     if (m.item_id) itemTerpakai.add(m.item_id);
+    const hargaPembelian = m.item_id ? harga.get(m.item_id) ?? null : null;
     daftar.push({
       key: kunciBahan(m.id, null),
       material_id: m.id,
@@ -133,7 +144,16 @@ export async function getRndOptions(organizationId: string): Promise<{
       satuan: it?.satuan ?? (m.kategori === "Kemasan" ? "pcs" : "kg"),
       kategori: m.kategori,
       stok: m.item_id ? stok.get(m.item_id) || 0 : 0,
-      harga: m.item_id ? harga.get(m.item_id) ?? null : null,
+      // Yang NYATA menang atas yang DIKETIK: harga pembelian terakhir
+      // dipakai kalau ada, harga referensi cuma menambal lubang untuk
+      // bahan yang belum pernah dibeli. Harga referensi TIDAK PERNAH
+      // jadi HPP, dia berhenti di perkiraan biaya R&D.
+      harga: hargaPembelian ?? angkaAtauNull(m.harga_referensi),
+      pernahDibeli: hargaPembelian != null,
+      // MOQ item menang dengan alasan berbeda: dua-duanya angka ketikan,
+      // tapi yang di item itulah yang benar-benar dipakai PPIC dan
+      // validasi PO, jadi itu yang harus terlihat di sini.
+      moq: (m.item_id ? angkaAtauNull(it?.moq) : null) ?? angkaAtauNull(m.moq),
       supplier: m.suppliers?.nama || null,
       inci: ringkasInci(m.material_inci),
     });
@@ -151,6 +171,8 @@ export async function getRndOptions(organizationId: string): Promise<{
       kategori: it.kategori,
       stok: stok.get(it.id) || 0,
       harga: harga.get(it.id) ?? null,
+      pernahDibeli: harga.has(it.id),
+      moq: angkaAtauNull(it.moq),
       supplier: null,
       inci: null,
     });

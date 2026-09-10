@@ -178,6 +178,8 @@ export default async function RndDetailPage({
         harga: b?.harga ?? null,
         inci: b?.inci ?? null,
         item_id: b?.item_id ?? null,
+        pernahDibeli: !!b?.pernahDibeli,
+        moq: b?.moq ?? null,
         fase: r.fase,
         fungsi: r.fungsi,
         percentage: Number(r.percentage),
@@ -451,12 +453,23 @@ export default async function RndDetailPage({
                   },
                   {
                     key: "harga",
-                    header: "Harga Terakhir",
+                    header: "Harga Acuan",
                     role: "secondary",
                     align: "right",
                     className: "whitespace-nowrap",
                     cell: (r) =>
-                      r.harga == null ? "-" : `${rupiah(r.harga)}/${r.satuan}`,
+                      r.harga == null ? (
+                        "-"
+                      ) : (
+                        <>
+                          {rupiah(r.harga)}/{r.satuan}
+                          {!r.pernahDibeli && (
+                            <div className="text-[10.5px] text-muted">
+                              harga referensi
+                            </div>
+                          )}
+                        </>
+                      ),
                   },
                   {
                     key: "perkg",
