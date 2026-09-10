@@ -143,6 +143,12 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `update_po_tx` | Diperluas: ikut menulis `tax_mode` & `tax_dpp_nilai_lain` |
 | | `create_receiving_tx` | Diperluas: total lewat `invoice_tax_calc`, HPP batch disimpan tanpa pajak |
 | | `create_purchase_return_tx` | Diperluas: nilai retur ikut model faktur, baris dinilai `harga_faktur` |
+| `20260823_rnd_formulas` | `rnd_tulis_baris` | Penulis baris anak formula, dipakai bersama alur simpan & salin-revisi |
+| | `save_rnd_formula_tx` | Buat formula baru (+ penomoran) atau ganti seluruh isinya |
+| | `save_rnd_result_tx` | Catatan hasil develop + hasil uji per parameter, Draft naik jadi Trial |
+| | `revise_rnd_formula_tx` | Salin formula jadi versi berikutnya, nomor turunan dari INDUK |
+| | `approve_rnd_formula_tx` | Tandai formula yang berlaku, versi lama turun jadi Arsip |
+| | `delete_rnd_formula_tx` | Hapus percobaan yang batal, tolak yang punya turunan |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -353,6 +359,154 @@ membuat orang berhenti curiga.
 Konsekuensinya kalau menambah jalur keluar-masuk produk jadi yang baru:
 tambahkan sebagai `union all` di `fg_stock_calc`, lalu cerminkan di
 fallback `lib/salesStock.ts`. Jangan menambahkan penyesuaian di pemanggil.
+
+# R&D Formulation: satu baris per versi, bukan satu baris yang disunting
+
+Formula lahir jauh sebelum produknya ada, dan selama ini seluruh
+siklusnya hidup di spreadsheet pribadi. Yang hilang di situ bukan
+filenya, melainkan JEJAK PERUBAHAN. Waktu satu batch bermasalah,
+pertanyaan pertama selalu "formula versi berapa yang dipakai", dan
+jawabannya harus bisa ditunjukkan, bukan diingat.
+
+Karena itu revisi TIDAK menimpa formula sebelumnya. Tiap revisi adalah
+baris baru yang menunjuk induknya, dengan nomor turunan:
+
+```
+RND.202609001        formula asli
+RND.202609001-R1     revisi pertama
+RND.202609001-R2     revisi kedua
+```
+
+Nomornya selalu turunan dari INDUK, bukan dari baris yang disalin, jadi
+merevisi `-R2` menghasilkan `-R3`, bukan `-R2-R1`. Penomoran induknya
+`RND.YYYYMM` + 3 digit, dan yang membuat revisi tidak ikut terbaca
+sebagai urutan induk cuma satu baris: penjaga `~ '^\d+$'` di
+`save_rnd_formula_tx`. Ini persis jebakan `substring` yang sudah
+tercatat di bab Jebakan Postgres.
+
+## Empat status, dua di antaranya membekukan
+
+| Status | Artinya |
+| --- | --- |
+| `Draft` | baru disusun, belum turun ke lab |
+| `Trial` | hasil percobaan sudah mulai dicatat |
+| `Disetujui` | formula yang dipakai. DIBEKUKAN |
+| `Arsip` | versi yang dulu disetujui lalu digantikan revisi. DIBEKUKAN |
+
+**Yang membekukan bukan kerapian.** Nomor formula yang disetujui akan
+ditulis di dokumen produksi, dan angka yang ditunjuk nomor itu tidak
+boleh bergerak sesudahnya. Alasannya sama dengan opname yang sudah
+ditutup: barisnya potret keputusan pada hari itu, bukan daftar yang
+boleh dirapikan belakangan. Penjaganya di DUA sisi seperti biasa,
+`save_rnd_formula_tx` menolak, dan halaman edit menolak membuka
+formnya, karena layar edit yang tetap terbuka cuma membuat orang
+mengetik ulang formula lalu ditolak di ujung.
+
+**Satu versi Disetujui per silsilah.** `approve_rnd_formula_tx`
+menurunkan versi yang tadinya disetujui jadi `Arsip` di transaksi yang
+sama. Dua versi berstatus Disetujui berarti tidak ada yang tahu mana
+yang dipakai produksi, yaitu persis keadaan yang mau dihilangkan.
+Akibat itu menyentuh dokumen LAIN yang sedang tidak dilihat orang, jadi
+kalimatnya ditulis di dialog konfirmasinya, bukan cuma di sini.
+
+**Hasil uji tidak ikut disalin waktu revisi.** Angka pH milik percobaan
+kemarin, dan membawanya ke lembar percobaan berikutnya adalah cara
+paling gampang membuat orang lupa mengisinya.
+
+## Modul ini tidak menulis apa pun ke stok
+
+Tidak ada satu pun alur di sini yang memotong `purchase_batches`,
+menambah batch, atau menerbitkan dokumen bernilai. Formula, takaran
+trial, biaya, dan simulasi produksi semuanya hitungan di layar. Yang
+menggerakkan stok tetap tiga pintu yang sudah ada: produksi, Material
+Issue, dan Stock Opname.
+
+Konsekuensinya untuk bahan yang benar-benar terpakai saat trial:
+**pencatatannya tetap lewat Material Issue bertujuan R&D, apa adanya
+seperti sekarang**, dan dokumen itu sengaja TIDAK dihubungkan ke
+formula mana pun. Menghubungkannya terdengar rapi, tapi berarti satu
+kolom baru di `material_issues`, satu pilihan wajib di formnya, dan
+satu lagi keputusan yang harus diingat operator gudang untuk angka yang
+belum tentu dibaca siapa pun.
+
+Aturan ini yang membuat modul RND aman dipakai bereksperimen: formula
+boleh disusun, dibuang, direvisi berkali-kali tanpa satu pun akibat ke
+pembukuan. Kalau nanti ada yang tergoda menambahkan alur yang memotong
+stok dari sini, yang harus dijawab lebih dulu bukan soal teknis
+melainkan pembatalannya, dan itu persis pelajaran yang sudah dibayar di
+`finished_goods_adjustments`.
+
+## Persentase ditafsirkan sama dengan `product_formulas`
+
+`qty bahan = % x massa ruahan`, dalam satuan item itu sendiri. Modul
+produksi sudah memakai konvensi itu (`PlanForm` menghitung
+`qty = (percentage / 100) * bulkKg`), jadi biaya yang muncul di layar
+R&D memakai angka yang sama dengan yang nanti benar-benar terpotong.
+Kalau konvensi itu berubah, `lib/rndCost.ts` ikut berubah.
+
+Ruahannya dihitung dari gramasi produk: `1.000 pcs x 100 g = 100 kg`.
+Batch trial disimpan terpisah dalam GRAM (`trial_gram`), karena lab
+bekerja dengan timbangan analitik dan produksi bekerja dengan kg.
+
+**Biaya per pcs sengaja `null` selama gramasi belum diisi, bukan nol.**
+Nol terbaca sebagai "produk ini gratis", dan itu angka yang bisa
+terbawa ke penawaran harga.
+
+## Harganya perkiraan, dan layarnya wajib mengatakan itu
+
+Yang dipakai `purchase_batches.harga_per_unit` terakhir, yaitu HPP tanpa
+pajak, angka yang sama yang dibaca PPIC Planner. Biaya sebenarnya baru
+lahir di `create_production` yang memotong FEFO lot per lot. Jadi yang
+di sini bukan HPP, melainkan pembanding untuk memutuskan apakah sebuah
+formula masuk akal sebelum ada satu batch pun.
+
+Peringatan kekurangan stok di tab Biaya memakai komponen yang SAMA
+dengan alur produksi (`StokKurangAlert`) dan pembanding yang sama
+(`purchase_batches.qty_sisa`). Dua layar yang menjawab pertanyaan yang
+sama dengan angka berbeda adalah cara tercepat membuat orang berhenti
+percaya pada dua-duanya.
+
+**Kemasan yang belum ada di master item tidak ikut dicek stoknya.**
+Barangnya memang belum punya stok yang bisa dibandingkan, dan
+menghitungnya sebagai nol akan memunculkan "kurang" untuk barang yang
+belum pernah dibeli. Itu bukan kabar baru buat siapa pun, jadi barisnya
+disebut terpisah di bawah tabel.
+
+## Item TIDAK disaring `aktif = true`
+
+Alasannya dua, dan dua-duanya berlaku: yang sama dengan layar produksi
+(bahan yang dinonaktifkan setelah formulanya dibuat akan terbaca stok
+nol), ditambah alasan khas R&D, yaitu bahan yang sudah lama tidak
+dibeli justru sering yang dijajaki.
+
+## Spek target diambil dari master parameter QC produk jadi
+
+`specBawaan()` di `lib/rnd.ts` membungkus `PARAM_STANDAR.produk_jadi`,
+BUKAN daftar baru. Spek yang ditargetkan R&D adalah spek yang nanti
+diuji QC; dua daftar yang berbeda berarti formula lulus di lab R&D lalu
+ditolak QC karena parameternya memang tidak pernah sama.
+
+## Izin: `can_plan_production`, bukan kolom baru
+
+Formula yang disetujui adalah yang nanti diturunkan jadi instruksi
+produksi, jadi orang yang berhak menetapkan instruksi itu juga yang
+berhak menyatakan formulanya sudah jadi. Menambah izin sendiri berarti
+satu checklist lagi di form Pengguna yang harus diingat Admin, untuk
+keputusan yang pemegangnya sama persis. Penghapusan pakai `can_cancel`.
+
+## Lembar kerja lab mencetak takaran, opname sengaja tidak
+
+`/print/rnd/[id]` mencetak takaran TEORITIS tiap bahan untuk satu batch
+trial, dengan kolom kosong di sebelahnya untuk timbangan aktual.
+Bedanya dengan lembar hitung opname (yang sengaja TIDAK mencetak angka
+sistem) memang disengaja: di opname angka sistem adalah jawaban yang
+tidak boleh disalin, sedangkan di sini takaran adalah INSTRUKSI yang
+harus diikuti, dan selisih terhadapnya justru data yang dicari.
+
+Dokumen ini TIDAK terdaftar di `DOC_TYPES` / `JUDUL_DOKUMEN` /
+`SUMBER_DOKUMEN`, sama seperti lembar hitung opname. Dia lembar kerja
+internal yang diisi tangan, bukan dokumen yang diterbitkan ke pihak
+luar, jadi tidak butuh pengesahan QR.
 
 # Harga & diskon khusus client
 
@@ -1860,6 +2014,19 @@ tidak ada yang mencatat bahwa dokumen itu perlu dicetak ulang. Sekarang
 peringatannya cuma kalimat di dialog Ubah No. Batch. Kalau nanti dirasa
 kurang, yang dibutuhkan bukan larangan mengubah nomor melainkan daftar
 dokumen yang sudah dicetak per batch.
+
+**Formula R&D yang disetujui berhenti sebagai penanda.** Menurunkannya
+jadi Produk dikerjakan tangan di master Products, dan itu keputusan
+pemakainya untuk sekarang, bukan pekerjaan yang tertunda. Kalau nanti
+diinginkan tombolnya, yang harus diputuskan lebih dulu bukan soal
+teknis: `products` menyimpan varian, kemasan per varian, dan tahapan
+proses yang tidak punya padanan di formula develop, jadi pemetaannya
+harus disepakati, bukan ditebak.
+
+**Satuan bahan baku diasumsikan kg di seluruh hitungan R&D.** Sama
+dengan asumsi yang sudah dipakai modul produksi, jadi bahan yang
+satuannya liter atau pcs akan menghasilkan angka takaran yang benar
+secara proporsi tapi salah satuannya di lembar kerja.
 
 **Logo perusahaan tidak tercetak di nota 58 mm.** Kertas thermal cuma
 punya satu warna dan logo berwarna lebih sering keluar jadi blok hitam

@@ -16,6 +16,7 @@ export const MODULES = [
   { key: "payments", label: "Payments (Purchasing)" },
   { key: "ppic", label: "PPIC Planner" },
   { key: "suppliers", label: "Suppliers" },
+  { key: "rnd", label: "R&D Formulation" },
   { key: "products", label: "Products" },
   { key: "services", label: "Services" },
   { key: "production", label: "Production" },

@@ -32,6 +32,7 @@ import {
   DatabaseZap,
   ScrollText,
   Users,
+  TestTubes,
   type LucideIcon,
 } from "lucide-react";
 
@@ -109,6 +110,7 @@ export const NAV: NavItem[] = [
   { href: "/items", label: "Materials & Stock", icon: Boxes, grup: "Operasional" },
   { href: "/purchase-orders", label: "Purchasing", icon: ClipboardList, grup: "Operasional" },
   { href: "/suppliers", label: "Suppliers", icon: Briefcase, grup: "Operasional" },
+  { href: "/rnd", label: "R&D", icon: TestTubes, grup: "Operasional" },
   { href: "/products", label: "Products", icon: Package, grup: "Operasional" },
   { href: "/clients", label: "Sales", icon: HandCoins, grup: "Operasional" },
 
