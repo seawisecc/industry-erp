@@ -31,6 +31,7 @@ import { PackagePlus, ShoppingCart } from "lucide-react";
 import NumberInput from "@/components/NumberInput";
 import DataTable from "@/components/DataTable";
 import StokKurangAlert from "@/components/StokKurangAlert";
+import { bulatkanMoq } from "@/lib/moq";
 import { hitungKekurangan, type ItemStok } from "@/lib/stokCek";
 import {
   hitungBiayaFormula,
@@ -66,19 +67,6 @@ function rupiah(n: number) {
 }
 function angka(n: number, desimal = 3) {
   return n.toLocaleString("id-ID", { maximumFractionDigits: desimal });
-}
-
-/**
- * Qty yang benar-benar harus dibeli setelah dibulatkan ke kelipatan MOQ.
- *
- * Rumusnya sama persis dengan PPIC Planner dan Guide Order, termasuk
- * toleransi 1e-9 untuk galat float. Angka yang berbeda antara layar R&D
- * dan layar yang benar-benar menerbitkan PO akan membuat perkiraan biaya
- * di sini selalu meleset di bawah.
- */
-function bulatkanMoq(kurang: number, moq: number | null): number {
-  if (!moq || moq <= 0) return kurang;
-  return Math.ceil(kurang / moq - 1e-9) * moq;
 }
 
 export default function ProduksiCek({

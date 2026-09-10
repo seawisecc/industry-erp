@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import { toResult, type ActionResult } from "@/lib/actionResult";
+import { periksaMoq } from "@/lib/moq";
 import { getTaxSettings } from "@/lib/taxServer";
 import {
   parseSupplierTaxMode,
@@ -101,12 +102,16 @@ async function assertMoq(
   );
   for (const it of items) {
     const item = map.get(it.item_id);
-    const moq = item?.moq == null ? null : Number(item.moq);
-    if (!item || !moq || moq <= 0) continue;
-    const ratio = it.qty_pesan / moq;
-    if (it.qty_pesan < moq || Math.abs(ratio - Math.round(ratio)) > 1e-9) {
+    if (!item) continue;
+    // Fungsi yang sama dengan yang dipakai layar Guide Order, supaya form
+    // tidak pernah mengizinkan qty yang ditolak di sini.
+    const langgar = periksaMoq(
+      it.qty_pesan,
+      item.moq == null ? null : Number(item.moq)
+    );
+    if (langgar) {
       throw new Error(
-        `${item.nama}: qty harus minimal ${moq} ${item.satuan} dan kelipatannya (MOQ)`
+        `${item.nama}: qty harus minimal ${langgar.moq} ${item.satuan} dan kelipatannya (MOQ)`
       );
     }
   }

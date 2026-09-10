@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { ShoppingCart, TriangleAlert } from "lucide-react";
 import { createPOsFromGuide, type GuideLine } from "./actions";
 import DataTable from "@/components/DataTable";
+import { adaMoq, bulatkanMoq, periksaMoq } from "@/lib/moq";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import NumberInput from "@/components/NumberInput";
 
@@ -38,13 +39,12 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
 
-// Saran qty: tutupi kekurangan sampai 2× stok minimum, dibulatkan ke MOQ
+// Saran qty: tutupi kekurangan sampai 2x stok minimum, dibulatkan ke MOQ
 function saranQty(it: GuideItem) {
   const target = it.stokMin > 0 ? it.stokMin * 2 : 0;
   const kurang = Math.max(0, target - it.stok);
-  if (kurang <= 0) return it.moq && it.moq > 0 ? it.moq : 0;
-  if (it.moq && it.moq > 0) return Math.ceil(kurang / it.moq - 1e-9) * it.moq;
-  return Math.ceil(kurang);
+  if (kurang <= 0) return adaMoq(it.moq) ? it.moq : 0;
+  return adaMoq(it.moq) ? bulatkanMoq(kurang, it.moq) : Math.ceil(kurang);
 }
 
 export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
@@ -87,12 +87,11 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
   const tanpaSupplier = items.filter((it) => !it.supplier_id).length;
 
   function moqIssue(it: GuideItem): string | null {
-    const q = parseNum(qty[it.id] || "");
-    if (!it.moq || it.moq <= 0 || q <= 0) return null;
-    if (q < it.moq) return `min ${formatNum(it.moq)}`;
-    const r = q / it.moq;
-    if (Math.abs(r - Math.round(r)) > 1e-9) return `kelipatan ${formatNum(it.moq)}`;
-    return null;
+    const langgar = periksaMoq(parseNum(qty[it.id] || ""), it.moq);
+    if (!langgar) return null;
+    return langgar.jenis === "minimum"
+      ? `min ${formatNum(langgar.moq)}`
+      : `kelipatan ${formatNum(langgar.moq)}`;
   }
   const adaMoqSalah = items.some((it) => moqIssue(it));
 

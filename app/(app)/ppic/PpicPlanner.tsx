@@ -11,6 +11,7 @@
 import { useState } from "react";
 import { Plus, Trash2, ShoppingCart, PackageSearch } from "lucide-react";
 import DataTable from "@/components/DataTable";
+import { bulatkanMoq } from "@/lib/moq";
 import NumberInput from "@/components/NumberInput";
 
 export type PpicProduct = {
@@ -79,10 +80,7 @@ export default function PpicPlanner({
     const item = itemMap.get(itemId);
     if (!item) continue;
     const kurang = Math.max(0, butuh - item.stok);
-    let qtyBeli = kurang;
-    if (kurang > 0 && item.moq && item.moq > 0) {
-      qtyBeli = Math.ceil(kurang / item.moq - 1e-9) * item.moq;
-    }
+    const qtyBeli = bulatkanMoq(kurang, item.moq);
     calcs.push({
       item,
       butuh,

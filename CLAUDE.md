@@ -435,6 +435,34 @@ sebenarnya satu fakta dan satu tebakan.
 alasan yang sama dengan "Harga Terakhir" di Stock Items: angkanya lahir
 dari query kedua yang cuma mengambil baris halaman ini.
 
+## Rumus MOQ cuma ada di `lib/moq.ts`
+
+Aturannya satu kalimat, "qty pesan harus minimal MOQ dan kelipatannya",
+tapi dia hidup di LIMA tempat: PPIC Planner, Guide Order (saran qty
+sekaligus penjaganya), validasi `createPO` di server, dan simulasi
+produksi di R&D. Sebelum file ini ada, rumusnya disalin di tiap tempat.
+
+Yang berbahaya bukan barisnya panjang, melainkan `- 1e-9` di dalamnya.
+Toleransi galat float itu gampang ikut hilang waktu disalin, dan
+tanpanya kebutuhan yang lahir dari perkalian persen (mis.
+`24,999999999999996`) dibulatkan ke atas jadi DUA KALI MOQ. PO terbit
+dua kali lipat dari yang dimaui, dan tidak ada error apa pun.
+
+| Fungsi | Guna |
+| --- | --- |
+| `bulatkanMoq(kurang, moq)` | qty yang harus dipesan supaya menutupi kekurangan sekaligus memenuhi MOQ |
+| `periksaMoq(qty, moq)` | alasan pelanggaran (`minimum` / `kelipatan`), null bila sah |
+| `adaMoq(moq)` | MOQ-nya benar-benar berlaku, bukan null atau nol |
+
+`periksaMoq` mengembalikan ALASANNYA, bukan boolean, karena dua
+pelanggarannya diperbaiki dengan cara yang berbeda: "belum sampai
+minimum" dan "bukan kelipatan" butuh kalimat yang berbeda di layar.
+
+File ini bersih dari import server, dan itu bukan kebetulan: penjaga di
+layar (Guide Order) dan penjaga di server action (`createPO`) memakai
+fungsi yang sama persis. Kalau tidak, form bisa mengizinkan qty yang
+ditolak server, atau sebaliknya menolak qty yang sebenarnya sah.
+
 ## MOQ ikut turun waktu material didaftarkan jadi item
 
 `createItemsFromMaterials` menyalin `materials.moq` ke `items.moq`.
@@ -547,17 +575,31 @@ lahir di `create_production` yang memotong FEFO lot per lot. Jadi yang
 di sini bukan HPP, melainkan pembanding untuk memutuskan apakah sebuah
 formula masuk akal sebelum ada satu batch pun.
 
+Bahan yang belum pernah dibeli jatuh ke `materials.harga_referensi`
+(lihat bab Harga & MOQ di master Material). Angka itu ketikan manusia,
+jadi layar WAJIB menandainya: pemilih bahan menulis `(referensi)` di
+ekor harganya, tabel formula dan tabel kebutuhan menulis "harga
+referensi" di bawah angkanya. Dua baris yang tampak sama padahal satu
+fakta dan satu tebakan adalah kelalaian yang paling gampang lolos di
+modul ini.
+
+**Bahan yang tidak punya acuan harga sama sekali dihitung NOL, dan
+kalimatnya ditulis di panel biaya** lengkap dengan nama bahannya serta
+saran mengisi Harga Referensi di menu Materials. Menyembunyikannya akan
+membuat formula yang setengah bahannya belum berharga tampak murah, dan
+angka itu yang dipakai menyusun penawaran.
+
 Peringatan kekurangan stok di tab Biaya memakai komponen yang SAMA
 dengan alur produksi (`StokKurangAlert`) dan pembanding yang sama
 (`purchase_batches.qty_sisa`). Dua layar yang menjawab pertanyaan yang
 sama dengan angka berbeda adalah cara tercepat membuat orang berhenti
 percaya pada dua-duanya.
 
-**Kemasan yang belum ada di master item tidak ikut dicek stoknya.**
-Barangnya memang belum punya stok yang bisa dibandingkan, dan
-menghitungnya sebagai nol akan memunculkan "kurang" untuk barang yang
-belum pernah dibeli. Itu bukan kabar baru buat siapa pun, jadi barisnya
-disebut terpisah di bawah tabel.
+**Kemasan yang tidak menunjuk master apa pun tidak ikut dicek stoknya.**
+Baris kemasan boleh cuma berisi nama ketikan, dan yang seperti itu tidak
+punya identitas yang bisa dilacak ke mana pun. Menghitungnya sebagai
+stok nol akan memunculkan "kurang" untuk barang yang memang belum pernah
+ada, jadi namanya disebut terpisah di bawah tabel.
 
 ## Bahannya dari `materials`, BUKAN `items`
 
@@ -1612,6 +1654,13 @@ ketiganya yang terakhir ikut diisi karena bertipe `Record<VerifyKey, ...>`:
 | `lib/qrSignServer.ts` `SUMBER_DOKUMEN` | tabel, kolom nomor, kolom tanggal |
 | `app/print/<jenis>/[id]/page.tsx` | halamannya sendiri |
 
+**Tidak semua halaman cetak perlu didaftarkan.** Lembar hitung Stock
+Opname dan Lembar Kerja R&D sengaja berdiri di luar keempat tempat itu:
+keduanya lembar kerja INTERNAL yang diisi tangan lalu dibawa kembali,
+bukan dokumen yang diterbitkan ke pihak luar, jadi tidak ada yang perlu
+diverifikasi lewat QR. Kalau nanti salah satunya berubah jadi dokumen
+yang dikirim keluar, keempat tempat itu yang harus diisi.
+
 `doc_type` di `doc_sign_settings` cuma teks tanpa constraint, jadi jenis
 baru TIDAK butuh migrasi. Barisnya juga tidak perlu ada: kalau belum
 pernah diatur, `getDocSignConfig` jatuh ke tiga key person lama dan
@@ -1975,6 +2024,12 @@ isinya cuma penghitung kunci dan tipe, tanpa import server, supaya
 `InvoiceForm` dan `ConsignmentForm` bisa memakainya. Kalau butuh helper
 kecil yang dipakai dua sisi, taruh di file sendiri yang bersih dari import
 server. Jangan menambahkannya ke file yang sudah menyentuh database.
+
+File yang lahir dengan aturan itu sejak awal: `lib/clientPrice.ts`,
+`lib/angka.ts`, `lib/keyboard.ts`, `lib/dates.ts`, `lib/sidebarPref.ts`,
+`lib/moq.ts`, `lib/rnd.ts`, dan `lib/rndCost.ts`. Yang menyentuh
+database berdiri terpisah, mis. `app/(app)/rnd/data.ts` yang menyusun
+daftar bahan untuk layar R&D.
 
 `import type { … }` dari file server tetap aman: tipe dihapus saat
 kompilasi.
