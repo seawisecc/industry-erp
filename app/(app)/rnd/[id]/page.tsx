@@ -442,7 +442,7 @@ export default async function RndDetailPage({
                   },
                   {
                     key: "gram",
-                    header: "Takaran Trial",
+                    header: "Perlu Ditimbang",
                     role: "primary",
                     align: "right",
                     className: "whitespace-nowrap",

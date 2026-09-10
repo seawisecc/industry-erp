@@ -601,6 +601,27 @@ keputusan yang pemegangnya sama persis. Penghapusan pakai `can_cancel`.
 
 `/print/rnd/[id]` mencetak takaran TEORITIS tiap bahan untuk satu batch
 trial, dengan kolom kosong di sebelahnya untuk timbangan aktual.
+
+Namanya dikunci dan dipakai sama di tiga tempat, form develop, tabel
+formula di detail, dan lembar cetaknya:
+
+| Kolom | Isinya |
+| --- | --- |
+| **Perlu Ditimbang (g)** | hasil hitung `% x batch trial`, terisi |
+| **Hasil Timbang (g)** | KOSONG, diisi tangan di lab |
+
+Dua nama itu sengaja tidak disingkat jadi "Takaran" dan "Aktual".
+Kertasnya dipegang orang yang sedang menimbang sambil memegang bahan,
+dan "aktual" menuntut satu langkah tafsir yang tidak perlu ada di
+dokumen yang dipakai sambil bekerja.
+
+**Angka gramnya juga muncul di FORM, sebagai kolom, bukan catatan kaki
+baris.** Formulator menyusun formula dalam persen tapi bekerja dengan
+timbangan, dan versi pertama menaruh angka gram itu sebagai teks kecil
+di bawah barisnya: terbaca kalau dicari, tidak terbaca kalau sedang
+mengetik. Di sebelahnya ada total gram di samping total persen, jadi
+selisih akibat total yang belum 100% langsung kelihatan tanpa dihitung
+sendiri.
 Bedanya dengan lembar hitung opname (yang sengaja TIDAK mencetak angka
 sistem) memang disengaja: di opname angka sistem adalah jawaban yang
 tidak boleh disalin, sedangkan di sini takaran adalah INSTRUKSI yang

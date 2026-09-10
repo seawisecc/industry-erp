@@ -273,6 +273,10 @@ export default function RndForm({
   const netto = nettoGram ? parseNum(nettoGram) : null;
   const biaya = hitungBiayaFormula(barisFormula, barisKemasan, netto, bahanOf);
   const takaran = takaranTrial(barisFormula, trialGram ? parseNum(trialGram) : null);
+  // Jumlah takaran, bukan ukuran batchnya. Dua angka yang seharusnya sama
+  // dan sengaja ditampilkan terpisah: kalau totalnya belum 100%, selisih
+  // gramnya langsung kelihatan tanpa harus menghitung sendiri.
+  const totalGram = Array.from(takaran.values()).reduce((a, b) => a + b, 0);
 
   const belumDimiliki = fRows.filter(
     (r) => r.bahan && ketersediaanBahan(r.bahan) === "belum-dimiliki"
@@ -496,7 +500,8 @@ export default function RndForm({
             </h2>
             <p className="text-muted text-[12.5px] mt-0.5">
               Dari master Materials, termasuk bahan yang belum diadakan di
-              gudang. Takaran trial dihitung otomatis dari ukuran batch di atas.
+              gudang. Kolom Perlu Ditimbang dihitung otomatis dari ukuran batch
+              trial di atas, dan itu juga yang tercetak di lembar kerja lab.
             </p>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -508,6 +513,7 @@ export default function RndForm({
               }`}
             >
               Total {angka(totalPct)}%
+              {totalGram > 0 ? ` · ${angka(totalGram, 3)} g` : ""}
             </span>
             <button
               type="button"
@@ -519,12 +525,21 @@ export default function RndForm({
           </div>
         </div>
 
+        <div className="hidden sm:grid grid-cols-[1fr_56px_96px_110px_140px_32px] gap-2 text-[11px] uppercase tracking-wide text-muted px-0.5">
+          <span>Bahan</span>
+          <span className="text-center">Fase</span>
+          <span className="text-right">Persen</span>
+          <span className="text-right">Perlu Ditimbang</span>
+          <span>Fungsi</span>
+          <span />
+        </div>
+
         {fRows.map((row, idx) => {
           const options = saranBahan(row);
           const gram = row.bahan ? takaran.get(row.bahan.key) : undefined;
           return (
             <div key={idx} className="flex flex-col gap-1">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_64px_100px_160px_32px] gap-2 items-start">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_56px_96px_110px_140px_32px] gap-2 items-start">
                 <div className="relative">
                   {row.bahan ? (
                     <div className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 text-sm">
@@ -650,6 +665,23 @@ export default function RndForm({
                   </span>
                 </div>
 
+                {/* Perlu ditimbang: hasil hitung, bukan isian. Formulator
+                    bekerja dengan timbangan, jadi angka gramnya harus ada di
+                    KOLOM sebelah persennya, bukan di catatan kaki baris. */}
+                <div
+                  className="glass-input rounded-lg px-3 py-2.5 text-sm text-right whitespace-nowrap overflow-hidden text-ellipsis"
+                  title="Perlu ditimbang untuk satu batch trial"
+                >
+                  {gram != null && gram > 0 ? (
+                    <>
+                      <span className="font-medium">{angka(gram, 3)}</span>
+                      <span className="text-muted text-[12px]"> g</span>
+                    </>
+                  ) : (
+                    <span className="text-muted">-</span>
+                  )}
+                </div>
+
                 <input
                   value={row.fungsi}
                   onChange={(e) => updateF(idx, { fungsi: e.target.value })}
@@ -675,9 +707,6 @@ export default function RndForm({
 
               {row.bahan && (
                 <div className="text-[11.5px] text-muted pl-0.5">
-                  {gram != null && gram > 0
-                    ? `Takaran trial ${angka(gram, 3)} g · `
-                    : "Takaran trial belum bisa dihitung · "}
                   {keteranganBahan(row.bahan)}
                   {row.bahan.inci ? ` · ${row.bahan.inci}` : ""}
                 </div>

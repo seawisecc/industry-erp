@@ -233,8 +233,8 @@ export default async function PrintRndPage({
 
         {/* ===== PENIMBANGAN ===== */}
         <div className="text-[11px] uppercase tracking-wide text-neutral-500 mt-5 mb-1">
-          {bahan.length} bahan · timbang urut per fase, isi kolom aktual dengan
-          angka timbangan
+          {bahan.length} bahan · timbang urut per fase, tulis angka timbangan
+          sebenarnya di kolom Hasil Timbang
           {belumAda > 0 ? ` · ${belumAda} bahan belum tersedia` : ""}
         </div>
         <table className="w-full border-collapse">
@@ -244,9 +244,13 @@ export default async function PrintRndPage({
               <th className="py-2 pr-2 text-left w-[12mm]">Fase</th>
               <th className="py-2 pr-2 text-left">Bahan</th>
               <th className="py-2 pr-2 text-right w-[18mm]">%</th>
-              <th className="py-2 pr-2 text-right w-[24mm]">Takaran (g)</th>
-              <th className="py-2 pr-2 text-center w-[26mm]">Aktual (g)</th>
-              <th className="py-2 text-center w-[18mm]">Paraf</th>
+              <th className="py-2 pr-2 text-right w-[26mm]">
+                Perlu Ditimbang (g)
+              </th>
+              <th className="py-2 pr-2 text-center w-[30mm]">
+                Hasil Timbang (g)
+              </th>
+              <th className="py-2 text-center w-[16mm]">Paraf</th>
             </tr>
           </thead>
           <tbody>
