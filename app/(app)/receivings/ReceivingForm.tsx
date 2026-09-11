@@ -57,6 +57,31 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
+/** Baris faktur awal: sisa qty tiap item PO yang belum datang. */
+function barisDariPO(po: POOption): Row[] {
+  return po.items
+    .map((it) => {
+      const sisa = Number(it.qty_pesan) - Number(it.qty_diterima);
+      return {
+        po_item_id: it.po_item_id,
+        item_id: it.item_id,
+        kode: it.kode,
+        nama: it.nama,
+        satuan: it.satuan,
+        sisa,
+        qty: String(sisa),
+        harga: String(it.harga_per_unit),
+        noLot: "",
+        expDate: "",
+      };
+    })
+    .filter((r) => r.sisa > 0);
+}
+
+function topDariPO(po: POOption): string {
+  return po.top_days == null ? "" : String(po.top_days);
+}
+
 // Dialog konfirmasi harus bisa dibaca sekilas, jadi modelnya ditulis
 // sebagai kalimat, bukan nilai datanya.
 const RINGKASAN_PAJAK: Record<PurchaseTaxMode, string> = {
@@ -68,24 +93,36 @@ const RINGKASAN_PAJAK: Record<PurchaseTaxMode, string> = {
 export default function ReceivingForm({
   pos,
   taxSettings,
+  initialPoId,
 }: {
   pos: POOption[];
+  /**
+   * PO yang langsung terpilih, dari tombol Terima di daftar menunggu
+   * kedatangan. Diabaikan kalau tidak ada di `pos` (mis. sudah Selesai).
+   */
+  initialPoId?: string;
   /** Tarif & aturan DPP perusahaan. Yang dipilih per faktur cuma modelnya. */
   taxSettings: TaxSettings;
 }) {
   const router = useRouter();
   const konfirmasi = useConfirmSave();
 
-  const [poId, setPoId] = useState("");
+  // Isian awal dihitung sekali di sini, bukan lewat useEffect yang
+  // memanggil handlePOChange: hasilnya sama, tanpa render tambahan.
+  const poAwal = pos.find((p) => p.id === initialPoId) || null;
+
+  const [poId, setPoId] = useState(poAwal?.id ?? "");
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [noInvoice, setNoInvoice] = useState("");
   const [taxMode, setTaxMode] = useState<PurchaseTaxMode>(
-    PURCHASE_TAX_MODE_DEFAULT
+    poAwal?.tax_mode ?? PURCHASE_TAX_MODE_DEFAULT
   );
   // Sekali switch-nya disentuh, ganti PO berhenti menimpanya.
   const [taxManual, setTaxManual] = useState(false);
-  const [top, setTop] = useState(""); // hari; "" = tidak diset, "0" = Tunai/CIA
-  const [rows, setRows] = useState<Row[]>([]);
+  const [top, setTop] = useState(poAwal ? topDariPO(poAwal) : ""); // hari; "" = tidak diset, "0" = Tunai/CIA
+  const [rows, setRows] = useState<Row[]>(() =>
+    poAwal ? barisDariPO(poAwal) : []
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -103,26 +140,8 @@ export default function ReceivingForm({
     // tangan: supplier bisa saja menerbitkan fakturnya dengan model lain
     // daripada yang kita duga waktu memesan.
     if (!taxManual) setTaxMode(po.tax_mode);
-    setTop(po.top_days == null ? "" : String(po.top_days));
-    setRows(
-      po.items
-        .map((it) => {
-          const sisa = Number(it.qty_pesan) - Number(it.qty_diterima);
-          return {
-            po_item_id: it.po_item_id,
-            item_id: it.item_id,
-            kode: it.kode,
-            nama: it.nama,
-            satuan: it.satuan,
-            sisa,
-            qty: String(sisa),
-            harga: String(it.harga_per_unit),
-            noLot: "",
-            expDate: "",
-          };
-        })
-        .filter((r) => r.sisa > 0)
-    );
+    setTop(topDariPO(po));
+    setRows(barisDariPO(po));
   }
 
   function updateRow(idx: number, patch: Partial<Row>) {

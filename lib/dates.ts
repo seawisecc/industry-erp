@@ -48,6 +48,13 @@ export function addDaysStr(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Jumlah hari kalender dari `dariIso` sampai `sampaiIso` (yyyy-mm-dd). */
+export function selisihHariStr(dariIso: string, sampaiIso: string): number {
+  const a = Date.parse(dariIso + "T00:00:00Z");
+  const b = Date.parse(sampaiIso + "T00:00:00Z");
+  return Math.round((b - a) / 86_400_000);
+}
+
 /* ============================================================
    Helper JAM.
 

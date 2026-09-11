@@ -1165,6 +1165,41 @@ Yang tetap dilarang adalah mencetaknya di sebelah label pajaknya
 ("PPN (11%)"), karena 11% bukan tarif melainkan hasil akhir.
 
 
+# Ringkasan PO yang menggantung
+
+Kartu di atas daftar Purchase Orders dan Receiving menjawab "berapa yang
+masih nyangkut", dan satu PO cuma boleh terhitung di SATU halaman:
+
+| Halaman | Kartu | Status | Nilai |
+| --- | --- | --- | --- |
+| Purchase Orders | Menunggu Persetujuan | `Dibuat` | total PO |
+| Purchase Orders | Disetujui, Belum Diterima | `Disetujui` + `Dikirim` | total PO |
+| Receiving | Menunggu Kedatangan | `Dikirim` + `Diterima Sebagian` | **sisa** qty belum datang |
+
+Begitu ada penerimaan pertama, PO berhenti terhitung di Purchase Orders.
+`Dikirim` sengaja muncul di kedua halaman: bagi pembelian artinya
+"sudah disetujui, belum beres", bagi gudang artinya "barangnya mau datang".
+
+Tiga aturan yang menentukan, semuanya di `lib/poPipeline.ts`:
+
+- **Dihitung dari SELURUH PO perusahaan, bukan baris halaman ini.**
+  Query-nya terpisah dari tabel dan diambil per 1000 baris sampai habis,
+  karena PostgREST memotong di max-rows tanpa error apa pun.
+- **Nilai di Receiving adalah SISA, bukan total PO.** PO yang barangnya
+  sudah datang 90% tidak boleh terbaca masih menunggu seharga penuh.
+- **Rupiahnya lewat `hitungTotalPembelian`** dengan model pajak yang
+  dibekukan di tiap PO, sama dengan kolom Total di tabel.
+
+Kartunya tidak ikut kotak cari maupun filter: angkanya ringkasan tetap,
+dan mengkliknya justru yang memasang filter status. Ringkasan yang gagal
+dimuat menulis kalimatnya sendiri, bukan ikut menjatuhkan tabel di bawahnya.
+
+Umur tunggu dihitung dari `tanggal_po`, karena tanggal disetujui dan
+tanggal dikirim tidak disimpan di `purchase_orders` (jejaknya cuma ada
+di `activity_logs`). Tombol Terima di daftar tunggu membuka form lewat
+`/receivings/new?po=`, dan form mengisi barisnya di initial state, bukan
+lewat `useEffect`.
+
 # Batal invoice konsinyasi: asal stok harus dicatat dulu
 
 Invoice yang lahir dari konsinyasi dulu tidak bisa dibatalkan.

@@ -1,7 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus, Wand2, Printer, Pencil, Eye } from "lucide-react";
+import {
+  Plus,
+  Wand2,
+  Printer,
+  Pencil,
+  Eye,
+  ClipboardClock,
+  Truck,
+} from "lucide-react";
 import {
   hitungTotalPembelian,
   parsePurchaseTaxMode,
@@ -12,6 +20,8 @@ import Pagination from "@/components/Pagination";
 import CancelTxButton from "@/components/CancelTxButton";
 import DataTable from "@/components/DataTable";
 import RowActions, { IconAction } from "@/components/RowActions";
+import StatCard from "@/components/StatCard";
+import { getPoPipeline } from "@/lib/poPipeline";
 import { cancelPO } from "./actions";
 import {
   ilikeOrWithIds,
@@ -84,6 +94,15 @@ export default async function PurchaseOrdersPage({
 
   const ord = orderFor(sp, SORT, { column: "created_at", ascending: false });
 
+  // Ringkasan di atas tabel: PO yang belum di-approve, dan yang sudah
+  // di-approve tapi barangnya belum diterima sama sekali. Begitu ada
+  // penerimaan, PO-nya pindah ke ringkasan di halaman Receiving.
+  const pipelineP = getPoPipeline(supabase, organizationId!, [
+    "Dibuat",
+    "Disetujui",
+    "Dikirim",
+  ]);
+
   // Nama supplier ada di tabel lain, cari id-nya dulu supaya PO tetap
   // bisa dicari lewat nama supplier, bukan cuma no. PO.
   let supplierIds: string[] = [];
@@ -117,6 +136,18 @@ export default async function PurchaseOrdersPage({
 
   const list = (pos || []) as unknown as PORow[];
   const info = pageInfo(sp.page, count, list.length);
+
+  const pipeline = await pipelineP;
+  const ringkas = (statuses: POStatus[]) => {
+    const rows = (pipeline || []).filter((p) => statuses.includes(p.status));
+    return {
+      jumlah: rows.length,
+      nilai: rows.reduce((s, p) => s + p.total, 0),
+    };
+  };
+  const menunggu = ringkas(["Dibuat"]);
+  const disetujui = ringkas(["Disetujui"]);
+  const dikirim = ringkas(["Dikirim"]);
 
   /**
    * Nilai PO menurut model pajak yang dibekukan di dokumennya. Pada
@@ -162,6 +193,48 @@ export default async function PurchaseOrdersPage({
           </Link>
         </div>
       </div>
+
+      {pipeline ? (
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Link href="/purchase-orders?status=Dibuat" className="block">
+            <StatCard
+              icon={ClipboardClock}
+              label="Menunggu Persetujuan"
+              value={formatRupiah(menunggu.nilai)}
+              sub={`${menunggu.jumlah.toLocaleString("id-ID")} PO belum di-approve`}
+              tone={menunggu.jumlah > 0 ? "amber" : "botanical"}
+            />
+          </Link>
+          <StatCard
+            icon={Truck}
+            label="Disetujui, Belum Diterima"
+            value={formatRupiah(disetujui.nilai + dikirim.nilai)}
+            sub={
+              <>
+                {(disetujui.jumlah + dikirim.jumlah).toLocaleString("id-ID")} PO
+                {" · "}
+                <Link
+                  href="/purchase-orders?status=Disetujui"
+                  className="underline decoration-line underline-offset-2 hover:text-ink"
+                >
+                  {disetujui.jumlah.toLocaleString("id-ID")} belum dikirim
+                </Link>
+                {", "}
+                <Link
+                  href="/purchase-orders?status=Dikirim"
+                  className="underline decoration-line underline-offset-2 hover:text-ink"
+                >
+                  {dikirim.jumlah.toLocaleString("id-ID")} sudah dikirim
+                </Link>
+              </>
+            }
+          />
+        </div>
+      ) : (
+        <p className="mt-4 text-[12.5px] text-clay-600">
+          Ringkasan nilai PO gagal dimuat. Muat ulang halaman untuk mencoba lagi.
+        </p>
+      )}
 
       <div className="mt-4">
         <TableToolbar

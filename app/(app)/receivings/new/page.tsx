@@ -24,7 +24,13 @@ type PORaw = {
   }[];
 };
 
-export default async function NewReceivingPage() {
+export default async function NewReceivingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ po?: string | string[] }>;
+}) {
+  const { po: poParam } = await searchParams;
+  const initialPoId = typeof poParam === "string" ? poParam : undefined;
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
@@ -85,7 +91,11 @@ export default async function NewReceivingPage() {
           .
         </div>
       ) : (
-        <ReceivingForm pos={options} taxSettings={taxSettings} />
+        <ReceivingForm
+          pos={options}
+          taxSettings={taxSettings}
+          initialPoId={initialPoId}
+        />
       )}
     </div>
   );

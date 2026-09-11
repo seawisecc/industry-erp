@@ -18,7 +18,7 @@ export default function StatCard({
   icon: LucideIcon;
   label: string;
   value: string;
-  sub?: string;
+  sub?: React.ReactNode;
   tone?: Tone;
 }) {
   return (
