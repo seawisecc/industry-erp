@@ -153,6 +153,7 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `save_rnd_formula_tx` | Diperluas: kunci bahan dobel dihitung dari material dulu, baru item |
 | | `revise_rnd_formula_tx` | Diperluas: ikut menyalin kolom sumber yang baru |
 | `20260825_material_harga_moq` | (tanpa RPC) | `materials.harga_referensi` & `materials.moq`, plus backfill MOQ dari item yang ter-link |
+| `20260826_material_inci_import` | `import_material_inci_tx` | Import CSV komposisi INCI: ganti utuh komposisi tiap material yang disebut di file, material lain tidak disentuh |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 

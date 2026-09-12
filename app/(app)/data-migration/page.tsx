@@ -37,8 +37,16 @@ const CARDS: ImportCardConfig[] = [
     title: "Material",
     desc: "Impor material (raw material & kemasan) beserta supplier-nya.",
     requiredCols: ["material_code", "tradename"],
-    optionalCols: ["nama_supplier", "origin", "noc", "kategori", "keterangan"],
-    note: "Import Supplier dulu, nama_supplier harus sama persis dengan yang terdaftar. Kategori: Bahan Baku / Kemasan. Komposisi INCI diisi lewat form Material.",
+    optionalCols: [
+      "nama_supplier",
+      "origin",
+      "noc",
+      "kategori",
+      "keterangan",
+      "harga_referensi",
+      "moq",
+    ],
+    note: "Import Supplier dulu, nama_supplier harus sama persis dengan yang terdaftar. Kategori: Bahan Baku / Kemasan. harga_referensi diisi TANPA PPN. Komposisi INCI lewat kartu Komposisi INCI Material.",
     templateSample: [
       "RM-001",
       "Niacinamide PC Grade",
@@ -47,8 +55,22 @@ const CARDS: ImportCardConfig[] = [
       "-",
       "Bahan Baku",
       "-",
+      "185000",
+      "25",
     ],
     previewCols: ["material_code", "tradename", "nama_supplier"],
+  },
+  {
+    kind: "material_inci",
+    title: "Komposisi INCI Material",
+    desc: "Impor komposisi INCI tiap material, satu baris per pasangan material dan INCI.",
+    requiredCols: ["material_code", "inci_name", "percentage"],
+    optionalCols: [],
+    note: "Import Material dan INCI Master dulu. Komposisi material yang disebut di file DIGANTI seluruhnya, material yang tidak disebut tidak disentuh. percentage boleh pakai titik atau koma desimal.",
+    pesanImport:
+      "Komposisi INCI tiap material yang disebut di file diganti seluruhnya dengan isi file. Material yang tidak disebut tidak disentuh.",
+    templateSample: ["RM-001", "Niacinamide", "100"],
+    previewCols: ["material_code", "inci_name", "percentage"],
   },
   {
     kind: "items",
@@ -163,8 +185,8 @@ export default function DataMigrationPage() {
         </div>
         <p className="text-[12.5px] text-muted leading-relaxed">
           1) <b>Supplier</b> → 2) <b>INCI Master</b> → 3) <b>Material</b> → 4){" "}
-          <b>Item Stok Bahan</b> → 5) <b>Stock Adjustment</b> (isi stok awal +
-          harga). Simpan file sebagai <b>CSV UTF-8</b>; header harus sama persis
+          <b>Komposisi INCI Material</b> → 5) <b>Item Stok Bahan</b> → 6){" "}
+          <b>Stock Adjustment</b> (isi stok awal + harga). Simpan file sebagai <b>CSV UTF-8</b>; header harus sama persis
           dengan template. Delimiter koma maupun titik-koma (Excel Indonesia)
           sama-sama dikenali.
         </p>

@@ -14,6 +14,7 @@ import {
   Contact,
   Package,
   ConciergeBell,
+  Atom,
   LucideIcon,
 } from "lucide-react";
 import { runImport, exportCsvData, ImportKind } from "./actions";
@@ -25,6 +26,7 @@ const ICONS: Record<ImportKind, LucideIcon> = {
   suppliers: Briefcase,
   inci: BookText,
   materials: FlaskConical,
+  material_inci: Atom,
   items: Boxes,
   clients: Contact,
   products: Package,
@@ -40,6 +42,8 @@ export type ImportCardConfig = {
   requiredCols: string[]; // kolom wajib
   optionalCols: string[];
   note?: string;
+  /** Kalimat di dialog konfirmasi, untuk import yang tidak cuma menyisipkan. */
+  pesanImport?: string;
   templateSample: string[]; // 1 baris contoh, urut sesuai kolom
   previewCols: string[]; // kolom yang ditampilkan di preview (max 3)
 };
@@ -158,7 +162,9 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
 
     const lanjut = await konfirmasi.minta({
       judul: `Import ${rows.length} baris ke ${config.title}?`,
-      pesan: "Semua baris disisipkan sebagai data baru, bukan menimpa yang sudah ada.",
+      pesan:
+        config.pesanImport ??
+        "Semua baris disisipkan sebagai data baru, bukan menimpa yang sudah ada.",
       ringkasan: [
         { label: "Berkas", nilai: fileName || "-" },
         { label: "Jumlah Baris", nilai: rows.length + " baris" },
@@ -172,6 +178,8 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
     const result = await runImport(config.kind, rows);
     if (result.ok) {
       setSuccess(`✓ ${result.count} baris berhasil diimport`);
+      // Menggantikan peringatan kolom dari file yang barusan diimport
+      setWarning(result.peringatan ?? "");
       setRows([]);
       setFileName("");
       router.refresh();
@@ -199,10 +207,12 @@ export default function ImportCard({ config }: { config: ImportCardConfig }) {
           Kolom CSV
         </div>
         <div className="font-mono text-[11.5px] leading-relaxed break-words">
-          {config.requiredCols.map((c) => (
-            <b key={c}>{c}, </b>
+          {allCols.map((c, i) => (
+            <span key={c}>
+              {i > 0 && ", "}
+              {config.requiredCols.includes(c) ? <b>{c}</b> : c}
+            </span>
           ))}
-          {config.optionalCols.join(", ")}
         </div>
       </div>
 

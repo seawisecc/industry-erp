@@ -3,11 +3,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
+import { keNilai, normalisasiTempel } from "@/lib/angka";
 
 export type ImportKind =
   | "suppliers"
   | "inci"
   | "materials"
+  | "material_inci"
   | "items"
   | "clients"
   | "products"
@@ -24,7 +26,14 @@ const CLIENT_KATEGORI = [
 
 type CsvRow = Record<string, string | undefined>;
 
-export type ImportResult = { ok: true; count: number } | { ok: false; error: string };
+export type ImportResult =
+  | {
+      ok: true;
+      count: number;
+      /** Data tetap tersimpan, tapi ada yang perlu dicek orang. */
+      peringatan?: string;
+    }
+  | { ok: false; error: string };
 
 function clean(v: string | undefined): string | null {
   const t = v?.trim();
@@ -34,6 +43,45 @@ function clean(v: string | undefined): string | null {
 function parseNum(v: string | undefined): number {
   if (!v) return 0;
   return parseFloat(v.replace(",", ".")) || 0;
+}
+
+/**
+ * Angka dari CSV: null kalau kosong, NaN kalau isinya bukan angka.
+ *
+ * Aturannya sama dengan teks yang DITEMPEL ke NumberInput
+ * (`normalisasiTempel`): titik yang diikuti tepat tiga angka adalah
+ * pemisah ribuan, selebihnya desimal. Jadi "1.500.000" dari Excel
+ * Indonesia dan "1500.75" dari Excel berbahasa Inggris sama-sama
+ * terbaca benar.
+ *
+ * NaN sengaja dibedakan dari nol, beda dengan `parseNum`: "Rp 5rb"
+ * yang terbaca 0 tersimpan tanpa error, dan nol di kolom harga
+ * terlihat seperti data yang sah.
+ */
+function angkaCsv(v: string | undefined): number | null {
+  const t = v?.replace(/\s/g, "");
+  if (!t) return null;
+  if (!/^-?[\d.,]+$/.test(t)) return NaN;
+  return parseFloat(keNilai(normalisasiTempel(t), { negatif: true }));
+}
+
+/**
+ * Persentase dari CSV. Beda dengan `angkaCsv`, titik di sini SELALU
+ * desimal: persen tidak pernah butuh pemisah ribuan, dan tanpa aturan
+ * ini "1.125" (1,125%) terbaca seribu seratus dua puluh lima.
+ */
+function persenCsv(v: string | undefined): number | null {
+  const t = v?.replace(/\s/g, "").replace(/%$/, "");
+  if (!t) return null;
+  if (!/^\d+([.,]\d+)?$/.test(t)) return NaN;
+  return parseFloat(t.replace(",", "."));
+}
+
+/** Daftar untuk pesan error, dipotong supaya file besar tidak jadi paragraf. */
+function sebutkan(daftar: Iterable<string | number>, maks = 10): string {
+  const semua = Array.from(daftar, String);
+  if (semua.length <= maks) return semua.join(", ");
+  return `${semua.slice(0, maks).join(", ")}, dan ${semua.length - maks} lainnya`;
 }
 
 /**
@@ -132,6 +180,9 @@ export async function runImport(
       );
 
       const unknown = new Set<string>();
+      // Angka yang tidak terbaca ditolak, bukan dijadikan nol: harga
+      // referensi nol lolos ke perkiraan biaya R&D sebagai harga yang sah.
+      const angkaSalah: string[] = [];
       const mapped = valid.map((r) => {
         const supNama = clean(r.nama_supplier);
         let supplier_id: string | null = null;
@@ -141,14 +192,25 @@ export async function runImport(
         }
         const kategori =
           clean(r.kategori)?.toLowerCase() === "kemasan" ? "Kemasan" : "Bahan Baku";
+        const material_code = clean(r.material_code)!;
+        const harga_referensi = angkaCsv(r.harga_referensi);
+        const moq = angkaCsv(r.moq);
+        if (harga_referensi !== null && !(harga_referensi >= 0)) {
+          angkaSalah.push(`${material_code} (harga_referensi)`);
+        }
+        if (moq !== null && !(moq >= 0)) {
+          angkaSalah.push(`${material_code} (moq)`);
+        }
         return {
-          material_code: clean(r.material_code)!,
+          material_code,
           tradename: clean(r.tradename)!,
           supplier_id,
           origin: clean(r.origin),
           noc: clean(r.noc),
           kategori,
           keterangan: clean(r.keterangan),
+          harga_referensi,
+          moq,
           organization_id: organizationId,
         };
       });
@@ -158,12 +220,138 @@ export async function runImport(
           `Supplier ini belum terdaftar: ${Array.from(unknown).join(", ")}. Import Supplier dulu, atau samakan penulisan namanya.`
         );
       }
+      if (angkaSalah.length > 0) {
+        throw new Error(
+          `Angka tidak terbaca atau negatif: ${sebutkan(angkaSalah)}. Isi angka saja, tanpa "Rp" atau satuan.`
+        );
+      }
 
       const { error } = await supabase.from("materials").insert(mapped);
       if (error) throw new Error(error.message);
 
       revalidatePath("/materials");
       return { ok: true, count: mapped.length };
+    }
+
+    // ================= KOMPOSISI INCI MATERIAL =================
+    // Satu baris CSV = satu pasangan material dan INCI. Komposisi tiap
+    // material yang disebut di file DIGANTI utuh, sama dengan form
+    // Material; yang tidak disebut tidak disentuh. Hapus-lalu-sisipnya di
+    // dalam import_material_inci_tx: sisip yang gagal sesudah hapus
+    // meninggalkan puluhan material tanpa komposisi.
+    if (kind === "material_inci") {
+      // Nomor baris mengikuti Excel: baris 1 adalah header
+      const isi = rows
+        .map((r, i) => ({ r, baris: i + 2 }))
+        .filter(
+          ({ r }) => clean(r.material_code) || clean(r.inci_name) || clean(r.percentage)
+        );
+      if (isi.length === 0) throw new Error("Tidak ada baris komposisi yang terisi");
+
+      const tidakLengkap = isi.filter(
+        ({ r }) => !clean(r.material_code) || !clean(r.inci_name) || !clean(r.percentage)
+      );
+      if (tidakLengkap.length > 0) {
+        throw new Error(
+          `Baris ${sebutkan(tidakLengkap.map((x) => x.baris))} belum lengkap: material_code, inci_name, dan percentage wajib diisi.`
+        );
+      }
+
+      const persenSalah = isi.filter(({ r }) => {
+        const p = persenCsv(r.percentage);
+        return p === null || !(p >= 0 && p <= 100);
+      });
+      if (persenSalah.length > 0) {
+        throw new Error(
+          `Baris ${sebutkan(persenSalah.map((x) => x.baris))}: percentage harus angka 0 sampai 100.`
+        );
+      }
+
+      // Dibaca halaman-per-halaman: master yang terpotong di batas baris
+      // PostgREST akan melaporkan material yang ada sebagai "belum terdaftar".
+      const [materials, incis] = await Promise.all([
+        fetchAllRows(supabase, "materials", "id, material_code, kategori", organizationId),
+        fetchAllRows(supabase, "inci_master", "id, inci_name", organizationId),
+      ]);
+      // Tidak peka huruf besar-kecil, sama dengan cek kode dobel di form Material
+      const materialMap = new Map(
+        materials.map((m) => [String(m.material_code).trim().toLowerCase(), m])
+      );
+      const inciMap = new Map(
+        incis.map((i) => [String(i.inci_name).trim().toLowerCase(), String(i.id)])
+      );
+
+      const kodeAsing = new Set<string>();
+      const inciAsing = new Set<string>();
+      const kemasan = new Set<string>();
+      const dobel = new Set<string>();
+      const pasangan = new Set<string>();
+      const totalPersen = new Map<string, number>();
+
+      const items = isi.map(({ r }) => {
+        const kode = clean(r.material_code)!;
+        const nama = clean(r.inci_name)!;
+        const m = materialMap.get(kode.toLowerCase());
+        const inciId = inciMap.get(nama.toLowerCase());
+        if (!m) kodeAsing.add(kode);
+        else if (m.kategori === "Kemasan") kemasan.add(String(m.material_code));
+        if (!inciId) inciAsing.add(nama);
+
+        const kunci = `${kode.toLowerCase()}|${nama.toLowerCase()}`;
+        if (pasangan.has(kunci)) dobel.add(`${kode} · ${nama}`);
+        pasangan.add(kunci);
+
+        const percentage = persenCsv(r.percentage)!;
+        const kodeResmi = m ? String(m.material_code) : kode;
+        totalPersen.set(kodeResmi, (totalPersen.get(kodeResmi) ?? 0) + percentage);
+
+        return { material_id: m?.id, inci_master_id: inciId, percentage };
+      });
+
+      if (kodeAsing.size > 0) {
+        throw new Error(
+          `Material ini belum terdaftar: ${sebutkan(kodeAsing)}. Import Material dulu, atau samakan kodenya.`
+        );
+      }
+      if (inciAsing.size > 0) {
+        throw new Error(
+          `INCI ini belum ada di INCI Master: ${sebutkan(inciAsing)}. Import INCI Master dulu, atau samakan penulisannya.`
+        );
+      }
+      if (kemasan.size > 0) {
+        throw new Error(
+          `Material kemasan tidak punya komposisi INCI: ${sebutkan(kemasan)}. Hapus barisnya dari file.`
+        );
+      }
+      if (dobel.size > 0) {
+        throw new Error(
+          `INCI yang sama diisi dua kali untuk satu material: ${sebutkan(dobel)}. Sisakan satu baris.`
+        );
+      }
+
+      const { error } = await supabase.rpc("import_material_inci_tx", {
+        p_organization_id: organizationId,
+        p_items: items,
+      });
+      if (error) throw new Error(error.message);
+
+      // Diperingatkan, tidak ditolak, sama dengan form Material
+      const belum100 = Array.from(totalPersen)
+        .filter(([, total]) => Math.abs(total - 100) > 0.01)
+        .map(
+          ([kode, total]) =>
+            `${kode} (${total.toLocaleString("id-ID", { maximumFractionDigits: 4 })}%)`
+        );
+
+      revalidatePath("/materials");
+      return {
+        ok: true,
+        count: items.length,
+        peringatan:
+          belum100.length > 0
+            ? `Tersimpan, tapi total komposisi belum 100%: ${sebutkan(belum100)}.`
+            : undefined,
+      };
     }
 
     // ================= ITEM (STOK BAHAN) =================
@@ -396,12 +584,25 @@ function cell(v: unknown): string {
   return String(v);
 }
 
+/**
+ * Angka untuk kolom yang dibaca balik lewat `angkaCsv`. `String(12.345)`
+ * menghasilkan "12.345", yang di sisi import terbaca dua belas ribu
+ * tiga ratus empat puluh lima karena titiknya diikuti tepat tiga angka.
+ * Nol di ekor mematahkan pola itu tanpa mengubah nilainya.
+ */
+function angkaEkspor(v: unknown): string {
+  const s = cell(v);
+  return /\.\d{3}$/.test(s) ? s + "0" : s;
+}
+
 type ExportSpec = {
   table: string;
   select: string;
   orderBy: string;
   /** Kunci hasilnya HARUS sama dengan kolom template import. */
   map: (r: Record<string, unknown>) => Record<string, string>;
+  /** Urutan akhir, untuk yang tidak bisa diurutkan lewat kolom tabelnya sendiri. */
+  urut?: (a: Record<string, string>, b: Record<string, string>) => number;
 };
 
 const EXPORT_SPEC: Record<ImportKind, ExportSpec> = {
@@ -433,7 +634,7 @@ const EXPORT_SPEC: Record<ImportKind, ExportSpec> = {
   materials: {
     table: "materials",
     select:
-      "id, material_code, tradename, origin, noc, kategori, keterangan, suppliers(nama)",
+      "id, material_code, tradename, origin, noc, kategori, keterangan, harga_referensi, moq, suppliers(nama)",
     orderBy: "material_code",
     // nama_supplier sengaja diekspor sebagai NAMA (bukan id) supaya
     // file hasil export bisa langsung di-import balik.
@@ -447,7 +648,28 @@ const EXPORT_SPEC: Record<ImportKind, ExportSpec> = {
       noc: cell(r.noc),
       kategori: cell(r.kategori),
       keterangan: cell(r.keterangan),
+      harga_referensi: angkaEkspor(r.harga_referensi),
+      moq: angkaEkspor(r.moq),
     }),
+  },
+  material_inci: {
+    table: "material_inci",
+    select: "id, material_id, inci_name, percentage, materials(material_code)",
+    orderBy: "material_id",
+    // Kode material, bukan id, alasan yang sama dengan nama_supplier
+    map: (r) => ({
+      material_code: cell(
+        (r.materials as { material_code?: string } | null)?.material_code ?? ""
+      ),
+      inci_name: cell(r.inci_name),
+      percentage: cell(r.percentage),
+    }),
+    // Dikelompokkan per kode material, persen terbesar dulu. Urutan dari
+    // database cuma per material_id, yang tidak berarti apa-apa di Excel.
+    urut: (a, b) =>
+      a.material_code.localeCompare(b.material_code, undefined, { numeric: true }) ||
+      Number(b.percentage) - Number(a.percentage) ||
+      a.inci_name.localeCompare(b.inci_name),
   },
   items: {
     table: "items",
@@ -530,7 +752,9 @@ export async function exportCsvData(
       spec.orderBy
     );
 
-    return { ok: true, rows: raw.map(spec.map) };
+    const rows = raw.map(spec.map);
+    if (spec.urut) rows.sort(spec.urut);
+    return { ok: true, rows };
   } catch (err) {
     return {
       ok: false,
