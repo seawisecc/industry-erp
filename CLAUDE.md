@@ -157,6 +157,7 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | `20260827_receiving_biaya_kirim` | `create_receiving_tx` | Diperluas: diskon faktur (mengurangi DPP) & biaya kirim (di luar pajak) |
 | `20260828_po_status_urut` | (tanpa RPC) | `purchase_orders.status_urut`, kolom generated untuk urutan bawaan daftar PO |
 | `20260829_kirim_ke_hpp` | `create_receiving_tx` | Diperluas: opsi biaya kirim ikut dibebankan ke HPP batch |
+| `20260830_po_status_dibatalkan` | (tanpa RPC) | Label `Dibatalkan` di enum `po_status` + kolom `catatan_batal` |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -1122,6 +1123,14 @@ di handler `onChange`, bukan `useEffect` yang mengawasi `supplierId`.
 Pada `Non` dan `Exclude` keduanya sama persis. Pada `Include`,
 `harga_per_unit = harga_faktur / (1 + tarif efektif)`.
 
+**Sejak `20260829` ada satu hal lagi yang boleh menambah
+`harga_per_unit`, dan cuma satu: jatah biaya kirim, kalau faktur itu
+dicentang `kirim_ke_hpp`.** Waktu itu menyala, keduanya berbeda bahkan
+pada `Non` dan `Exclude`, dan selisihnya BUKAN pajak melainkan ongkos
+kirim. Lihat bab Diskon faktur & biaya kirim. Yang tidak berubah:
+`harga_faktur` tetap angka di kertas, dan pembagian tugas di bawah ini
+tetap berlaku apa adanya.
+
 Kalau harga Include dipakai apa adanya sebagai HPP, barang yang sama jadi
 lebih mahal cuma karena suppliernya menulis fakturnya dengan gaya yang
 berbeda, padahal uang yang keluar sama saja. Itu akan menyebar diam-diam
@@ -1302,6 +1311,14 @@ cetak Penerimaan (prop `cetak` yang membedakan gayanya). `Sub Total Exc
 Tax` cuma muncul pada `Include`, dan `DPP` + `PPN` disembunyikan pada
 `Non`. Sebelumnya markup tiga barisnya disalin di tiap layar.
 
+`Diskon` + `Setelah Diskon` dan `Biaya Kirim` juga cuma muncul kalau
+fakturnya memang memuatnya, dan URUTANNYA yang menerangkan perlakuan
+pajaknya: diskon di ATAS DPP karena mengurangi dasar pengenaan pajak,
+biaya kirim di BAWAH PPN karena tidak pernah ikut dikenai pajak. Baris
+bernilai nol di dokumen cetak terbaca sebagai potongan yang lupa diisi,
+dan itu pertanyaan yang tidak perlu ada. Keduanya baru terisi di
+penerimaan barang; PO dan retur belum punya kolomnya.
+
 Di kedua form, switch pajaknya berdiri di kartu SENDIRI di sebelah kiri
 panel rekap, bukan di dalamnya. Kiri satu pilihan tentang kertas
 suppliernya, kanan akibatnya ke angka: sebab dan akibat terbaca
@@ -1378,6 +1395,35 @@ judul kolom Status memberi urutan alur yang sama, bukan abjad.
 urutan bawaan. `.range()` memotong hasil yang urutannya tidak pasti, dan
 dua baris bernilai sama bisa bertukar tempat antar permintaan, jadi satu
 PO muncul dua kali di halaman 2 sementara PO lain hilang sama sekali.
+
+## Membatalkan PO: cuma selama belum ada barang yang datang
+
+`cancelPO` menandai PO jadi `Dibatalkan` dan menyimpan alasannya di
+`catatan_batal`. Dia TIDAK menyentuh stok, batch, maupun faktur, dan itu
+bukan kelalaian melainkan syaratnya: pembatalan ditolak kalau statusnya
+sudah `Diterima Sebagian` atau `Selesai`, DAN ditolak kalau ada satu
+baris pun yang `qty_diterima` lebih dari nol. Jadi tidak ada jalur
+pembatalan yang bisa meninggalkan stok menggantung tanpa dokumen.
+
+Pemeriksaan qty-nya sengaja terpisah dari pemeriksaan status: status PO
+bisa saja belum sempat berpindah, dan yang menentukan adalah barangnya
+sudah masuk atau belum, bukan labelnya.
+
+Izinnya `can_cancel`, dipasang di server action, bukan cuma disembunyikan
+tombolnya. Alasan batal wajib diisi: PO yang ditutup tanpa keterangan
+meninggalkan pertanyaan yang tidak bisa dijawab siapa pun berbulan-bulan
+kemudian.
+
+PO yang dibatalkan turun ke urutan paling bawah (`status_urut` 6) dan
+tidak ikut dihitung di kartu ringkasan PO menggantung, jadi dia berhenti
+menuntut perhatian tanpa pernah hilang dari riwayat.
+
+**Membatalkan PO yang barangnya sudah sebagian datang belum ada, dan
+itu bukan pekerjaan yang tertunda.** Yang harus dijawab lebih dulu bukan
+soal teknis melainkan apa yang terjadi pada faktur penerimaan dan batch
+yang sudah terlanjur ada, termasuk kalau salah satunya sudah terpakai
+produksi. Sampai itu diputuskan, jalan yang benar adalah retur pembelian
+untuk barang yang sudah datang, lalu PO-nya ditutup apa adanya.
 
 ## Cetak Pengajuan PO, dan catatan isi PO di daftarnya
 
@@ -1538,6 +1584,12 @@ Tiga hal yang menjaga isinya tetap terbaca:
 - **Nilai jsonb/array besar ditandai `(diubah)`, tidak disalin.** Diff
   `execution_data` utuh berukuran puluhan kilobyte tanpa menambah satu pun
   informasi yang bisa dibaca orang.
+- **Kolom TURUNAN masuk daftar abaikan `v_abaikan`**, tempat yang sama
+  dengan `created_at` & `updated_at`. `purchase_orders.status_urut`
+  cuma fungsi dari `status`, jadi mencatatnya berarti tiap perubahan
+  status tersimpan dua kali: sekali yang berarti, sekali yang cuma
+  bayangannya. Tanpa ini, backfill kolom semacam itu juga menulis satu
+  entri "Ubah" untuk SETIAP baris tabelnya.
 
 **Tabel yang isinya diganti utuh (hapus lalu sisip) pakai trigger
 `FOR EACH STATEMENT`, bukan per baris.** `product_formulas` dan
