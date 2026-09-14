@@ -476,6 +476,55 @@ Migrasi `20260825` ikut mem-backfill arah sebaliknya sekali (item yang
 MOQ-nya sudah diisi lama disalin ke materialnya) supaya kolomnya tidak
 tampil kosong di hari pertama dan terlihat seperti data yang hilang.
 
+## Nama & kode material turun ke item stoknya, tapi berhenti kalau gudang sudah menamai sendiri
+
+Ganti nama bahan baku AMAN, kebalikan dari nama varian produk jadi: tiap
+mutasi bahan (`purchase_batches`, `po_items`, `material_issue_items`,
+`stock_opname_items`, `execution_data.bahan`) menyimpan `item_id`, bukan
+teks namanya. Nama dibaca lewat join saat layar dibuka, jadi PO tahun
+lalu ikut menampilkan nama baru dan tidak ada satu angka pun yang
+bergerak. Yang tidak ikut berubah cuma kertas yang sudah tercetak, sama
+seperti nomor batch yang dibetulkan.
+
+Karena aman, `updateMaterial` menurunkan kode DAN nama ke item stok yang
+ter-link. Sebelumnya cuma kodenya, dan akibatnya bahan yang sama bisa
+bernama `Cetiol CC` di R&D lalu `Cetyl Ethylhexanoate` di gudang tanpa
+error apa pun: dua nama untuk satu barang, yaitu undangan salah pilih di
+form PO dan di lembar opname yang baru ketahuan sesudah stoknya bergerak.
+
+**Nama berhenti ikut begitu item stoknya dinamai sendiri.** Kolomnya di
+form Stock Items memang berlabel "nama sehari-hari di gudang": tradename
+katalog supplier boleh panjang dan penuh kode, dan orang gudang berhak
+memendekkannya. Menimpanya tiap kali ada orang menyunting materialnya,
+bahkan cuma untuk mengganti MOQ, akan menghapus keputusan yang sengaja
+dibuat, diam-diam. Polanya sama dengan `hargaManual` di `InvoiceForm`
+dan `taxManual` di `POForm`: isian otomatis berhenti begitu manusia
+menyentuhnya. Pembandingnya nama item dengan tradename LAMA, bukan yang
+baru diketik, karena yang ditanya adalah "item ini masih ikut materialnya
+atau sudah dinamai sendiri".
+
+KODE tetap selalu ikut, dan itu memang sudah begitu sejak awal: satu
+penomoran material = item.
+
+Dua hal yang menjaganya tetap jujur:
+
+- **Penjaga nama dobel jalan SEBELUM tulisan pertama.** `items.nama`
+  wajib unik di satu organisasi, aturan yang sama dengan form Stock
+  Items. `supabase-js` tidak punya transaksi, jadi penjaga di tengah
+  akan meninggalkan material yang sudah terlanjur berganti nama
+  sementara itemnya tidak, yaitu persis keadaan yang mau dihapus.
+  Alasan yang sama dengan `assertVarianBerstokTidakHilang`.
+- **Form dan dialog konfirmasinya mengatakan akibatnya.** Kolom yang
+  menulis ke layar LAIN harus menyebut itu, alasan yang sama dengan
+  baris "Berlaku sekarang" di bawah harga & MOQ. Kalau item stoknya
+  sudah punya nama sendiri, keterangannya menyebutkan nama itu apa
+  adanya, supaya perbedaan yang sengaja dibuat tidak terbaca seperti
+  sinkronisasi yang rusak.
+
+Arah sebaliknya TIDAK disinkronkan: mengganti nama di Stock Items tidak
+mengubah `materials.tradename`. Itu memang maksudnya, karena nama gudang
+boleh berbeda; sesudah itu materialnya berhenti menurunkan nama ke sana.
+
 # R&D Formulation: satu baris per versi, bukan satu baris yang disunting
 
 Formula lahir jauh sebelum produknya ada, dan selama ini seluruh

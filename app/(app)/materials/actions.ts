@@ -131,11 +131,70 @@ async function updateMaterialImpl(id: string, data: MaterialPayload) {
     throw new Error(`Kode material "${data.material_code.trim()}" sudah terdaftar`);
   }
 
+  const kode = data.material_code.trim();
+  const tradename = data.tradename.trim();
+
+  /* Item stok yang ter-link dibaca SEBELUM tulisan pertama, bersama
+     penjaga nama dobelnya. supabase-js tidak punya transaksi, jadi
+     penjaga yang dipasang di tengah akan meninggalkan material yang
+     sudah terlanjur berganti nama sementara itemnya tidak, yaitu persis
+     keadaan yang seluruh sinkronisasi ini mau hapus. Alasan yang sama
+     dengan `assertVarianBerstokTidakHilang` di updateProduct. */
+  const { data: matRow } = await supabase
+    .from("materials")
+    .select("item_id, tradename")
+    .eq("id", id)
+    .eq("organization_id", organizationId)
+    .single();
+
+  const { data: itemRow } = matRow?.item_id
+    ? await supabase
+        .from("items")
+        .select("nama")
+        .eq("id", matRow.item_id)
+        .maybeSingle()
+    : { data: null };
+
+  /* Nama item ikut berubah HANYA selama gudang belum menamainya sendiri.
+
+     Kolomnya di form Stock Items memang berlabel "nama sehari-hari di
+     gudang": tradename katalog supplier boleh panjang dan penuh kode,
+     dan orang gudang berhak memendekkannya. Menimpa nama itu tiap kali
+     ada orang menyunting materialnya (bahkan cuma untuk mengganti MOQ)
+     akan menghapus keputusan yang sengaja dibuat, diam-diam.
+
+     Jadi polanya sama dengan `hargaManual` di InvoiceForm dan
+     `taxManual` di POForm: isian otomatis berhenti begitu manusia
+     menyentuhnya. Yang dibandingkan nama item dengan tradename LAMA,
+     bukan yang baru diketik, karena yang mau diketahui adalah "item ini
+     masih ikut materialnya atau sudah dinamai sendiri". */
+  const namaItemIkut =
+    !!matRow?.item_id &&
+    (itemRow?.nama ?? "").trim().toLowerCase() ===
+      String(matRow.tradename ?? "").trim().toLowerCase();
+
+  if (namaItemIkut && matRow?.item_id) {
+    // Nama item wajib unik di satu organisasi, aturan yang sama dengan
+    // form Stock Items. Ditolak di sini supaya tidak ada material yang
+    // tersimpan dengan nama yang itemnya gagal ikuti.
+    const { data: dupItem } = await supabase
+      .from("items")
+      .select("kode")
+      .eq("organization_id", organizationId)
+      .ilike("nama", tradename)
+      .neq("id", matRow.item_id);
+    if (dupItem && dupItem.length > 0) {
+      throw new Error(
+        `Nama "${tradename}" sudah dipakai item stok lain (${dupItem[0].kode}). Pakai nama lain, atau rapikan dulu itemnya lewat menu Stock Items.`
+      );
+    }
+  }
+
   const { error } = await supabase
     .from("materials")
     .update({
-      material_code: data.material_code.trim(),
-      tradename: data.tradename.trim(),
+      material_code: kode,
+      tradename,
       supplier_id: data.supplier_id || null,
       origin: data.origin || null,
       noc: data.noc || null,
@@ -150,17 +209,29 @@ async function updateMaterialImpl(id: string, data: MaterialPayload) {
     throw new Error(error.message);
   }
 
-  // Sinkron kode item yang ter-link (satu penomoran material = item)
-  const { data: matRow } = await supabase
-    .from("materials")
-    .select("item_id")
-    .eq("id", id)
-    .single();
+  /* Kode selalu ikut, nama ikut selama item stoknya belum dinamai
+     sendiri (lihat `namaItemIkut` di atas): satu bahan, satu identitas.
+     Sebelumnya cuma kodenya, dan akibatnya bahan yang sama bisa bernama
+     "Cetiol CC" di R&D lalu "Cetyl Ethylhexanoate" di gudang tanpa ada
+     error apa pun yang memberi tahu. Dua nama untuk satu barang adalah
+     undangan salah pilih di form PO dan di lembar opname, dan baru
+     ketahuan sesudah stoknya bergerak.
+
+     Aman untuk seluruh riwayat: mutasi bahan menyimpan `item_id`, bukan
+     teks namanya, jadi stok, HPP, PO lama, dan batch produksi tidak
+     bergerak sedikit pun. Itu yang membedakannya dengan nama varian
+     produk jadi, yang justru TIDAK boleh ikut berganti diam-diam karena
+     di sana namanya sendiri yang jadi kunci stok.
+
+     Error-nya dilempar, tidak ditelan seperti versi lama: item yang
+     gagal mengikuti berarti dua layar kembali berbeda nama, dan itu
+     harus kelihatan sekarang, bukan berbulan-bulan lagi. */
   if (matRow?.item_id) {
-    await supabase
+    const { error: itemError } = await supabase
       .from("items")
-      .update({ kode: data.material_code.trim() })
+      .update(namaItemIkut ? { kode, nama: tradename } : { kode })
       .eq("id", matRow.item_id);
+    if (itemError) throw new Error(itemError.message);
   }
 
   await supabase.from("material_inci").delete().eq("material_id", id);

@@ -44,7 +44,7 @@ export default async function EditMaterialPage({
     material.item_id
       ? supabase
           .from("items")
-          .select("moq, satuan")
+          .select("kode, nama, moq, satuan")
           .eq("id", material.item_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -76,6 +76,8 @@ export default async function EditMaterialPage({
           hargaPembelian:
             batch?.harga_per_unit == null ? null : Number(batch.harga_per_unit),
           moqItem: item?.moq == null ? null : Number(item.moq),
+          namaItem: item?.nama ?? null,
+          kodeItem: item?.kode ?? null,
           satuan: item?.satuan ?? null,
         }}
         material={{

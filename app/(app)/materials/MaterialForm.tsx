@@ -27,6 +27,10 @@ export type BerlakuSekarang = {
   hargaPembelian: number | null;
   /** MOQ yang tersimpan di item stok, null bila belum diisi di sana */
   moqItem: number | null;
+  /** nama item stoknya apa adanya, untuk tahu apakah masih ikut tradename */
+  namaItem: string | null;
+  /** kode item stoknya, dipakai menunjuk barisnya di menu Stock Items */
+  kodeItem: string | null;
   /** satuan item, untuk menulis "Rp x/kg" dengan benar */
   satuan: string | null;
 };
@@ -67,6 +71,13 @@ export default function MaterialForm({
   const router = useRouter();
   const konfirmasi = useConfirmSave();
   const isEdit = !!material;
+
+  /* Nama item stok ikut tradename hanya selama gudang belum menamainya
+     sendiri. Dibandingkan dengan tradename yang TERSIMPAN, bukan yang
+     sedang diketik, supaya keterangannya tidak berkedip tiap huruf. */
+  const namaItemIkut =
+    (berlaku?.namaItem ?? "").trim().toLowerCase() ===
+    (material?.tradename ?? "").trim().toLowerCase();
 
   const [materialCode, setMaterialCode] = useState(material?.material_code || "");
   const [tradename, setTradename] = useState(material?.tradename || "");
@@ -116,6 +127,19 @@ export default function MaterialForm({
         { label: "Kode", nilai: materialCode },
         { label: "Tradename", nilai: tradename },
         { label: "Kategori", nilai: kategori },
+        /* Akibat yang menyentuh layar LAIN ditulis di dialognya, bukan
+           cuma di keterangan kolom: orang yang menyimpan material sedang
+           tidak melihat menu Stock Items, dan nama di sana ikut berubah. */
+        ...(berlaku?.adaItem &&
+        namaItemIkut &&
+        tradename.trim() !== (material?.tradename ?? "").trim()
+          ? [
+              {
+                label: "Nama item stok",
+                nilai: `ikut berubah jadi "${tradename.trim()}"`,
+              },
+            ]
+          : []),
         ...(hargaRef.trim()
           ? [{ label: "Harga Referensi", nilai: `Rp ${keTampilan(hargaRef)}` }]
           : []),
@@ -197,6 +221,32 @@ export default function MaterialForm({
           />
         </div>
       </div>
+
+      {/* Kolom yang menulis ke tempat LAIN harus mengatakannya, alasan
+          yang sama dengan baris "Berlaku sekarang" di bawah harga & MOQ:
+          isian yang diam-diam mengubah layar lain sama menyesatkannya
+          dengan isian yang diam-diam tidak berpengaruh. */}
+      {berlaku?.adaItem && (
+        <p className="text-muted text-[11.5px] -mt-1 leading-snug">
+          {namaItemIkut ? (
+            <>
+              Material ini sudah punya item stok
+              {berlaku.kodeItem ? ` (${berlaku.kodeItem})` : ""}. Kode dan nama
+              di atas ikut tertulis ke item itu waktu disimpan, supaya satu
+              bahan tidak punya dua nama. Stok, HPP, dan dokumen lamanya tidak
+              bergerak: mutasi bahan menyimpan id itemnya, bukan namanya.
+            </>
+          ) : (
+            <>
+              Item stoknya sudah dinamai sendiri di gudang:{" "}
+              <span className="text-ink font-medium">{berlaku.namaItem}</span>
+              {berlaku.kodeItem ? ` (${berlaku.kodeItem})` : ""}. Nama itu
+              dibiarkan apa adanya, cuma kodenya yang ikut kode material. Kalau
+              mau disamakan, ganti namanya di menu Stock Items.
+            </>
+          )}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
