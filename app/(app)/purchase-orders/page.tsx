@@ -132,8 +132,18 @@ const SORT: Record<string, string> = {
   no: "no_po",
   tanggal: "tanggal_po",
   top: "top_days",
-  status: "status",
+  // Kolom turunan, bukan `status`: yang diurutkan adalah urutan ALUR
+  // (Dibuat s/d Dibatalkan), bukan abjad atau urutan deklarasi enum.
+  // Definisinya di 20260828_po_status_urut.sql.
+  status: "status_urut",
 };
+
+/* Urutan bawaan: yang belum beres di atas, lalu per nomor PO.
+   Orang membuka halaman ini hampir selalu untuk mencari pekerjaan yang
+   belum selesai, dan `created_at` menurun menyebar pekerjaan itu di
+   antara PO yang sudah lama tutup. Di dalam satu status urutannya naik,
+   jadi yang paling lama menunggu berada paling atas. */
+const URUT_BAWAAN = { column: "status_urut", ascending: true };
 
 export default async function PurchaseOrdersPage({
   searchParams,
@@ -147,7 +157,7 @@ export default async function PurchaseOrdersPage({
 
   const sp = parseListQuery(await searchParams);
 
-  const ord = orderFor(sp, SORT, { column: "created_at", ascending: false });
+  const ord = orderFor(sp, SORT, URUT_BAWAAN);
 
   // Ringkasan di atas tabel: PO yang belum di-approve, dan yang sudah
   // di-approve tapi barangnya belum diterima sama sekali. Begitu ada
@@ -185,8 +195,13 @@ export default async function PurchaseOrdersPage({
     );
   if (sp.filter("status")) query = query.eq("status", sp.filter("status"));
 
+  // no_po sebagai pemecah seri, selalu, bukan cuma pada urutan bawaan:
+  // dua PO dengan tanggal atau status yang sama tidak boleh berpindah
+  // tempat antar halaman, karena .range() memotong hasil yang urutannya
+  // tidak pasti dan satu baris bisa muncul dua kali atau hilang.
   const { data: pos, count } = await query
     .order(ord.column, { ascending: ord.ascending })
+    .order("no_po", { ascending: true })
     .range(sp.from, sp.to);
 
   const list = (pos || []) as unknown as PORow[];

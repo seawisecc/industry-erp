@@ -34,6 +34,11 @@ export type ReceivingInput = {
    * tagihan & hutang, tidak pernah masuk DPP.
    */
   biaya_kirim: number;
+  /**
+   * Biaya kirim ikut dibebankan ke HPP batch, dibagi proporsional
+   * menurut nilai tiap baris. Tidak mengubah pajak sama sekali.
+   */
+  kirim_ke_hpp: boolean;
   top_days: number | null; // 0 = Tunai/CIA, null = tidak diset
   items: ReceivingItemInput[];
 };
@@ -96,6 +101,7 @@ async function createReceivingImpl(data: ReceivingInput) {
       tax_dpp_nilai_lain: tax.dppNilaiLain,
       diskon,
       biaya_kirim: biayaKirim,
+      kirim_ke_hpp: !!data.kirim_ke_hpp,
       top_days: data.top_days,
       jatuh_tempo:
         data.top_days == null

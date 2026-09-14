@@ -11,6 +11,8 @@ import PurchaseTotals from "@/components/PurchaseTotals";
 import {
   keteranganTarif,
   totalPembelian,
+  hppPerUnit,
+  tarifDokumen,
   PURCHASE_TAX_MODE_DEFAULT,
   type PurchaseTaxMode,
 } from "@/lib/purchaseTax";
@@ -125,6 +127,10 @@ export default function ReceivingForm({
   // DPP, biaya kirim ditambahkan sesudah PPN. Lihat lib/purchaseTax.ts.
   const [diskon, setDiskon] = useState("");
   const [biayaKirim, setBiayaKirim] = useState("");
+  // Ongkir masuk HPP atau tidak adalah keputusan PER FAKTUR, bukan
+  // pengaturan perusahaan: yang tahu ongkos ini milik barangnya atau
+  // cuma biaya sekali jalan adalah orang yang sedang memegang fakturnya.
+  const [kirimKeHpp, setKirimKeHpp] = useState(false);
   const [rows, setRows] = useState<Row[]>(() =>
     poAwal ? barisDariPO(poAwal) : []
   );
@@ -162,6 +168,23 @@ export default function ReceivingForm({
   });
   const diskonKebesaran = nilaiDiskon > subtotal;
 
+  /** Jatah ongkir per unit baris ini, nol kalau opsinya mati. */
+  function jatahOngkir(harga: number) {
+    if (!kirimKeHpp || subtotal <= 0) return 0;
+    return (nilaiKirim * harga) / subtotal;
+  }
+
+  /** HPP yang akan benar-benar tersimpan di batch, sama rumusnya dengan RPC. */
+  function hppBaris(harga: number) {
+    return hppPerUnit(
+      harga,
+      taxMode,
+      tarifDokumen(taxMode, taxSettings),
+      taxSettings.dppNilaiLain,
+      { subtotal, biayaKirim: nilaiKirim, kirimKeHpp }
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
@@ -197,7 +220,14 @@ export default function ReceivingForm({
           ? [{ label: "Diskon", nilai: "- " + formatRupiah(nilaiDiskon) }]
           : []),
         ...(nilaiKirim > 0
-          ? [{ label: "Biaya Kirim", nilai: formatRupiah(nilaiKirim) }]
+          ? [
+              {
+                label: "Biaya Kirim",
+                nilai:
+                  formatRupiah(nilaiKirim) +
+                  (kirimKeHpp ? ", dibebankan ke HPP" : ", di luar HPP"),
+              },
+            ]
           : []),
         { label: "Total", nilai: formatRupiah(totals.total) },
       ],
@@ -213,6 +243,7 @@ export default function ReceivingForm({
         tax_mode: taxMode,
         diskon: nilaiDiskon,
         biaya_kirim: nilaiKirim,
+        kirim_ke_hpp: kirimKeHpp,
         top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
         items: rows.map((r) => ({
           po_item_id: r.po_item_id,
@@ -397,6 +428,21 @@ export default function ReceivingForm({
                 </div>
               </div>
 
+              {/* HPP hasil akhirnya ditulis di sini, bukan cuma harga
+                  fakturnya: begitu ongkir dibebankan, angka yang masuk
+                  ke nilai stok dan biaya produksi bukan lagi angka yang
+                  diketik, dan itu harus terlihat SEBELUM disimpan. */}
+              {kirimKeHpp && nilaiKirim > 0 && parseNum(row.harga) > 0 && (
+                <p className="text-[11.5px] text-muted">
+                  HPP tersimpan:{" "}
+                  <span className="text-ink font-medium">
+                    {formatRupiah(hppBaris(parseNum(row.harga)))}
+                  </span>{" "}
+                  /{row.satuan}, sudah termasuk jatah ongkir{" "}
+                  {formatRupiah(jatahOngkir(parseNum(row.harga)))}
+                </p>
+              )}
+
               {parseNum(row.qty) > row.sisa && (
                 <p className="text-clay-600 text-[12px]">
                   Melebihi sisa PO ({row.sisa.toLocaleString("id-ID")} {row.satuan})
@@ -467,6 +513,31 @@ export default function ReceivingForm({
                   Diskon melebihi nilai barang di faktur (
                   {formatRupiah(subtotal)}).
                 </p>
+              )}
+
+              {/* Pilihan ini mengubah HPP, jadi cuma ditawarkan kalau
+                  ongkirnya memang diisi. Checkbox yang tidak mengubah
+                  apa pun lebih buruk daripada tidak ada checkbox. */}
+              {nilaiKirim > 0 && (
+                <label className="mt-3 cursor-pointer rounded-xl border border-line bg-white/45 p-3.5 flex flex-col gap-1 hover:bg-white/70 transition-colors">
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={kirimKeHpp}
+                      onChange={(e) => setKirimKeHpp(e.target.checked)}
+                      className="accent-[#2f4f3e]"
+                    />
+                    <span className="text-[13px] font-medium text-ink">
+                      Bebankan biaya kirim ke HPP barang
+                    </span>
+                  </span>
+                  <span className="text-[11.5px] text-muted leading-snug">
+                    Dibagi ke tiap baris menurut nilainya. Pakai kalau
+                    ongkos ini memang bagian dari harga barangnya (mis.
+                    satu kiriman kemasan). Pajaknya tidak berubah sama
+                    sekali: ongkir tetap di luar DPP.
+                  </span>
+                </label>
               )}
             </div>
           </div>

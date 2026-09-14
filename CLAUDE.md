@@ -155,6 +155,8 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | `20260825_material_harga_moq` | (tanpa RPC) | `materials.harga_referensi` & `materials.moq`, plus backfill MOQ dari item yang ter-link |
 | `20260826_material_inci_import` | `import_material_inci_tx` | Import CSV komposisi INCI: ganti utuh komposisi tiap material yang disebut di file, material lain tidak disentuh |
 | `20260827_receiving_biaya_kirim` | `create_receiving_tx` | Diperluas: diskon faktur (mengurangi DPP) & biaya kirim (di luar pajak) |
+| `20260828_po_status_urut` | (tanpa RPC) | `purchase_orders.status_urut`, kolom generated untuk urutan bawaan daftar PO |
+| `20260829_kirim_ke_hpp` | `create_receiving_tx` | Diperluas: opsi biaya kirim ikut dibebankan ke HPP batch |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -1184,15 +1186,47 @@ dokumen aslinya. Karena itu yang diserahkan ke `invoice_tax_calc` adalah
 NETTO dengan diskon nol, bukan subtotal dengan diskon persen: dua sisi
 menghitung `netto = subtotal - diskon` dengan cara yang persis sama.
 
-**Tidak satu pun dari keduanya membebani HPP.**
+**Diskon tidak pernah membebani HPP.**
 `purchase_batches.harga_per_unit` tetap lahir dari harga per baris
-(dikeluarkan PPN-nya pada faktur `Include`), persis seperti sebelumnya.
-Itu keputusan, bukan pekerjaan yang tertunda: kalau potongannya memang
-milik satu barang tertentu, tempatnya di harga baris itu sendiri, dan
-cara itu sudah ada sejak dulu. Membebankan potongan dokumen ke HPP
-berarti HPP satu batch bergantung pada baris LAIN di faktur yang sama,
-dan itu menyebar diam-diam ke biaya produksi, margin produk, dan nilai
-stok.
+(dikeluarkan PPN-nya pada faktur `Include`). Itu keputusan, bukan
+pekerjaan yang tertunda: kalau potongannya memang milik satu barang
+tertentu, tempatnya di harga baris itu sendiri, dan cara itu sudah ada
+sejak dulu.
+
+**Biaya kirim BOLEH membebani HPP, tapi cuma kalau dicentang**
+(`receivings.kirim_ke_hpp`, `20260829`). Dua-duanya benar pada kasusnya
+masing-masing: ongkir sekali jalan yang menanggung banyak barang tidak
+bisa dibilang milik salah satunya, sedangkan satu kiriman kemasan dari
+satu supplier ongkosnya memang bagian dari harga kemasan itu. Karena itu
+pilihannya PER FAKTUR, bukan pengaturan perusahaan: yang tahu jawabannya
+adalah orang yang sedang memegang fakturnya. Bawaannya mati.
+
+Jatahnya proporsional terhadap NILAI baris, dan per unitnya
+menyederhana jadi `biaya_kirim x harga_baris / subtotal`, karena jatah
+baris `kirim x (qty x harga / subtotal)` dibagi qty lagi dan qty-nya
+saling menghapus. Dasarnya nilai, bukan qty: qty mencampur satuan yang
+tidak sebanding, 1.000 pcs tutup botol dan 25 kg bahan baku tidak pernah
+bisa dijumlahkan jadi satu angka yang berarti.
+
+Tiga hal yang tidak ikut bergerak waktu opsi itu menyala: **pajaknya**
+(ongkir tetap di luar DPP, yang berpindah cuma cara biayanya dicatat),
+**`harga_faktur`** (tetap apa adanya seperti di kertas supplier, dan
+itu justru alasan kedua kolom itu dipisah sejak `20260822`), dan **nilai
+retur** (dihitung dari `harga_faktur`, jadi mengembalikan barang tidak
+ikut menagih balik ongkosnya).
+
+Konsekuensinya yang harus disadari: **HPP satu batch jadi bergantung
+pada baris LAIN di faktur yang sama**, jadi angkanya tidak bisa lagi
+dicocokkan langsung dengan harga di kertas suppliernya. Karena itu form
+penerimaan menulis HPP hasil akhirnya di tiap baris begitu opsinya
+dicentang, dan halaman detail penerimaan memunculkan kolom `HPP/Unit`
+di sebelah harga faktur. Angka yang berbeda dengan kertas harus terlihat
+SEBELUM disimpan, bukan ditemukan berbulan-bulan kemudian di laporan
+margin.
+
+Rumusnya ada di dua tempat yang wajib berubah bersamaan, seperti biasa:
+`hppPerUnit()` di `lib/purchaseTax.ts` dan blok `harga_per_unit` di
+`create_receiving_tx`.
 
 **Ongkir wajib bisa dibaca sebagai biaya keluar.** Dia uang keluar yang
 tidak menjadi persediaan: tidak menambah nilai stok, tidak jadi HPP,
@@ -1316,6 +1350,34 @@ tanggal dikirim tidak disimpan di `purchase_orders` (jejaknya cuma ada
 di `activity_logs`). Tombol Terima di daftar tunggu membuka form lewat
 `/receivings/new?po=`, dan form mengisi barisnya di initial state, bukan
 lewat `useEffect`.
+
+## Urutan bawaan daftar PO: alur, bukan abjad
+
+Daftarnya diurutkan `status_urut` naik lalu `no_po` naik, jadi yang
+belum beres selalu di atas: Dibuat, Disetujui, Dikirim, Diterima
+Sebagian, Selesai, Dibatalkan. Di dalam satu status urutannya naik, jadi
+yang paling lama menunggu berada paling atas. Orang membuka halaman ini
+hampir selalu untuk mencari pekerjaan yang belum selesai, dan
+`created_at` menurun menyebar pekerjaan itu di antara PO yang sudah lama
+tutup.
+
+**`status_urut` adalah kolom, bukan `order by status`.** Dua jalan
+pintas yang kelihatan benar dan dua-duanya salah diam-diam: kolom enum
+diurutkan Postgres menurut urutan DEKLARASI enum-nya, yang tidak
+di-track di repo mana pun, dan kolom text diurutkan menurut ABJAD, yang
+menaruh `Dibatalkan` di paling atas. PostgREST juga tidak bisa
+`order by` sebuah ekspresi CASE. Kolomnya generated & stored
+(`20260828_po_status_urut`), jadi tidak ada satu jalur tulis pun yang
+harus ingat mengisinya, alasan yang sama dengan audit trail yang ditulis
+trigger.
+
+Peta `SORT` halaman ikut menunjuk `status_urut`, jadi tombol urut di
+judul kolom Status memberi urutan alur yang sama, bukan abjad.
+
+**`no_po` dipasang sebagai pemecah seri untuk SEMUA urutan**, bukan cuma
+urutan bawaan. `.range()` memotong hasil yang urutannya tidak pasti, dan
+dua baris bernilai sama bisa bertukar tempat antar permintaan, jadi satu
+PO muncul dua kali di halaman 2 sementara PO lain hilang sama sekali.
 
 ## Cetak Pengajuan PO, dan catatan isi PO di daftarnya
 

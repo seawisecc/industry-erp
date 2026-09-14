@@ -211,6 +211,38 @@ export function rincianDariTotal(
  * Cerminan v_pembagi di create_receiving_tx (20260822). Dua-duanya wajib
  * ikut berubah bersamaan.
  */
+/**
+ * HPP satu baris penerimaan: harga faktur tanpa pajak, ditambah jatah
+ * ongkos kirimnya kalau `kirimKeHpp` menyala.
+ *
+ * Jatahnya proporsional terhadap NILAI baris, dan per unitnya
+ * menyederhana jadi `biayaKirim x harga / subtotal`: jatah baris adalah
+ * `kirim x (qty x harga / subtotal)`, dibagi qty lagi untuk jadi per
+ * unit, dan qty-nya saling menghapus. Dasarnya nilai, bukan qty, karena
+ * qty mencampur satuan yang tidak sebanding (1.000 pcs tutup botol dan
+ * 25 kg bahan baku).
+ *
+ * Ongkir tidak ikut dibagi pengurai pajak: dia memang tidak pernah
+ * dikenai PPN, jadi tidak ada pajak yang harus dikeluarkan dari
+ * dalamnya.
+ *
+ * Cerminan blok harga_per_unit di create_receiving_tx
+ * (20260829_kirim_ke_hpp.sql). Dua-duanya wajib ikut berubah bersamaan:
+ * angka HPP yang ditulis layar berbeda dengan yang disimpan database
+ * adalah bug terburuk yang mungkin terjadi di sini.
+ */
+export function hppPerUnit(
+  harga: number,
+  mode: PurchaseTaxMode,
+  taxPercent: number,
+  dppNilaiLain: boolean,
+  ongkir: { subtotal: number; biayaKirim: number; kirimKeHpp: boolean }
+): number {
+  const dasar = hargaExTax(harga, mode, taxPercent, dppNilaiLain);
+  if (!ongkir.kirimKeHpp || ongkir.subtotal <= 0) return dasar;
+  return dasar + (ongkir.biayaKirim * harga) / ongkir.subtotal;
+}
+
 export function hargaExTax(
   harga: number,
   mode: PurchaseTaxMode,

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer, Tags } from "lucide-react";
 import CancelTxButton from "@/components/CancelTxButton";
-import DataTable from "@/components/DataTable";
+import DataTable, { type Column } from "@/components/DataTable";
 import PurchaseTotals from "@/components/PurchaseTotals";
 import {
   hitungTotalPembelian,
@@ -24,6 +24,7 @@ type RcvDetail = {
   subtotal: number;
   diskon: number | null;
   biaya_kirim: number | null;
+  kirim_ke_hpp: boolean | null;
   total_ppn: number;
   total_invoice: number;
   top_days: number | null;
@@ -80,7 +81,7 @@ export default async function ReceivingDetailPage({
   const { data } = await supabase
     .from("receivings")
     .select(
-      "id, no_invoice, tanggal_terima, supplier_nama, ppn_percent, tax_mode, tax_dpp_nilai_lain, subtotal, diskon, biaya_kirim, total_ppn, total_invoice, top_days, jatuh_tempo, status_bayar, po_id, purchase_orders(no_po)"
+      "id, no_invoice, tanggal_terima, supplier_nama, ppn_percent, tax_mode, tax_dpp_nilai_lain, subtotal, diskon, biaya_kirim, kirim_ke_hpp, total_ppn, total_invoice, top_days, jatuh_tempo, status_bayar, po_id, purchase_orders(no_po)"
     )
     .eq("id", id)
     .eq("organization_id", organizationId)
@@ -122,6 +123,27 @@ export default async function ReceivingDetailPage({
       biayaKirim: Number(rcv.biaya_kirim ?? 0),
     }
   );
+
+  /* Begitu ongkirnya dibebankan, HPP yang tersimpan bukan lagi harga di
+     kertas suppliernya, dan tabel ini menampilkan harga kertas. Kolom
+     HPP-nya ikut ditampilkan supaya selisih itu tidak cuma hidup di
+     dalam database. */
+  const kirimKeHpp =
+    rcv.kirim_ke_hpp === true && Number(rcv.biaya_kirim ?? 0) > 0;
+
+  const kolomHpp: Column<BatchRow>[] = kirimKeHpp
+    ? [
+        {
+          key: "hpp",
+          header: "HPP/Unit",
+          cardLabel: "HPP per unit",
+          role: "secondary",
+          align: "right",
+          className: "whitespace-nowrap",
+          cell: (r) => formatRupiah(Number(r.harga_per_unit)),
+        },
+      ]
+    : [];
 
   return (
     <div className="max-w-5xl">
@@ -271,6 +293,7 @@ export default async function ReceivingDetailPage({
             className: "whitespace-nowrap",
             cell: (r) => formatRupiah(hargaFaktur(r)),
           },
+          ...kolomHpp,
           {
             key: "subtotal",
             header: "Subtotal",
@@ -299,7 +322,15 @@ export default async function ReceivingDetailPage({
         ]}
       />
 
-      <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto text-[13.5px]">
+      {kirimKeHpp && (
+        <p className="text-muted text-[12px] mt-3 leading-snug">
+          Biaya kirim {formatRupiah(Number(rcv.biaya_kirim))} dibebankan ke HPP,
+          dibagi ke tiap baris menurut nilainya. Kolom Harga/Unit di atas adalah
+          harga faktur; pajaknya tidak ikut berubah, ongkir tetap di luar DPP.
+        </p>
+      )}
+
+      <div className="glass rounded-2xl p-6 flex flex-col gap-2 sm:max-w-sm sm:ml-auto text-[13.5px] mt-3">
         <PurchaseTotals
           totals={totals}
           mode={taxMode}
