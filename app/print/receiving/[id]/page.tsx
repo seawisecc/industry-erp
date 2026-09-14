@@ -20,6 +20,8 @@ type RcvPrint = {
   tax_mode: string | null;
   tax_dpp_nilai_lain: boolean | null;
   subtotal: number;
+  diskon: number | null;
+  biaya_kirim: number | null;
   total_ppn: number;
   total_invoice: number;
   top_days: number | null;
@@ -72,7 +74,7 @@ export default async function PrintReceivingPage({
     supabase
       .from("receivings")
       .select(
-        "id, no_invoice, tanggal_terima, supplier_nama, ppn_percent, tax_mode, tax_dpp_nilai_lain, subtotal, total_ppn, total_invoice, top_days, jatuh_tempo, po_id, purchase_orders(no_po)"
+        "id, no_invoice, tanggal_terima, supplier_nama, ppn_percent, tax_mode, tax_dpp_nilai_lain, subtotal, diskon, biaya_kirim, total_ppn, total_invoice, top_days, jatuh_tempo, po_id, purchase_orders(no_po)"
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -106,11 +108,17 @@ export default async function PrintReceivingPage({
   // Rincian dari angka yang dibekukan di faktur ini, bukan pengaturan
   // pajak yang berlaku sekarang.
   const taxMode = parsePurchaseTaxMode(rcv.tax_mode);
+  // Diskon & ongkir dibaca dari dokumennya, bukan dihitung ulang: faktur
+  // lama nilainya 0 dan angkanya tidak bergerak sedikit pun.
   const totals = hitungTotalPembelian(
     Number(rcv.subtotal),
     taxMode,
     Number(rcv.ppn_percent),
-    rcv.tax_dpp_nilai_lain !== false
+    rcv.tax_dpp_nilai_lain !== false,
+    {
+      diskon: Number(rcv.diskon ?? 0),
+      biayaKirim: Number(rcv.biaya_kirim ?? 0),
+    }
   );
 
   // Kolom tanda tangan sesuai pengaturan Document Signing (per jenis dokumen)

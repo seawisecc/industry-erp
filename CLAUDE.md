@@ -154,6 +154,7 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `revise_rnd_formula_tx` | Diperluas: ikut menyalin kolom sumber yang baru |
 | `20260825_material_harga_moq` | (tanpa RPC) | `materials.harga_referensi` & `materials.moq`, plus backfill MOQ dari item yang ter-link |
 | `20260826_material_inci_import` | `import_material_inci_tx` | Import CSV komposisi INCI: ganti utuh komposisi tiap material yang disebut di file, material lain tidak disentuh |
+| `20260827_receiving_biaya_kirim` | `create_receiving_tx` | Diperluas: diskon faktur (mengurangi DPP) & biaya kirim (di luar pajak) |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -1144,6 +1145,72 @@ MENGGELEMBUNGKAN retur atas faktur `Include`, yang harganya sudah memuat
 pajak. Sekarang totalnya lewat `invoice_tax_calc` dengan model faktur
 aslinya, dan baris returnya dinilai dengan `harga_faktur` karena yang
 dikurangi adalah tagihan supplier.
+
+## Diskon faktur & biaya kirim: satu di atas DPP, satu di bawah PPN
+
+Faktur supplier punya dua baris yang bukan harga barang, dan perlakuan
+pajaknya BERBEDA. Keduanya ada di `receivings` sejak
+`20260827_receiving_biaya_kirim`, dalam RUPIAH seperti tertulis di
+kertasnya:
+
+| Kolom | Tempatnya di hitungan |
+| --- | --- |
+| `diskon` | mengurangi nilai barang SEBELUM pajak, jadi DPP ikut turun |
+| `biaya_kirim` | ditambahkan SESUDAH PPN, tidak pernah masuk DPP |
+
+Yang menentukan bukan selera, melainkan Faktur Pajaknya: potongan harga
+tercetak di situ sebagai baris "Dikurangi Potongan Harga" tepat di atas
+DPP, sedangkan ongkos kirim tidak pernah muncul sama sekali dan cuma
+menambah tagihan di lembar invoice-nya.
+
+Faktur yang jadi acuan (Chemarome 2026/13257, Include):
+
+| Baris | Nilai |
+| --- | --- |
+| 5 kg x 568.928 | 2.844.640 |
+| Volume discount | 28.446 |
+| Netto (yang kena pajak) | 2.816.194 |
+| SUB TOTAL EXC TAX | 2.537.112 |
+| DPP | 2.325.686 |
+| PPN | 279.082 |
+| Delivery cost | 50.000 |
+| TOTAL tagihan | 2.866.194 |
+
+**Diskonnya RUPIAH, bukan persen.** Sisi penjualan memakai persen karena
+di sana angkanya memang dinegosiasikan sebagai persentase; di sisi
+pembelian yang datang adalah angka jadi di kertas, dan mengubahnya jadi
+persen lebih dulu cuma menambah satu pembulatan yang tidak ada di
+dokumen aslinya. Karena itu yang diserahkan ke `invoice_tax_calc` adalah
+NETTO dengan diskon nol, bukan subtotal dengan diskon persen: dua sisi
+menghitung `netto = subtotal - diskon` dengan cara yang persis sama.
+
+**Tidak satu pun dari keduanya membebani HPP.**
+`purchase_batches.harga_per_unit` tetap lahir dari harga per baris
+(dikeluarkan PPN-nya pada faktur `Include`), persis seperti sebelumnya.
+Itu keputusan, bukan pekerjaan yang tertunda: kalau potongannya memang
+milik satu barang tertentu, tempatnya di harga baris itu sendiri, dan
+cara itu sudah ada sejak dulu. Membebankan potongan dokumen ke HPP
+berarti HPP satu batch bergantung pada baris LAIN di faktur yang sama,
+dan itu menyebar diam-diam ke biaya produksi, margin produk, dan nilai
+stok.
+
+**Ongkir wajib bisa dibaca sebagai biaya keluar.** Dia uang keluar yang
+tidak menjadi persediaan: tidak menambah nilai stok, tidak jadi HPP,
+jadi tanpa tempat khusus dia akan lenyap ke dalam total pembelian dan
+tidak pernah bisa dihitung. Karena itu laporan Purchasing punya kartu
+`Biaya Kirim` dan kolomnya sendiri per faktur, terpisah dari `Total`.
+
+**Retur tidak mengembalikan ongkirnya.** `create_purchase_return_tx`
+membandingkan nilai retur dengan `total_invoice`, yang sekarang ikut
+memuat biaya kirim, jadi mengembalikan SELURUH barang menyisakan ongkos
+kirimnya sebagai tagihan. Itu memang yang benar di lapangan: kurirnya
+sudah jalan, ongkosnya tidak ikut pulang.
+
+**Yang belum punya kolomnya: PO dan retur pembelian.** Ongkos kirim baru
+diketahui waktu fakturnya datang bersama barang, jadi di PO dia memang
+belum ada. Kalau nanti diinginkan di PO, yang harus diputuskan lebih
+dulu bukan soal teknis melainkan apa yang terjadi saat angkanya berbeda
+dengan faktur yang datang.
 
 ## Yang dibekukan per dokumen
 

@@ -120,6 +120,11 @@ export default function ReceivingForm({
   // Sekali switch-nya disentuh, ganti PO berhenti menimpanya.
   const [taxManual, setTaxManual] = useState(false);
   const [top, setTop] = useState(poAwal ? topDariPO(poAwal) : ""); // hari; "" = tidak diset, "0" = Tunai/CIA
+  // Dua baris faktur yang bukan harga barang. Rupiah apa adanya seperti
+  // di kertas supplier, dan perlakuan pajaknya BERBEDA: diskon mengurangi
+  // DPP, biaya kirim ditambahkan sesudah PPN. Lihat lib/purchaseTax.ts.
+  const [diskon, setDiskon] = useState("");
+  const [biayaKirim, setBiayaKirim] = useState("");
   const [rows, setRows] = useState<Row[]>(() =>
     poAwal ? barisDariPO(poAwal) : []
   );
@@ -149,11 +154,24 @@ export default function ReceivingForm({
   }
 
   const subtotal = rows.reduce((s, r) => s + parseNum(r.qty) * parseNum(r.harga), 0);
-  const totals = totalPembelian(subtotal, taxMode, taxSettings);
+  const nilaiDiskon = parseNum(diskon);
+  const nilaiKirim = parseNum(biayaKirim);
+  const totals = totalPembelian(subtotal, taxMode, taxSettings, {
+    diskon: nilaiDiskon,
+    biayaKirim: nilaiKirim,
+  });
+  const diskonKebesaran = nilaiDiskon > subtotal;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    if (diskonKebesaran) {
+      setError(
+        `Diskon ${formatRupiah(nilaiDiskon)} melebihi nilai barang di faktur (${formatRupiah(subtotal)}).`
+      );
+      return;
+    }
 
     const overLimit = rows.find((r) => parseNum(r.qty) > r.sisa);
     if (overLimit) {
@@ -175,6 +193,12 @@ export default function ReceivingForm({
         { label: "No. Faktur", nilai: noInvoice || "-" },
         { label: "Item", nilai: rows.length + " baris" },
         { label: "Pajak", nilai: RINGKASAN_PAJAK[taxMode] },
+        ...(nilaiDiskon > 0
+          ? [{ label: "Diskon", nilai: "- " + formatRupiah(nilaiDiskon) }]
+          : []),
+        ...(nilaiKirim > 0
+          ? [{ label: "Biaya Kirim", nilai: formatRupiah(nilaiKirim) }]
+          : []),
         { label: "Total", nilai: formatRupiah(totals.total) },
       ],
       tombol: "Ya, Terima Barang",
@@ -187,6 +211,8 @@ export default function ReceivingForm({
         tanggal_terima: tanggal,
         no_invoice: noInvoice || null,
         tax_mode: taxMode,
+        diskon: nilaiDiskon,
+        biaya_kirim: nilaiKirim,
         top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
         items: rows.map((r) => ({
           po_item_id: r.po_item_id,
@@ -383,7 +409,7 @@ export default function ReceivingForm({
 
       {rows.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
-          <div className="glass rounded-2xl p-6">
+          <div className="glass rounded-2xl p-6 flex flex-col gap-5">
             <TaxModeSwitch
               judul="Pajak Faktur Supplier"
               label="Model perhitungan"
@@ -394,6 +420,55 @@ export default function ReceivingForm({
               }}
               catatan={keteranganTarif(taxSettings)}
             />
+
+            {/* Dua baris faktur yang bukan harga barang. Tempatnya di
+                kartu KIRI bersama model pajaknya, karena ketiganya
+                menjawab pertanyaan yang sama: apa yang tertulis di
+                kertas supplier. Panel kanan yang menunjukkan akibatnya
+                ke angka. */}
+            <div>
+              <div className="text-[12.5px] font-medium text-ink mb-3">
+                Potongan &amp; Ongkos Kirim
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11.5px] text-muted mb-1">
+                    Diskon (Rp)
+                  </label>
+                  <NumberInput
+                    value={diskon}
+                    onChange={setDiskon}
+                    placeholder="0"
+                    className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                  />
+                  <p className="text-[11px] text-muted mt-1 leading-snug">
+                    Potongan harga di faktur. Mengurangi nilai barang
+                    sebelum PPN, jadi DPP ikut turun.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-[11.5px] text-muted mb-1">
+                    Biaya Kirim (Rp)
+                  </label>
+                  <NumberInput
+                    value={biayaKirim}
+                    onChange={setBiayaKirim}
+                    placeholder="0"
+                    className="w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700"
+                  />
+                  <p className="text-[11px] text-muted mt-1 leading-snug">
+                    Ditambahkan sesudah PPN. Tidak kena pajak dan tidak
+                    masuk HPP barang.
+                  </p>
+                </div>
+              </div>
+              {diskonKebesaran && (
+                <p className="text-clay-600 text-[12px] mt-2">
+                  Diskon melebihi nilai barang di faktur (
+                  {formatRupiah(subtotal)}).
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="glass rounded-2xl p-6 flex flex-col gap-2 text-[13.5px]">

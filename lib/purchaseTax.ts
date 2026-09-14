@@ -97,34 +97,86 @@ export function tarifDokumen(mode: PurchaseTaxMode, tax: TaxSettings): number {
   return mode === "Non" ? 0 : tax.taxPercent;
 }
 
+/**
+ * Dua baris faktur supplier yang bukan harga barang, dan yang perlakuan
+ * pajaknya BERBEDA satu sama lain:
+ *
+ *   diskon      potongan harga (volume/packing discount). Mengurangi
+ *               nilai barang SEBELUM pajak, jadi ikut mengurangi DPP.
+ *               Di Faktur Pajak dia baris "Dikurangi Potongan Harga".
+ *   biayaKirim  ongkos kirim. Ditambahkan SESUDAH PPN, tidak pernah
+ *               masuk DPP.
+ *
+ * Keduanya dalam RUPIAH, seperti tertulis di kertas suppliernya. Sisi
+ * penjualan memakai diskon PERSEN karena di sana angkanya dinegosiasikan
+ * sebagai persentase; di sisi pembelian yang datang adalah angka jadi,
+ * dan mengubahnya jadi persen lebih dulu cuma menambah satu pembulatan
+ * yang tidak ada di dokumen aslinya.
+ *
+ * Tidak satu pun dari keduanya membebani HPP: `harga_per_unit` batch
+ * tetap lahir dari harga per baris. Lihat 20260827_receiving_biaya_kirim.sql
+ * untuk alasannya.
+ */
+export type PurchaseExtras = {
+  diskon?: number;
+  biayaKirim?: number;
+};
+
+export type PurchaseTotals = InvoiceTotals & {
+  /** Ongkos kirim, sudah ikut di dalam `total`. */
+  biayaKirim: number;
+};
+
 /** Total dokumen pembelian. Satu-satunya jalan masuk ke rumus pajaknya. */
 export function hitungTotalPembelian(
   subtotal: number,
   mode: PurchaseTaxMode,
   taxPercent: number,
-  dppNilaiLain: boolean
-): InvoiceTotals {
-  return hitungTotalDokumen(
-    subtotal,
+  dppNilaiLain: boolean,
+  extra: PurchaseExtras = {}
+): PurchaseTotals {
+  const diskon = Math.max(0, extra.diskon ?? 0);
+  const biayaKirim = Math.max(0, extra.biayaKirim ?? 0);
+  const netto = subtotal - diskon;
+
+  // Yang diserahkan ke rumus pajak adalah NETTO dengan diskon nol, bukan
+  // subtotal dengan diskon persen: `netto = subtotal - diskon` di sini
+  // sama persis dengan yang dihitung create_receiving_tx, tanpa
+  // perjalanan bolak-balik lewat persentase yang menyisakan selisih
+  // pecahan sen antara layar dan database.
+  const t = hitungTotalDokumen(
+    netto,
     0,
     mode !== "Non",
     taxPercent,
     mode === "Include" ? "Include" : "Exclude",
     dppNilaiLain
   );
+
+  return {
+    ...t,
+    subtotal,
+    diskon,
+    netto,
+    // Ongkir menambah yang harus dibayar, bukan yang dikenai pajak.
+    total: t.total + biayaKirim,
+    biayaKirim,
+  };
 }
 
 /** Bentuk yang lebih enak dipanggil dari form, yang memegang TaxSettings utuh. */
 export function totalPembelian(
   subtotal: number,
   mode: PurchaseTaxMode,
-  tax: TaxSettings
-): InvoiceTotals {
+  tax: TaxSettings,
+  extra: PurchaseExtras = {}
+): PurchaseTotals {
   return hitungTotalPembelian(
     subtotal,
     mode,
     tarifDokumen(mode, tax),
-    tax.dppNilaiLain
+    tax.dppNilaiLain,
+    extra
   );
 }
 

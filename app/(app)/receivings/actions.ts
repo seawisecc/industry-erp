@@ -24,6 +24,16 @@ export type ReceivingInput = {
   no_invoice: string | null;
   /** Model pajak faktur supplier, dipilih di layar penerimaan. */
   tax_mode: PurchaseTaxMode;
+  /**
+   * Potongan harga di faktur, RUPIAH. Mengurangi nilai barang SEBELUM
+   * pajak (ikut mengurangi DPP), tidak dibebankan ke HPP batch.
+   */
+  diskon: number;
+  /**
+   * Ongkos kirim di faktur yang sama. Ditambahkan SESUDAH PPN: menambah
+   * tagihan & hutang, tidak pernah masuk DPP.
+   */
+  biaya_kirim: number;
   top_days: number | null; // 0 = Tunai/CIA, null = tidak diset
   items: ReceivingItemInput[];
 };
@@ -55,6 +65,15 @@ async function createReceivingImpl(data: ReceivingInput) {
     if (it.harga_per_unit < 0) throw new Error("Harga tidak boleh negatif");
   }
 
+  // Penjaga di server, bukan cuma di form: server action punya URL
+  // sendiri dan bisa dipanggil dari mana saja. Batas atas diskon (tidak
+  // boleh melebihi nilai barang) dijaga RPC, yang memang memegang
+  // subtotalnya.
+  const diskon = Number(data.diskon) || 0;
+  const biayaKirim = Number(data.biaya_kirim) || 0;
+  if (diskon < 0 || biayaKirim < 0)
+    throw new Error("Diskon dan biaya kirim tidak boleh negatif");
+
   // Header faktur, batch stok, qty_diterima PO, dan status PO ditulis
   // dalam SATU transaksi. Versi lama menulisnya berurutan dari sini:
   // kalau langkah ke-3 atau ke-4 gagal, stok sudah bertambah tapi PO
@@ -75,6 +94,8 @@ async function createReceivingImpl(data: ReceivingInput) {
       tax_mode: data.tax_mode,
       ppn_percent: tarifDokumen(data.tax_mode, tax),
       tax_dpp_nilai_lain: tax.dppNilaiLain,
+      diskon,
+      biaya_kirim: biayaKirim,
       top_days: data.top_days,
       jatuh_tempo:
         data.top_days == null

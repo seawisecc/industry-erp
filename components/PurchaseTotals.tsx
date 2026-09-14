@@ -2,7 +2,8 @@ import type { InvoiceTotals } from "@/lib/invoiceMath";
 import type { PurchaseTaxMode } from "@/lib/purchaseTax";
 
 /* ============================================================
-   Rekap dokumen pembelian: Subtotal, Sub Total Exc Tax, DPP, PPN, Total.
+   Rekap dokumen pembelian: Subtotal, Diskon, Sub Total Exc Tax, DPP,
+   PPN, Biaya Kirim, Total.
    Urutannya mengikuti faktur supplier, sama persis dengan panel rekap
    penjualan (components/InvoiceTotals.tsx).
 
@@ -16,6 +17,12 @@ import type { PurchaseTaxMode } from "@/lib/purchaseTax";
 
    Baris "Sub Total Exc Tax" cuma dicetak pada Include. Pada Exclude
    angkanya sama persis dengan Subtotal, jadi barisnya cuma mengulang.
+
+   Diskon dan Biaya Kirim cuma muncul kalau fakturnya memang memuatnya,
+   dan URUTANNYA yang menerangkan perlakuan pajaknya: diskon di ATAS
+   DPP karena dia mengurangi dasar pengenaan pajak, biaya kirim di BAWAH
+   PPN karena dia tidak pernah ikut dikenai pajak. Keduanya cuma terisi
+   pada penerimaan barang; PO dan retur belum punya kolomnya.
    ============================================================ */
 
 function formatRupiah(n: number) {
@@ -29,7 +36,10 @@ export default function PurchaseTotals({
   judulTotal = "Total",
   extraRows,
 }: {
-  totals: InvoiceTotals;
+  totals: InvoiceTotals & {
+    /** Ongkos kirim, sudah ikut di dalam `total`. Lihat lib/purchaseTax.ts. */
+    biayaKirim?: number;
+  };
   mode: PurchaseTaxMode;
   /** Gaya dokumen A4: hitam putih, tanpa panel kaca. */
   cetak?: boolean;
@@ -50,6 +60,22 @@ export default function PurchaseTotals({
         <span>{formatRupiah(totals.subtotal)}</span>
       </div>
 
+      {/* Dua baris ini cuma muncul kalau fakturnya memang memuatnya.
+          Baris bernilai nol di dokumen cetak terbaca sebagai potongan
+          yang lupa diisi, dan itu pertanyaan yang tidak perlu ada. */}
+      {totals.diskon > 0 && (
+        <>
+          <div className={rowCls}>
+            <span className={labelCls}>Diskon</span>
+            <span>- {formatRupiah(totals.diskon)}</span>
+          </div>
+          <div className={rowCls}>
+            <span className={labelCls}>Setelah Diskon</span>
+            <span>{formatRupiah(totals.netto)}</span>
+          </div>
+        </>
+      )}
+
       {mode === "Include" && (
         <div className={rowCls}>
           <span className={labelCls}>Sub Total Exc Tax</span>
@@ -68,6 +94,16 @@ export default function PurchaseTotals({
             <span>{formatRupiah(totals.tax)}</span>
           </div>
         </>
+      )}
+
+      {/* Sesudah PPN, karena memang di situ tempatnya: ongkir menambah
+          tagihan tapi tidak pernah masuk DPP. Menaruhnya di atas DPP
+          akan membuat orang mengira ongkirnya ikut dikenai pajak. */}
+      {(totals.biayaKirim ?? 0) > 0 && (
+        <div className={rowCls}>
+          <span className={labelCls}>Biaya Kirim</span>
+          <span>{formatRupiah(totals.biayaKirim ?? 0)}</span>
+        </div>
       )}
 
       <div className={totalCls}>

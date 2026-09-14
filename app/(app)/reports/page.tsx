@@ -349,7 +349,7 @@ export default async function ReportsPage({
     const { data } = await supabase
       .from("receivings")
       .select(
-        "tanggal_terima, no_invoice, supplier_nama, subtotal, ppn_percent, tax_mode, tax_dpp_nilai_lain, total_invoice, top_days, status_bayar, purchase_orders(no_po)"
+        "tanggal_terima, no_invoice, supplier_nama, subtotal, diskon, biaya_kirim, ppn_percent, tax_mode, tax_dpp_nilai_lain, total_invoice, top_days, status_bayar, purchase_orders(no_po)"
       )
       .eq("organization_id", organizationId)
       .gte("tanggal_terima", from)
@@ -361,6 +361,8 @@ export default async function ReportsPage({
       no_invoice: string | null;
       supplier_nama: string | null;
       subtotal: number;
+      diskon: number | null;
+      biaya_kirim: number | null;
       ppn_percent: number;
       tax_mode: string | null;
       tax_dpp_nilai_lain: boolean | null;
@@ -382,9 +384,20 @@ export default async function ReportsPage({
         Number(r.subtotal),
         parsePurchaseTaxMode(r.tax_mode),
         Number(r.ppn_percent),
-        r.tax_dpp_nilai_lain !== false
+        r.tax_dpp_nilai_lain !== false,
+        {
+          diskon: Number(r.diskon ?? 0),
+          biayaKirim: Number(r.biaya_kirim ?? 0),
+        }
       )
     );
+
+    // Biaya kirim dijumlahkan sendiri, bukan disembunyikan di dalam total
+    // pembelian. Ongkir adalah uang keluar yang TIDAK menjadi persediaan:
+    // dia tidak menambah nilai stok dan tidak ikut jadi HPP, jadi
+    // satu-satunya tempat dia bisa terbaca sebagai biaya cuma di sini.
+    const totalKirim = rows.reduce((s, r) => s + Number(r.biaya_kirim ?? 0), 0);
+    const totalDiskon = rows.reduce((s, r) => s + Number(r.diskon ?? 0), 0);
     const totalDpp = rincianBeli.reduce(
       (s, t, i) =>
         s + (parsePurchaseTaxMode(rows[i].tax_mode) === "Non" ? 0 : t.dpp),
@@ -411,6 +424,8 @@ export default async function ReportsPage({
             { label: "Hutang", value: formatRupiah(total - totalLunas) },
             { label: "Total DPP", value: formatRupiah(totalDpp) },
             { label: "PPN Masukan", value: formatRupiah(totalPpn) },
+            { label: "Diskon Faktur", value: formatRupiah(totalDiskon) },
+            { label: "Biaya Kirim", value: formatRupiah(totalKirim) },
           ].map((c) => (
             <div key={c.label} className="glass rounded-xl p-3.5">
               <div className="text-[10.5px] uppercase tracking-wide text-muted">
@@ -436,17 +451,30 @@ export default async function ReportsPage({
                     TOTAL ({rows.length} faktur)
                   </td>
                   <td className={`${td} text-right whitespace-nowrap`}>
+                    {formatRupiah(totalKirim)}
+                  </td>
+                  <td className={`${td} text-right whitespace-nowrap`}>
                     {formatRupiah(total)}
                   </td>
                   <td className={td}></td>
                 </tr>
               ),
               card: (
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-[12px] text-muted">
-                    TOTAL ({rows.length} faktur)
-                  </span>
-                  <span className="font-semibold">{formatRupiah(total)}</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[12px] text-muted">
+                      Biaya Kirim ({rows.length} faktur)
+                    </span>
+                    <span className="font-medium">
+                      {formatRupiah(totalKirim)}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[12px] text-muted">
+                      TOTAL ({rows.length} faktur)
+                    </span>
+                    <span className="font-semibold">{formatRupiah(total)}</span>
+                  </div>
                 </div>
               ),
             }}
@@ -495,6 +523,18 @@ export default async function ReportsPage({
                     : r.top_days === 0
                       ? "Tunai"
                       : `${r.top_days} hr`,
+              },
+              {
+                key: "kirim",
+                header: "Biaya Kirim",
+                cardLabel: "Biaya Kirim",
+                role: "secondary",
+                align: "right",
+                className: "whitespace-nowrap",
+                cell: (r) =>
+                  Number(r.biaya_kirim ?? 0) === 0
+                    ? "-"
+                    : formatRupiah(Number(r.biaya_kirim)),
               },
               {
                 key: "total",
@@ -1541,7 +1581,7 @@ export default async function ReportsPage({
         supabase
           .from("receivings")
           .select(
-            "no_invoice, tanggal_terima, supplier_nama, subtotal, ppn_percent, tax_mode, tax_dpp_nilai_lain, total_invoice, purchase_orders(no_po)"
+            "no_invoice, tanggal_terima, supplier_nama, subtotal, diskon, biaya_kirim, ppn_percent, tax_mode, tax_dpp_nilai_lain, total_invoice, purchase_orders(no_po)"
           )
           .eq("organization_id", organizationId)
           .gte("tanggal_terima", from)
@@ -1611,6 +1651,8 @@ export default async function ReportsPage({
         tanggal_terima: string;
         supplier_nama: string | null;
         subtotal: number;
+        diskon: number | null;
+        biaya_kirim: number | null;
         ppn_percent: number;
         tax_mode: string | null;
         tax_dpp_nilai_lain: boolean | null;
@@ -1619,11 +1661,19 @@ export default async function ReportsPage({
       }[]
     ).map((r) => {
       const mode = parsePurchaseTaxMode(r.tax_mode);
+      // Diskon faktur ikut mengurangi DPP, biaya kirim tidak pernah
+      // masuk ke sana. Keduanya wajib diserahkan ke rumus yang sama,
+      // bukan dikoreksi sesudahnya: DPP di laporan ini harus sama persis
+      // dengan yang tercetak di Faktur Pajak suppliernya.
       const t = hitungTotalPembelian(
         Number(r.subtotal),
         mode,
         Number(r.ppn_percent),
-        r.tax_dpp_nilai_lain !== false
+        r.tax_dpp_nilai_lain !== false,
+        {
+          diskon: Number(r.diskon ?? 0),
+          biayaKirim: Number(r.biaya_kirim ?? 0),
+        }
       );
       return {
         tanggal: r.tanggal_terima,
