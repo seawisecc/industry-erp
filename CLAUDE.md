@@ -1581,6 +1581,28 @@ lalu Ubah), karena memang begitu yang terjadi di database.
 - **`substring(no from length(prefix)+1)::int` untuk penomoran, bukan
   regex digit-terakhir.** `'MI.202608001'` akan terbaca `202608001` kalau
   memakai `\d+$`.
+- **Literal enum di dalam CASE dipaksa jadi tipe enum saat skripnya
+  DIURAI, bukan saat dijalankan.** Satu label yang tidak ada di enum
+  menggagalkan seluruh migrasi dengan `22P02: invalid input value for
+  enum`, walau cabang itu tidak pernah tersentuh satu baris pun. Karena
+  definisi tipe enum tidak di-track di repo, skrip yang menyebut label
+  enum cuma jalan kalau penulisnya sudah tahu persis isinya. Bandingkan
+  `status::text` kalau yang dibutuhkan cuma pemetaan, seperti
+  `po_status_urut()` di `20260828`.
+- **Cast enum ke text cuma STABLE, jadi haram di generated column.**
+  Dia cast I/O, bukan fungsi immutable, dan `generated always as`
+  menuntut immutable. Jalan keluarnya trigger `BEFORE INSERT OR UPDATE`:
+  jaminannya sama (semua jalur tulis ikut) dan di dalam fungsi trigger
+  cast itu sah. Kolom turunan seperti itu WAJIB masuk daftar abaikan
+  `log_activity`, kalau tidak backfill-nya menulis satu entri audit per
+  baris dan tiap perubahan sesudahnya tercatat dua kali.
+- **Label status yang dipakai aplikasi belum tentu ada di enum-nya.**
+  `cancelPO` menulis `'Dibatalkan'` sejak lama, dan `po_status` tidak
+  punya label itu sampai `20260830`. Tidak ada yang meledak dengan
+  jelas: tombol Batal gagal dengan pesan mentah database, dan filternya
+  selalu kosong karena query yang error mengembalikan `data` null lalu
+  halamannya menulis "tidak ada yang cocok". Menambah label enum juga
+  keputusan sekali jalan, nilai enum TIDAK BISA dihapus di Postgres.
 
 # Pola UI tabel
 
