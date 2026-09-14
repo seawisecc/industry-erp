@@ -49,7 +49,11 @@ type PORow = {
   tax_dpp_nilai_lain: boolean | null;
   top_days: number | null;
   suppliers: { nama: string } | null;
-  po_items: { qty_pesan: number; harga_per_unit: number }[];
+  po_items: {
+    qty_pesan: number;
+    harga_per_unit: number;
+    items: { nama: string; satuan: string } | null;
+  }[];
 };
 
 const STATUS_STYLE: Record<POStatus, string> = {
@@ -63,6 +67,57 @@ const STATUS_STYLE: Record<POStatus, string> = {
 
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
+}
+
+function formatAngka(n: number) {
+  return n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
+
+/* ============================================================
+   Catatan kecil isi PO, di bawah nama suppliernya.
+
+   Dua PO ke supplier yang sama pada minggu yang sama cuma beda di
+   isinya, dan tanpa catatan ini keduanya harus dibuka satu per satu
+   untuk tahu mana yang sedang dicari.
+
+   Yang tampil tiga baris pertama; sisanya dirangkum jadi satu entri
+   "+n item lain" BESERTA nilainya, supaya rupiah di catatan tetap
+   menutup seluruh isi PO. Catatan yang menyebut sebagian nilai saja
+   akan terbaca seperti PO yang lebih murah daripada kolom Total di
+   sebelahnya.
+
+   Rupiahnya nilai baris apa adanya (qty x harga seperti yang tertulis
+   di faktur), jadi pada PO Include angkanya sudah memuat pajak. Kolom
+   Total yang menerapkan model pajaknya, dan itu memang pembagian yang
+   sama dengan halaman cetak.
+   ============================================================ */
+
+const RINCIAN_TAMPIL = 3;
+
+function rincianPO(po: PORow) {
+  const baris = po.po_items.map((r) => {
+    const nama = r.items?.nama || "Item terhapus";
+    const satuan = r.items?.satuan || "";
+    const qty = formatAngka(Number(r.qty_pesan));
+    const nilai = Number(r.qty_pesan) * Number(r.harga_per_unit);
+    return `${nama} ${qty}${satuan ? " " + satuan : ""} (${formatRupiah(nilai)})`;
+  });
+
+  if (baris.length === 0) return { ringkas: "Belum ada item.", lengkap: "" };
+
+  const sisa = po.po_items.slice(RINCIAN_TAMPIL);
+  const nilaiSisa = sisa.reduce(
+    (s, r) => s + Number(r.qty_pesan) * Number(r.harga_per_unit),
+    0
+  );
+
+  const ringkas =
+    sisa.length === 0
+      ? baris.join(" · ")
+      : baris.slice(0, RINCIAN_TAMPIL).join(" · ") +
+        ` · +${sisa.length} item lain (${formatRupiah(nilaiSisa)})`;
+
+  return { ringkas, lengkap: baris.join(" · ") };
 }
 
 function formatTanggal(iso: string) {
@@ -119,7 +174,7 @@ export default async function PurchaseOrdersPage({
   let query = supabase
     .from("purchase_orders")
     .select(
-      "id, no_po, tanggal_po, status, ppn_percent, tax_mode, tax_dpp_nilai_lain, top_days, suppliers(nama), po_items(qty_pesan, harga_per_unit)",
+      "id, no_po, tanggal_po, status, ppn_percent, tax_mode, tax_dpp_nilai_lain, top_days, suppliers(nama), po_items(qty_pesan, harga_per_unit, items(nama, satuan))",
       { count: "exact" }
     )
     .eq("organization_id", organizationId);
@@ -179,6 +234,21 @@ export default async function PurchaseOrdersPage({
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Cetak rekap pengajuan. Cuma muncul kalau memang ada yang
+              menunggu persetujuan: tombol yang mencetak kertas kosong
+              lebih buruk daripada tidak ada tombol. Waktu ringkasannya
+              gagal dimuat, jumlahnya tidak diketahui, jadi tombolnya
+              tetap ditawarkan dan halaman cetaknya sendiri yang bilang
+              kalau daftarnya kosong. */}
+          {(pipeline === null || menunggu.jumlah > 0) && (
+            <Link
+              href="/print/po-pengajuan"
+              className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+            >
+              <Printer size={14} /> Cetak Pengajuan
+              {pipeline !== null && ` (${menunggu.jumlah})`}
+            </Link>
+          )}
           <Link
             href="/purchase-orders/guide"
             className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
@@ -287,12 +357,30 @@ export default async function PurchaseOrdersPage({
             key: "supplier",
             header: "Supplier",
             role: "title",
-            cell: (po) => (
-              <div className="max-w-[220px] truncate font-medium">
+            cell: (po) => {
+              const rincian = rincianPO(po);
+              return (
+                <div className="max-w-[280px]">
+                  <div className="truncate font-medium">
+                    {po.suppliers?.nama || "-"}
+                  </div>
+                  <div
+                    className="text-[11px] text-muted leading-snug mt-0.5 line-clamp-2"
+                    title={rincian.lengkap}
+                  >
+                    {rincian.ringkas}
+                  </div>
+                </div>
+              );
+            },
+            cardCell: (po) => (
+              <>
                 {po.suppliers?.nama || "-"}
-              </div>
+                <div className="text-[11.5px] font-normal text-muted leading-snug mt-0.5">
+                  {rincianPO(po).ringkas}
+                </div>
+              </>
             ),
-            cardCell: (po) => po.suppliers?.nama || "-",
           },
           {
             key: "item",

@@ -1201,6 +1201,38 @@ di `activity_logs`). Tombol Terima di daftar tunggu membuka form lewat
 `/receivings/new?po=`, dan form mengisi barisnya di initial state, bukan
 lewat `useEffect`.
 
+## Cetak Pengajuan PO, dan catatan isi PO di daftarnya
+
+`/print/po-pengajuan` mencetak SELURUH PO berstatus `Dibuat` beserta
+rincian barangnya, untuk dibawa ke meja yang menyetujui. Rekapnya di
+halaman pertama, rincian per PO sesudahnya: yang ditanya pertama selalu
+"berapa totalnya", dan jawabannya tidak boleh ada di balik kertas.
+
+**Tiap PO dihitung dengan model pajaknya sendiri**, yang dibekukan di
+dokumen itu, lalu totalnya dijumlahkan. Bukan satu perhitungan pajak
+atas gabungan subtotalnya: dalam satu pengajuan, supplier PKP dan
+non-PKP memang bercampur, dan itu keadaan normalnya. Rumusnya tetap
+`hitungTotalPembelian`, tidak ada salinan baru.
+
+Daftarnya diambil per 1000 baris sampai habis, alasan yang sama dengan
+`lib/poPipeline.ts`: PostgREST memotong di max-rows tanpa error apa pun,
+dan total pengajuan yang kurang tetap terlihat masuk akal.
+
+Tombolnya di kepala halaman Purchase Orders dan **cuma muncul kalau ada
+PO yang menunggu**, jumlahnya ditulis di tombolnya. Waktu ringkasannya
+gagal dimuat jumlahnya tidak diketahui, jadi tombolnya tetap ditawarkan
+dan halaman cetaknya sendiri yang mengatakan daftarnya kosong.
+
+Di tabelnya, nama supplier dibuntuti catatan kecil isi PO-nya (barang,
+qty, nilai baris). Dua PO ke supplier yang sama pada minggu yang sama
+cuma beda di isinya, dan tanpa catatan itu keduanya harus dibuka satu
+per satu. Yang tampil tiga baris pertama, sisanya dirangkum jadi
+`+n item lain` BESERTA nilainya: catatan yang menyebut sebagian nilai
+saja akan terbaca seperti PO yang lebih murah daripada kolom Total di
+sebelahnya. Rupiah di catatan adalah nilai baris apa adanya (qty x harga
+seperti yang tertulis di faktur), jadi pada PO `Include` angkanya sudah
+memuat pajak; kolom Total yang menerapkan model pajaknya.
+
 # Batal invoice konsinyasi: asal stok harus dicatat dulu
 
 Invoice yang lahir dari konsinyasi dulu tidak bisa dibatalkan.
@@ -1691,11 +1723,22 @@ ketiganya yang terakhir ikut diisi karena bertipe `Record<VerifyKey, ...>`:
 | `app/print/<jenis>/[id]/page.tsx` | halamannya sendiri |
 
 **Tidak semua halaman cetak perlu didaftarkan.** Lembar hitung Stock
-Opname dan Lembar Kerja R&D sengaja berdiri di luar keempat tempat itu:
-keduanya lembar kerja INTERNAL yang diisi tangan lalu dibawa kembali,
-bukan dokumen yang diterbitkan ke pihak luar, jadi tidak ada yang perlu
-diverifikasi lewat QR. Kalau nanti salah satunya berubah jadi dokumen
-yang dikirim keluar, keempat tempat itu yang harus diisi.
+Opname, Lembar Kerja R&D, dan Pengajuan Purchase Order sengaja berdiri
+di luar keempat tempat itu: ketiganya lembar INTERNAL, bukan dokumen
+yang diterbitkan ke pihak luar, jadi tidak ada yang perlu diverifikasi
+lewat QR. Kalau nanti salah satunya berubah jadi dokumen yang dikirim
+keluar, keempat tempat itu yang harus diisi.
+
+Pengajuan PO punya alasan tambahan: isinya berubah tiap kali dicetak,
+karena PO yang sudah disetujui hilang dari daftarnya. Tidak ada nomor
+dokumen tetap yang bisa ditunjuk QR, dan kalimat itu ditulis di kaki
+kertasnya supaya tidak ada yang menyimpannya sebagai dokumen bernomor.
+Kolom tanda tangannya tetap dicetak walau QR Signature PO menyala, dan
+itu bukan pengecualian yang malas: yang disahkan QR adalah tiap PO-nya
+sendiri, sedangkan kertas ini justru dibuat untuk dimintakan tanda
+tangan. Alasan yang sama dengan kolom "Diterima oleh" di Tanda Terima
+Konsinyasi, jadi halamannya memanggil `getDocSignConfig` langsung, bukan
+`getDocSigners`.
 
 `doc_type` di `doc_sign_settings` cuma teks tanpa constraint, jadi jenis
 baru TIDAK butuh migrasi. Barisnya juga tidak perlu ada: kalau belum
