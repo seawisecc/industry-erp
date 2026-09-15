@@ -6,6 +6,8 @@ import { localDateTimeStr } from "@/lib/dates";
 import {
   hitungPpic,
   rencanaDariQuery,
+  rincianProses,
+  URUTAN_STATUS,
   type PpicBahan,
   type PpicProduct,
 } from "@/lib/ppic";
@@ -19,15 +21,19 @@ import PrintKop from "@/components/PrintKop";
 
    Planner tidak menyimpan apa pun, jadi rencananya datang dari URL
    (?r=) dan dihitung ulang di sini dengan lib/ppic.ts, rumus yang sama
-   persis dengan layar. Stok dan harga dibaca SAAT dicetak, jadi kertas
-   ini potret, bukan dokumen bernomor, dan jam cetaknya ikut tertulis.
+   persis dengan layar. Stok, karantina, PO, dan harga dibaca SAAT
+   dicetak, jadi kertas ini potret, bukan dokumen bernomor, dan jam
+   cetaknya ikut tertulis.
 
    Urutan isinya mengikuti pertanyaan orang yang memegangnya:
-   1. Mau produksi apa           -> Rencana Produksi
-   2. Harus beli apa, ke siapa   -> Daftar Belanja, dikelompokkan per
-                                    supplier karena PO dibuat per supplier
-   3. Bahan ini untuk produk apa -> ditulis di tiap baris belanja, dan
-                                    dirinci lagi per produk di bagian akhir
+   1. Mau produksi apa            -> Rencana Produksi
+   2. Harus beli apa, ke siapa    -> Daftar Belanja, dikelompokkan per
+                                     supplier karena PO dibuat per supplier
+   3. Apa yang sudah di jalan     -> Sudah Dalam Proses: lot karantina
+                                     dan PO terbuka yang harus dikejar,
+                                     bukan dibeli lagi
+   4. Bahan ini untuk produk apa  -> ditulis di tiap baris belanja, dan
+                                     dirinci lagi per produk di bagian akhir
 
    TIDAK terdaftar di DOC_TYPES / JUDUL_DOKUMEN / SUMBER_DOKUMEN, sama
    seperti Pengajuan PO: lembar internal tanpa nomor tetap, jadi tidak
@@ -67,6 +73,14 @@ function Lembar({ children }: { children: React.ReactNode }) {
       <div className="bg-white text-[#1a1a1a] a4-sheet max-w-[210mm] mx-auto shadow-xl print:shadow-none rounded-sm print:rounded-none p-[15mm] print:p-0 text-[12.5px] leading-relaxed">
         {children}
       </div>
+    </div>
+  );
+}
+
+function JudulBagian({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-7 text-[11px] uppercase tracking-wide text-neutral-500">
+      {children}
     </div>
   );
 }
@@ -119,7 +133,9 @@ export default async function PrintPpicPage({
     .join("  •  ");
 
   const totalBulk = hasil.rencana.reduce((s, b) => s + b.bulkKg, 0);
-  const jumlahCukup = hasil.bahan.length - hasil.perluBeli.length;
+  const ringkasStatus = URUTAN_STATUS.filter((s) => hasil.jumlahStatus[s] > 0)
+    .map((s) => `${hasil.jumlahStatus[s]} ${s.toLowerCase()}`)
+    .join(" · ");
 
   // ===== Daftar belanja per supplier =====
   // PO diterbitkan per supplier, jadi kelompok ini yang langsung bisa
@@ -178,6 +194,9 @@ export default async function PrintPpicPage({
       .sort((a, b) => b.qty - a.qty),
   }));
 
+  const adaDalamProses = hasil.dalamProses.length > 0;
+  const nomorRincian = adaDalamProses ? 4 : 3;
+
   return (
     <Lembar>
       {/* ===== KOP ===== */}
@@ -205,9 +224,9 @@ export default async function PrintPpicPage({
 
       {data.gagal && (
         <p className="mt-4 border border-[#1a1a1a] px-3 py-2 text-[11.5px] font-medium">
-          Sebagian data stok atau harga gagal dimuat saat lembar ini dibuat,
-          jadi angkanya bisa keliru. Muat ulang halaman lalu cetak ulang
-          sebelum dipakai.
+          Sebagian data stok, karantina, atau PO gagal dimuat saat lembar ini
+          dibuat, jadi angkanya bisa keliru. Muat ulang halaman lalu cetak
+          ulang sebelum dipakai.
         </p>
       )}
 
@@ -295,19 +314,18 @@ export default async function PrintPpicPage({
           )}
 
           <div className="mt-2 text-[11px] text-neutral-600">
-            {hasil.bahan.length} bahan terlibat · {jumlahCukup} cukup ·{" "}
-            {hasil.perluBeli.length} perlu dibeli · estimasi dana{" "}
+            {hasil.bahan.length} bahan terlibat
+            {ringkasStatus ? ` · ${ringkasStatus}` : ""} · estimasi dana{" "}
             {formatRupiah(hasil.totalDana)}
           </div>
 
           {/* ===== 2. DAFTAR BELANJA ===== */}
-          <div className="mt-7 text-[11px] uppercase tracking-wide text-neutral-500">
-            2. Daftar belanja
-          </div>
+          <JudulBagian>2. Daftar belanja</JudulBagian>
           {hasil.perluBeli.length === 0 ? (
             <p className="mt-1">
-              Stok bahan cukup untuk seluruh rencana produksi, tidak ada yang
-              perlu dibeli.
+              {adaDalamProses
+                ? "Tidak ada yang perlu dipesan lagi. Kekurangan yang ada sudah tertutup lot karantina atau PO terbuka, lihat bagian 3."
+                : "Stok bahan cukup untuk seluruh rencana produksi, tidak ada yang perlu dibeli."}
             </p>
           ) : (
             <>
@@ -317,8 +335,8 @@ export default async function PrintPpicPage({
                     <th className="py-2 pr-2 text-left w-8">No</th>
                     <th className="py-2 pr-2 text-left">Bahan &amp; Dipakai Untuk</th>
                     <th className="py-2 pr-2 text-right w-[22mm]">Kebutuhan</th>
-                    <th className="py-2 pr-2 text-right w-[20mm]">Stok</th>
-                    <th className="py-2 pr-2 text-right w-[24mm]">Qty Beli</th>
+                    <th className="py-2 pr-2 text-right w-[20mm]">Stok Siap</th>
+                    <th className="py-2 pr-2 text-right w-[28mm]">Qty Beli</th>
                     <th className="py-2 text-right w-[28mm]">Est. Dana</th>
                   </tr>
                 </thead>
@@ -338,6 +356,7 @@ export default async function PrintPpicPage({
                     </tr>
                     {k.bahan.map((c, j) => {
                       const s = c.item.satuan;
+                      const proses = rincianProses(c.item);
                       return (
                         <tr key={c.item.id} className="border-b border-neutral-300">
                           <td className="py-1.5 pr-2 align-top">
@@ -360,6 +379,11 @@ export default async function PrintPpicPage({
                                 )
                                 .join("; ")}
                             </div>
+                            {proses.length > 0 && (
+                              <div className="text-[10.5px] text-neutral-600 leading-snug">
+                                Sudah dalam proses: {proses.join("; ")}
+                              </div>
+                            )}
                           </td>
                           <td className="py-1.5 pr-2 align-top text-right whitespace-nowrap">
                             {formatNum(c.butuh)} {s}
@@ -372,8 +396,16 @@ export default async function PrintPpicPage({
                               {formatNum(c.qtyBeli)} {s}
                             </div>
                             <div className="text-[10px] text-neutral-500">
-                              kurang {formatNum(c.kurang)}
-                              {c.item.moq ? ` · MOQ ${formatNum(c.item.moq)}` : ""}
+                              belum dipesan {formatNum(c.belumDipesan)}
+                            </div>
+                            <div
+                              className={`text-[10px] ${
+                                c.tanpaMoq ? "font-bold text-[#1a1a1a]" : "text-neutral-500"
+                              }`}
+                            >
+                              {c.tanpaMoq
+                                ? "MOQ belum diisi"
+                                : `MOQ ${formatNum(c.item.moq || 0)}`}
                             </div>
                           </td>
                           <td className="py-1.5 align-top text-right whitespace-nowrap">
@@ -402,9 +434,20 @@ export default async function PrintPpicPage({
               </table>
 
               <div className="mt-2 text-[11px] text-neutral-600 leading-snug">
-                Qty beli adalah kekurangan yang dibulatkan ke atas mengikuti
-                MOQ. Harga adalah pembelian terakhir tanpa PPN, jadi dananya
+                Qty beli adalah kekurangan terhadap stok siap pakai, dikurangi
+                lot yang masih karantina QC dan PO yang masih terbuka (termasuk
+                yang belum disetujui), lalu dibulatkan ke atas mengikuti MOQ.
+                Harga adalah pembelian terakhir tanpa PPN, jadi dananya
                 perkiraan, bukan nilai PO.
+                {hasil.tanpaMoq.length > 0 && (
+                  <>
+                    {" "}
+                    <b className="text-[#1a1a1a]">
+                      Belum punya MOQ, jadi tidak dibulatkan:{" "}
+                      {hasil.tanpaMoq.map((c) => c.item.nama).join(", ")}.
+                    </b>
+                  </>
+                )}
                 {tanpaHarga.length > 0 && (
                   <>
                     {" "}
@@ -418,10 +461,59 @@ export default async function PrintPpicPage({
             </>
           )}
 
-          {/* ===== 3. RINCIAN PER PRODUK ===== */}
-          <div className="mt-7 text-[11px] uppercase tracking-wide text-neutral-500">
-            3. Rincian kebutuhan bahan per produk
-          </div>
+          {/* ===== 3. SUDAH DALAM PROSES ===== */}
+          {adaDalamProses && (
+            <>
+              <JudulBagian>3. Sudah dalam proses, dikejar bukan dibeli lagi</JudulBagian>
+              <table className="w-full mt-1 border-collapse">
+                <thead>
+                  <tr className="border-y border-[#1a1a1a] text-[10.5px] uppercase tracking-wide">
+                    <th className="py-2 pr-2 text-left w-8">No</th>
+                    <th className="py-2 pr-2 text-left">Bahan</th>
+                    <th className="py-2 pr-2 text-right w-[22mm]">Kekurangan</th>
+                    <th className="py-2 pr-2 text-left">Karantina QC / PO Terbuka</th>
+                    <th className="py-2 text-left w-[30mm]">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {hasil.dalamProses.map((c, i) => (
+                    <tr key={c.item.id} className="border-b border-neutral-300 break-inside-avoid">
+                      <td className="py-1.5 pr-2 align-top">{i + 1}</td>
+                      <td className="py-1.5 pr-2 align-top">
+                        <span className="font-medium">{c.item.nama}</span>
+                        <div className="text-[10.5px] text-neutral-500 font-mono">
+                          {c.item.kode}
+                        </div>
+                      </td>
+                      <td className="py-1.5 pr-2 align-top text-right whitespace-nowrap">
+                        {formatNum(c.kurang)} {c.item.satuan}
+                      </td>
+                      <td className="py-1.5 pr-2 align-top text-[11px] leading-snug">
+                        {rincianProses(c.item).map((b, j) => (
+                          <div key={j}>{b}</div>
+                        ))}
+                      </td>
+                      <td className="py-1.5 align-top whitespace-nowrap font-medium">
+                        {c.status}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="mt-2 text-[11px] text-neutral-600 leading-snug">
+                Menunggu QC: tertutup kalau lot karantina lolos uji. Menunggu
+                Kedatangan: tertutup oleh PO yang sudah dikirim ke supplier. PO
+                Belum Dikirim: tertutup oleh PO yang masih dibuat atau disetujui.
+                Status Perlu Beli di sini berarti prosesnya baru menutup
+                sebagian, sisanya ada di Daftar Belanja.
+              </div>
+            </>
+          )}
+
+          {/* ===== RINCIAN PER PRODUK ===== */}
+          <JudulBagian>
+            {nomorRincian}. Rincian kebutuhan bahan per produk
+          </JudulBagian>
           <div className="text-[10.5px] text-neutral-600">
             Status dibaca dari total kebutuhan seluruh rencana terhadap stok.
             Bahan yang dipakai beberapa produk bisa cukup untuk satu produk
@@ -456,7 +548,7 @@ export default async function PrintPpicPage({
                       <th className="py-1 pr-2 text-left w-[10mm]">No</th>
                       <th className="py-1 pr-2 text-left">Bahan</th>
                       <th className="py-1 pr-2 text-right w-[30mm]">Kebutuhan</th>
-                      <th className="py-1 text-left w-[24mm]">Status</th>
+                      <th className="py-1 text-left w-[32mm]">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -475,10 +567,10 @@ export default async function PrintPpicPage({
                         </td>
                         <td
                           className={`py-1 whitespace-nowrap ${
-                            c.kurang > 0 ? "font-bold" : "text-neutral-600"
+                            c.status === "Cukup" ? "text-neutral-600" : "font-bold"
                           }`}
                         >
-                          {c.kurang > 0 ? "Perlu beli" : "Cukup"}
+                          {c.status}
                         </td>
                       </tr>
                     ))}
@@ -520,8 +612,9 @@ export default async function PrintPpicPage({
       {/* ===== FOOTER ===== */}
       <div className="mt-10 pt-3 border-t border-neutral-300 text-[10px] text-neutral-400 flex justify-between gap-4">
         <span>
-          Potret stok dan harga pada saat dicetak, bukan dokumen bernomor.
-          Angkanya dihitung dengan rumus yang sama dengan layar PPIC Planner.
+          Potret stok, karantina, PO, dan harga pada saat dicetak, bukan
+          dokumen bernomor. Angkanya dihitung dengan rumus yang sama dengan
+          layar PPIC Planner.
         </span>
         <span className="whitespace-nowrap">{dicetak}</span>
       </div>

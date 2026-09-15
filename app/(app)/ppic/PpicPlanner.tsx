@@ -3,7 +3,8 @@
 /* ============================================================
    PPIC Planner, kalkulator kebutuhan produksi.
    Input: daftar (produk × jumlah batch).
-   Output: kebutuhan bahan per item vs stok, lalu daftar belanja
+   Output: kebutuhan bahan per item vs stok, status tiap bahan
+   (termasuk yang sudah di karantina QC atau PO), lalu daftar belanja
    dengan pembulatan MOQ, supplier, dan estimasi dana.
    Murni kalkulasi di layar, tidak menyimpan apa pun.
 
@@ -27,9 +28,11 @@ import ProductPicker, { type ProductOption } from "@/components/ProductPicker";
 import {
   hitungPpic,
   rencanaKeQuery,
+  rincianProses,
   type PpicItem,
   type PpicProduct,
   type PpicRencana,
+  type PpicStatus,
 } from "@/lib/ppic";
 
 export type { PpicItem, PpicProduct } from "@/lib/ppic";
@@ -37,6 +40,14 @@ export type { PpicItem, PpicProduct } from "@/lib/ppic";
 type Row = { productId: string; batches: string };
 
 const BARIS_KOSONG: Row = { productId: "", batches: "1" };
+
+const WARNA_STATUS: Record<PpicStatus, string> = {
+  "Perlu Beli": "bg-clay-100 text-clay-600",
+  "PO Belum Dikirim": "bg-white/70 text-muted border border-line",
+  "Menunggu Kedatangan": "bg-white/70 text-ink border border-line",
+  "Menunggu QC": "bg-amber-100 text-amber-500",
+  Cukup: "bg-botanical-100 text-botanical-700",
+};
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
@@ -103,7 +114,7 @@ export default function PpicPlanner({
 
   const hasil = hitungPpic(products, items, keRencana(rows));
   const calcs = hasil.bahan;
-  const { perluBeli, totalDana, adaTanpaHarga } = hasil;
+  const { perluBeli, dalamProses, totalDana, adaTanpaHarga, tanpaMoq } = hasil;
   const batchTanpaUkuran = hasil.tanpaUkuranBatch.length > 0;
   const queryCetak = rencanaKeQuery(keRencana(rows));
 
@@ -114,8 +125,8 @@ export default function PpicPlanner({
     <div className="flex flex-col gap-4">
       {gagalMuat && (
         <p className="text-clay-600 text-[12.5px] bg-clay-100 rounded-lg px-3 py-2">
-          Sebagian data stok atau harga gagal dimuat, jadi angka di bawah bisa
-          keliru. Muat ulang halaman sebelum dipakai.
+          Sebagian data stok, karantina, atau PO gagal dimuat, jadi angka di
+          bawah bisa keliru. Muat ulang halaman sebelum dipakai.
         </p>
       )}
 
@@ -235,7 +246,8 @@ export default function PpicPlanner({
                 Kebutuhan Bahan vs Stok
               </h3>
               <p className="text-muted text-[12px]">
-                {calcs.length} bahan terlibat · {perluBeli.length} perlu dibeli
+                {calcs.length} bahan terlibat · {perluBeli.length} perlu dibeli ·{" "}
+                {dalamProses.length} sudah dalam proses (karantina QC / PO)
               </p>
             </div>
           </div>
@@ -243,7 +255,7 @@ export default function PpicPlanner({
             <DataTable
               rows={calcs}
               rowKey={(c) => c.item.id}
-              minWidth={720}
+              minWidth={900}
               chrome="bare"
               empty="Belum ada kebutuhan bahan."
               columns={[
@@ -280,7 +292,7 @@ export default function PpicPlanner({
                 },
                 {
                   key: "stok",
-                  header: "Stok Sisa",
+                  header: "Stok Siap",
                   role: "primary",
                   align: "right",
                   className: "whitespace-nowrap",
@@ -302,23 +314,50 @@ export default function PpicPlanner({
                     ),
                 },
                 {
+                  key: "proses",
+                  header: "Dalam Proses",
+                  role: "secondary",
+                  className: "text-[11.5px] text-muted",
+                  // Cuma untuk bahan yang kurang: PO terbuka milik bahan
+                  // yang stoknya sudah cukup tidak mengubah keputusan apa pun.
+                  cell: (c) => {
+                    const baris = c.kurang > 0 ? rincianProses(c.item) : [];
+                    return baris.length > 0 ? (
+                      <div className="flex flex-col gap-0.5 min-w-[180px]">
+                        {baris.map((b, i) => (
+                          <div key={i} className="whitespace-nowrap">
+                            {b}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      "-"
+                    );
+                  },
+                },
+                {
                   key: "status",
                   header: "Status",
                   role: "badge",
                   cell: (c) => (
                     <span
                       className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
-                        c.kurang > 0
-                          ? "bg-clay-100 text-clay-600"
-                          : "bg-botanical-100 text-botanical-700"
+                        WARNA_STATUS[c.status]
                       }`}
                     >
-                      {c.kurang > 0 ? "Perlu Beli" : "Cukup"}
+                      {c.status}
                     </span>
                   ),
                 },
               ]}
             />
+            <p className="text-[11.5px] text-muted mt-3 leading-snug">
+              Kekurangan dibandingkan dengan stok siap pakai saja. Status
+              membaca barang yang sudah di jalan: <b>Menunggu QC</b> tertutup
+              kalau lot karantina lolos QC, <b>Menunggu Kedatangan</b> tertutup
+              oleh PO yang sudah dikirim ke supplier, <b>PO Belum Dikirim</b>{" "}
+              tertutup oleh PO yang masih dibuat atau disetujui.
+            </p>
           </div>
         </div>
       )}
@@ -335,7 +374,8 @@ export default function PpicPlanner({
                 Rekomendasi Pembelian
               </h3>
               <p className="text-muted text-[12px]">
-                Qty dibulatkan ke atas mengikuti MOQ · harga = pembelian terakhir
+                Kekurangan dikurangi karantina & PO terbuka, lalu dibulatkan ke
+                atas mengikuti MOQ · harga = pembelian terakhir
               </p>
             </div>
           </div>
@@ -408,12 +448,26 @@ export default function PpicPlanner({
                   cardCell: (c) => c.item.supplier || "-",
                 },
                 {
-                  key: "kurang",
-                  header: "Kekurangan",
+                  key: "belum",
+                  header: "Belum Dipesan",
                   role: "secondary",
                   align: "right",
                   className: "whitespace-nowrap",
-                  cell: (c) => `${formatNum(c.kurang)} ${c.item.satuan}`,
+                  cell: (c) => {
+                    const proses = c.qtyKarantina + c.qtyPoDikirim + c.qtyPoBelumDikirim;
+                    return (
+                      <>
+                        <div>
+                          {formatNum(c.belumDipesan)} {c.item.satuan}
+                        </div>
+                        {proses > 0 && (
+                          <div className="text-[11px] text-muted">
+                            kurang {formatNum(c.kurang)} · proses {formatNum(proses)}
+                          </div>
+                        )}
+                      </>
+                    );
+                  },
                 },
                 {
                   key: "moq",
@@ -422,7 +476,13 @@ export default function PpicPlanner({
                   align: "right",
                   className: "whitespace-nowrap",
                   cell: (c) =>
-                    c.item.moq ? `${formatNum(c.item.moq)} ${c.item.satuan}` : "-",
+                    c.tanpaMoq ? (
+                      <span className="text-amber-500 text-[12px]">belum diisi</span>
+                    ) : c.item.moq ? (
+                      `${formatNum(c.item.moq)} ${c.item.satuan}`
+                    ) : (
+                      "-"
+                    ),
                 },
                 {
                   key: "beli",
@@ -456,6 +516,22 @@ export default function PpicPlanner({
               ]}
             />
           </div>
+          {tanpaMoq.length > 0 && (
+            <p className="text-amber-500 text-[12px] px-6 py-3 bg-amber-100/60 leading-snug">
+              ⚠ {tanpaMoq.length} bahan belum punya MOQ, jadi Qty Beli-nya sama
+              dengan yang belum dipesan, tanpa pembulatan:{" "}
+              {tanpaMoq
+                .slice(0, 5)
+                .map((c) => c.item.nama)
+                .join(", ")}
+              {tanpaMoq.length > 5 ? `, dan ${tanpaMoq.length - 5} lainnya` : ""}.
+              Isi MOQ di menu{" "}
+              <Link href="/items" className="font-medium underline">
+                Stock Items
+              </Link>{" "}
+              supaya dibulatkan otomatis.
+            </p>
+          )}
           {adaTanpaHarga && (
             <p className="text-amber-500 text-[12px] px-6 py-3 bg-amber-100/60">
               ⚠ Ada bahan tanpa riwayat harga pembelian, total dana di atas belum
@@ -467,7 +543,9 @@ export default function PpicPlanner({
 
       {calcs.length > 0 && perluBeli.length === 0 && (
         <div className="glass rounded-2xl p-6 text-center text-botanical-700 text-sm font-medium">
-          ✓ Stok bahan cukup untuk seluruh rencana produksi, tidak perlu belanja.
+          {dalamProses.length > 0
+            ? `✓ Tidak ada yang perlu dipesan lagi. ${dalamProses.length} bahan masih menunggu QC atau kedatangan PO, lihat kolom Dalam Proses.`
+            : "✓ Stok bahan cukup untuk seluruh rencana produksi, tidak perlu belanja."}
         </div>
       )}
     </div>

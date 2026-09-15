@@ -2047,6 +2047,60 @@ server. Tiga hal yang harus dijaga:
   memakai pengaturan dokumen Produksi, karena yang disahkan adalah
   rencana produksinya.
 
+## Status bahan di PPIC: dihitung dari jumlah, bukan dari ada tidaknya PO
+
+Versi pertama PPIC cuma membaca stok siap pakai, jadi bahan yang sudah
+di-PO atau sedang dikarantina tetap tertulis "Perlu Beli" dengan qty
+penuh. Daftar belanja seperti itu adalah resep PO dobel. Sekarang
+`hitungPpic` membaca tangga persediaan, dan statusnya adalah anak tangga
+PERTAMA yang sudah menutup seluruh kebutuhan:
+
+| Status | Tertutup oleh |
+| --- | --- |
+| `Cukup` | `purchase_batches.qty_sisa` |
+| `Menunggu QC` | + lot `qc_status = 'Karantina'` (`qty_karantina`) |
+| `Menunggu Kedatangan` | + sisa PO `Dikirim` / `Diterima Sebagian` |
+| `PO Belum Dikirim` | + sisa PO `Dibuat` / `Disetujui` |
+| `Perlu Beli` | belum tertutup semua, sisanya jadi `belumDipesan` |
+
+Aturan yang mengikat:
+
+- **Dari JUMLAH.** Butuh 100 kg dengan PO 25 kg tetap `Perlu Beli`,
+  untuk sisa yang belum tertutup. Status yang bilang "sudah PO" untuk PO
+  yang cuma menutup seperempatnya membuat orang berhenti membeli.
+- **Kolom Kekurangan tetap dibandingkan `qty_sisa` saja**, aturan yang
+  sama dengan `StokKurangAlert`. Barang karantina belum boleh dipotong
+  produksi; yang berubah cuma Qty Beli, yang sekarang lahir dari
+  `belumDipesan`.
+- **PO `Dibuat` ikut mengurangi Qty Beli.** Keputusan pemakainya: tanpa
+  itu PPIC menyarankan PO kedua untuk barang yang pengajuannya sudah
+  ada. PO yang ditolak atau dibatalkan keluar dari hitungan sendiri.
+- **Tidak ada yang terhitung dua kali.** Barang yang sudah diterima,
+  termasuk yang masih karantina, sudah masuk `po_items.qty_diterima`,
+  jadi sisa PO dan karantina saling lepas. Lot yang ditolak QC
+  `qty_karantina`-nya sudah nol (`decideQc`).
+- **Nomor PO dan lot karantinanya ditulis** (`rincianProses`), di layar
+  dan kertas, karena tindak lanjut bahan yang sudah dalam proses adalah
+  mengejar dokumen itu, bukan membeli lagi.
+
+**MOQ: rumusnya sudah ada sejak awal, datanya yang kosong.**
+`bulatkanMoq` sudah dipakai PPIC dari versi pertama. Dicek September
+2026: di satu organisasi 0 dari 190 item punya MOQ, di yang lain 2 dari
+120, jadi Qty Beli jatuh sama dengan kekurangan dan terbaca seperti
+PPIC mengabaikan MOQ. Jawabannya bukan menebak angka MOQ, melainkan
+MENGATAKANNYA: bahan yang perlu dibeli tanpa MOQ ditandai
+`tanpaMoq`, layar menulis "belum diisi" dan menautkan Stock Items,
+kertasnya menyebut namanya.
+
+**Yang belum: stok tidak dicadangkan per rencana.** Plan Produksi yang
+sudah disimpan tapi belum Input Hasil belum memotong apa pun
+(`create_production` baru memotong di Input Hasil), jadi PPIC membaca
+stok, karantina, dan PO itu sebagai tersedia penuh untuk rencana yang
+sedang disusun. Dua rencana bisa sama-sama bilang `Cukup` untuk bahan
+yang cuma cukup untuk salah satunya. Memperbaikinya berarti PPIC ikut
+membaca kebutuhan Plan yang masih terbuka, dan yang harus diputuskan
+lebih dulu adalah Plan mana yang dianggap masih menahan bahan.
+
 `doc_type` di `doc_sign_settings` cuma teks tanpa constraint, jadi jenis
 baru TIDAK butuh migrasi. Barisnya juga tidak perlu ada: kalau belum
 pernah diatur, `getDocSignConfig` jatuh ke tiga key person lama dan

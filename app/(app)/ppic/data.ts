@@ -1,5 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import type { PpicItem, PpicProduct } from "@/lib/ppic";
+import {
+  PO_BELUM_DIKIRIM,
+  PO_SUDAH_DIKIRIM,
+  type PoTerbukaStatus,
+  type PpicItem,
+  type PpicKarantina,
+  type PpicPoTerbuka,
+  type PpicProduct,
+} from "@/lib/ppic";
 
 /* ============================================================
    Data PPIC Planner, dipakai layar /ppic dan dokumen /print/ppic.
@@ -42,6 +50,22 @@ type BatchRaw = {
   harga_per_unit: number;
 };
 
+type KarantinaRaw = {
+  item_id: string;
+  qty_karantina: number;
+  no_lot_supplier: string | null;
+  tanggal_terima: string | null;
+  supplier_nama: string | null;
+};
+
+type PoRaw = {
+  no_po: string | null;
+  tanggal_po: string;
+  status: PoTerbukaStatus;
+  suppliers: { nama: string } | null;
+  po_items: { item_id: string; qty_pesan: number; qty_diterima: number }[];
+};
+
 const HALAMAN = 1000;
 
 type Halaman = PromiseLike<{ data: unknown[] | null; error: unknown }>;
@@ -72,7 +96,7 @@ export async function getPpicData(organizationId: string): Promise<PpicData> {
     return hasil;
   }
 
-  const [products, items, links, batches] = await Promise.all([
+  const [products, items, links, batches, karantina, pos] = await Promise.all([
     semua<ProductRaw>((a, b) =>
       supabase
         .from("products")
@@ -115,6 +139,34 @@ export async function getPpicData(organizationId: string): Promise<PpicData> {
         .order("id")
         .range(a, b)
     ),
+    // Lot yang menunggu keputusan QC. Lot yang ditolak QC qty_karantina-nya
+    // sudah nol (decideQc), jadi otomatis tidak terhitung di sini.
+    semua<KarantinaRaw>((a, b) =>
+      supabase
+        .from("purchase_batches")
+        .select("item_id, qty_karantina, no_lot_supplier, tanggal_terima, supplier_nama")
+        .eq("organization_id", organizationId)
+        .eq("qc_status", "Karantina")
+        .gt("qty_karantina", 0)
+        .order("tanggal_terima")
+        .order("id")
+        .range(a, b)
+    ),
+    // PO yang barangnya belum datang semua. Barang yang sudah diterima
+    // (termasuk yang masih karantina) sudah masuk qty_diterima, jadi
+    // sisa PO dan karantina tidak pernah terhitung dua kali.
+    semua<PoRaw>((a, b) =>
+      supabase
+        .from("purchase_orders")
+        .select(
+          "id, no_po, tanggal_po, status, suppliers(nama), po_items(item_id, qty_pesan, qty_diterima)"
+        )
+        .eq("organization_id", organizationId)
+        .in("status", [...PO_BELUM_DIKIRIM, ...PO_SUDAH_DIKIRIM])
+        .order("tanggal_po")
+        .order("id")
+        .range(a, b)
+    ),
   ]);
 
   // Stok sisa + harga terakhir per item
@@ -135,6 +187,35 @@ export async function getPpicData(organizationId: string): Promise<PpicData> {
     }
   }
 
+  const karantinaOf = new Map<string, PpicKarantina[]>();
+  for (const k of karantina) {
+    const daftar = karantinaOf.get(k.item_id) || [];
+    daftar.push({
+      qty: Number(k.qty_karantina),
+      lot: k.no_lot_supplier,
+      tanggal: k.tanggal_terima,
+      supplier: k.supplier_nama,
+    });
+    karantinaOf.set(k.item_id, daftar);
+  }
+
+  const poOf = new Map<string, PpicPoTerbuka[]>();
+  for (const po of pos) {
+    for (const it of po.po_items) {
+      const sisa = Number(it.qty_pesan) - Number(it.qty_diterima);
+      if (!(sisa > 0)) continue;
+      const daftar = poOf.get(it.item_id) || [];
+      daftar.push({
+        noPo: po.no_po,
+        tanggal: po.tanggal_po,
+        status: po.status,
+        supplier: po.suppliers?.nama || null,
+        sisa,
+      });
+      poOf.set(it.item_id, daftar);
+    }
+  }
+
   const ppicItems: PpicItem[] = items.map((it) => ({
     id: it.id,
     kode: it.kode,
@@ -144,6 +225,8 @@ export async function getPpicData(organizationId: string): Promise<PpicData> {
     stok: stok.get(it.id) || 0,
     harga: lastHarga.get(it.id) ?? null,
     supplier: supplierOf.get(it.id) || null,
+    karantina: karantinaOf.get(it.id) || [],
+    poTerbuka: poOf.get(it.id) || [],
   }));
 
   const ppicProducts: PpicProduct[] = products
