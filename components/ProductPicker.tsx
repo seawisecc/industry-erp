@@ -11,8 +11,9 @@
    produk bernama mirip untuk brand berbeda, dan kode produk pun
    bisa kembar. Tanpa brand, dua baris bisa terbaca persis sama.
 
-   Dipakai di form Invoice, POS, Konsinyasi, Harga Client, dan PPIC
-   Planner (per produk, tanpa varian dan tanpa stok). Baris layanan jasa
+   Dipakai di form Invoice, POS, Konsinyasi, Harga Client, serta PPIC
+   Planner dan form Produksi (Plan & Input Hasil, per produk, tanpa
+   varian dan tanpa stok). Baris layanan jasa
    ditandai jelas karena jasa tidak punya stok, jadi angka "stok 0"
    di sebelahnya akan menyesatkan.
    ============================================================ */

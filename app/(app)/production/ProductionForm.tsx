@@ -7,6 +7,9 @@ import { createProduction } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya, klasSorot, tombolCombo } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
+import ProductPicker, {
+  type ProductOption as PilihanProduk,
+} from "@/components/ProductPicker";
 
 export type ProductOption = {
   id: string;
@@ -76,6 +79,24 @@ export default function ProductionForm({
   const [error, setError] = useState("");
 
   const selectedProduct = products.find((p) => p.id === productId) || null;
+
+  // Per PRODUK, tanpa varian dan tanpa info stok produk jadi. Saran
+  // diurutkan per brand dulu, produk tanpa brand di paling bawah.
+  const pilihanProduk: PilihanProduk[] = [...products]
+    .sort(
+      (a, b) =>
+        (a.brand?.trim() || "￿").localeCompare(b.brand?.trim() || "￿", "id") ||
+        (a.kode || "").localeCompare(b.kode || "", "id")
+    )
+    .map((p) => ({
+      key: p.id,
+      label: `${p.kode || "-"}, ${p.nama_produk}`,
+      brand: p.brand,
+      varian: "-",
+      available: 0,
+      service_id: null,
+    }));
+
   const bulkKg =
     (selectedProduct?.batch_size_kg || 0) * (parseNum(jumlahBatch) || 0);
 
@@ -174,6 +195,12 @@ export default function ProductionForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+    // Pemilih ketik-cari tidak punya `required` bawaan browser seperti
+    // <select>, jadi dijaga di sini, SEBELUM dialog konfirmasi.
+    if (!selectedProduct) {
+      setError("Pilih produk yang diproduksi dulu");
+      return;
+    }
 
     const lanjut = await konfirmasi.minta({
       judul: "Simpan hasil produksi ini?",
@@ -382,27 +409,22 @@ export default function ProductionForm({
 
   return (
     <form onSubmit={handleSubmit} onKeyDown={enterKeFieldBerikutnya} className="flex flex-col gap-5">
-      {/* ============ HEADER PRODUKSI ============ */}
-      <div className="glass rounded-2xl p-6 flex flex-col gap-4">
+      {/* ============ HEADER PRODUKSI ============
+          relative + z-20: daftar saran pemilih produk harus tampil di atas
+          kartu bahan di bawahnya, `.glass` membentuk stacking context. */}
+      <div className="relative z-20 glass rounded-2xl p-6 flex flex-col gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">
               Produk yang Diproduksi
             </label>
-            <select
+            <ProductPicker
+              options={pilihanProduk}
               value={productId}
-              onChange={(e) => handleProductChange(e.target.value)}
-              required
-              className={inputCls}
-            >
-              <option value="">Pilih produk</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.kode} · {p.nama_produk}
-                  {p.brand ? ` (${p.brand})` : ""}
-                </option>
-              ))}
-            </select>
+              onChange={handleProductChange}
+              placeholder="Ketik kode / nama produk / brand..."
+              showStock={false}
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

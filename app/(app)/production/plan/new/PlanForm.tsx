@@ -9,6 +9,7 @@ import { gabungKebutuhan, hitungKekurangan, type ItemStok } from "@/lib/stokCek"
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { keTampilan } from "@/lib/angka";
 import NumberInput from "@/components/NumberInput";
+import ProductPicker, { type ProductOption } from "@/components/ProductPicker";
 
 export type ProductOpt = {
   id: string;
@@ -44,6 +45,25 @@ export default function PlanForm({
   const [error, setError] = useState("");
 
   const product = products.find((p) => p.id === productId) || null;
+
+  // Plan dibuat per PRODUK (formula & ukuran batch menempel di produk),
+  // jadi pemilihnya tanpa varian dan tanpa info stok produk jadi. Saran
+  // diurutkan per brand dulu, produk tanpa brand di paling bawah.
+  const pilihanProduk: ProductOption[] = [...products]
+    .sort(
+      (a, b) =>
+        (a.brand?.trim() || "￿").localeCompare(b.brand?.trim() || "￿", "id") ||
+        (a.kode || "").localeCompare(b.kode || "", "id")
+    )
+    .map((p) => ({
+      key: p.id,
+      label: `${p.kode || "-"}, ${p.nama_produk}`,
+      brand: p.brand,
+      varian: "-",
+      available: 0,
+      service_id: null,
+    }));
+
   const nBatch = parseNum(jumlahBatch);
   const bulkKg = (product?.batch_size_kg || 0) * (nBatch || 0);
 
@@ -69,6 +89,13 @@ export default function PlanForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+    // Pemilih ketik-cari tidak punya `required` bawaan browser seperti
+    // <select>, jadi dijaga di sini, SEBELUM dialog konfirmasi.
+    if (!product) {
+      setError("Pilih produk yang diproduksi dulu");
+      return;
+    }
+    setError("");
 
     const lanjut = await konfirmasi.minta({
       judul: "Simpan rencana produksi?",
@@ -112,25 +139,37 @@ export default function PlanForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="glass rounded-2xl p-6 flex flex-col gap-4">
+      {/* relative + z-20: daftar saran pemilih produk harus tampil di atas
+          kartu peringatan stok di bawahnya, `.glass` membentuk stacking
+          context. */}
+      <div className="relative z-20 glass rounded-2xl p-6 flex flex-col gap-4">
         <div>
           <label className="block text-[12.5px] font-medium text-muted mb-1.5">
             Produk yang Diproduksi
           </label>
-          <select
+          <ProductPicker
+            options={pilihanProduk}
             value={productId}
-            onChange={(e) => setProductId(e.target.value)}
-            required
-            className={inputCls}
-          >
-            <option value="">Pilih produk</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.kode} · {p.nama_produk}
-                {p.brand ? ` (${p.brand})` : ""}
-              </option>
-            ))}
-          </select>
+            onChange={(key) => {
+              setProductId(key);
+              if (key) setError("");
+            }}
+            placeholder="Ketik kode / nama produk / brand..."
+            showStock={false}
+          />
+          {product && (
+            <p className="text-[11.5px] text-muted mt-1">
+              {[
+                product.brand ? `Brand ${product.brand}` : "Tanpa brand",
+                product.batch_size_kg
+                  ? `batch ${Number(product.batch_size_kg).toLocaleString("id-ID")} kg`
+                  : null,
+                `${product.formulas.length} bahan di formula`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
