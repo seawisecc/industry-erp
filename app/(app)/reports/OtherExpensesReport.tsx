@@ -84,7 +84,7 @@ function Kartu({
 }
 
 export default function OtherExpensesReport({ data }: { data: BiayaLain }) {
-  const { pemakaian, ongkir, ongkirMasukHpp, kerugian, gagal } = data;
+  const { pemakaian, ongkir, ongkirMasukHpp, kerugian, dikecualikan, gagal } = data;
 
   const totalPemakaian = pemakaian.reduce((s, m) => s + m.nilai, 0);
   const totalOngkir = ongkir.reduce((s, o) => s + o.nilai, 0);
@@ -129,7 +129,11 @@ export default function OtherExpensesReport({ data }: { data: BiayaLain }) {
   for (const k of kerugian) tambah(k.tanggal, "kerugian", k.nilai ?? 0);
   const rekapBulan = [...bulan].sort(([a], [b]) => a.localeCompare(b));
 
-  const kosongSemua = pemakaian.length === 0 && ongkir.length === 0 && kerugian.length === 0;
+  const kosongSemua =
+    pemakaian.length === 0 &&
+    ongkir.length === 0 &&
+    kerugian.length === 0 &&
+    dikecualikan.length === 0;
 
   return (
     <>
@@ -159,11 +163,17 @@ export default function OtherExpensesReport({ data }: { data: BiayaLain }) {
         <Kartu
           label="Kerugian Persediaan"
           nilai={formatRupiah(totalKerugian)}
-          keterangan={
+          keterangan={[
+            "terpisah dari biaya",
             kerugianTanpaNilai.length > 0
-              ? `terpisah dari biaya · ${kerugianTanpaNilai.length} baris belum bisa dinilai`
-              : "terpisah, tidak masuk biaya di atas"
-          }
+              ? `${kerugianTanpaNilai.length} belum bisa dinilai`
+              : null,
+            dikecualikan.length > 0
+              ? `${dikecualikan.length} penyesuaian Admin tidak dihitung`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
           nada="text-clay-600"
         />
       </div>
@@ -403,7 +413,7 @@ export default function OtherExpensesReport({ data }: { data: BiayaLain }) {
 
           <JudulSeksi
             judul="Ongkos Kirim Pembelian"
-            keterangan="Biaya kirim di faktur supplier yang tidak dibebankan ke HPP bahan."
+            keterangan="Biaya kirim di faktur supplier yang tidak dibebankan ke HPP bahan. Mengikuti tanggal terima di faktur, bukan tanggal faktur itu diinput."
           />
           <div className="mb-2">
             <DataTable
@@ -493,7 +503,11 @@ export default function OtherExpensesReport({ data }: { data: BiayaLain }) {
               rows={kerugian}
               rowKey={(k) => k.id}
               minWidth={900}
-              empty="Tidak ada pemusnahan maupun selisih opname yang turun pada periode ini."
+              empty={
+                dikecualikan.length > 0
+                  ? "Tidak ada kerugian yang dihitung. Selisih opname pada periode ini semuanya dicatat Admin, lihat di bawah."
+                  : "Tidak ada pemusnahan maupun selisih opname yang turun pada periode ini."
+              }
               footer={
                 kerugian.length > 0
                   ? {
@@ -509,7 +523,7 @@ export default function OtherExpensesReport({ data }: { data: BiayaLain }) {
                           <td className={`${td} text-right ${ANGKA} text-clay-600`}>
                             {formatRupiah(totalKerugian)}
                           </td>
-                          <td className={td} />
+                          <td className={td} colSpan={2} />
                         </tr>
                       ),
                       card: (
@@ -590,11 +604,98 @@ export default function OtherExpensesReport({ data }: { data: BiayaLain }) {
                   key: "sumber",
                   header: "Sumber",
                   role: "secondary",
-                  cell: (k) => <div className="max-w-[220px] truncate">{k.sumber}</div>,
+                  cell: (k) => <div className="max-w-[200px] truncate">{k.sumber}</div>,
                   cardCell: (k) => k.sumber,
+                },
+                {
+                  key: "oleh",
+                  header: "Dicatat Oleh",
+                  role: "secondary",
+                  className: "whitespace-nowrap",
+                  cell: (k) => k.oleh || <span className="text-muted">tidak diketahui</span>,
                 },
               ]}
             />
+
+            {dikecualikan.length > 0 && (
+              <details className="mt-4 glass rounded-2xl px-4 py-3 group">
+                <summary className="cursor-pointer select-none text-[13px] font-medium text-ink">
+                  {dikecualikan.length} penyesuaian dicatat Admin, tidak dihitung
+                  sebagai kerugian
+                  <span className="block text-[11.5px] font-normal text-muted">
+                    Dianggap koreksi atau penyesuaian awal. Ditampilkan supaya tetap
+                    bisa ditelusuri.
+                  </span>
+                </summary>
+                <div className="mt-3">
+                  <DataTable
+                    rows={dikecualikan}
+                    rowKey={(k) => k.id}
+                    minWidth={760}
+                    chrome="bare"
+                    maxHeight={false}
+                    columns={[
+                      {
+                        key: "tanggal",
+                        header: "Tanggal",
+                        role: "subtitle",
+                        className: "whitespace-nowrap",
+                        cell: (k) => formatTanggal(k.tanggal),
+                      },
+                      {
+                        key: "jenis",
+                        header: "Jenis",
+                        role: "badge",
+                        cell: (k) => <Pil teks={k.jenis} warna={WARNA_KERUGIAN[k.jenis]} />,
+                      },
+                      {
+                        key: "barang",
+                        header: "Barang",
+                        role: "title",
+                        cell: (k) => (
+                          <div className="max-w-[240px]">
+                            <div className="truncate">{k.barang}</div>
+                            <div className="text-[11px] text-muted truncate">
+                              {[k.kode, k.keterangan].filter(Boolean).join(" · ") || "-"}
+                            </div>
+                          </div>
+                        ),
+                        cardCell: (k) => (
+                          <>
+                            <div>{k.barang}</div>
+                            <div className="text-[11px] text-muted font-normal">
+                              {[k.kode, k.keterangan].filter(Boolean).join(" · ")}
+                            </div>
+                          </>
+                        ),
+                      },
+                      {
+                        key: "qty",
+                        header: "Qty",
+                        role: "primary",
+                        align: "right",
+                        className: ANGKA,
+                        cell: (k) => `${formatQty(k.qty)} ${k.satuan}`,
+                      },
+                      {
+                        key: "sumber",
+                        header: "Sumber",
+                        role: "secondary",
+                        cell: (k) => <div className="max-w-[200px] truncate">{k.sumber}</div>,
+                        cardCell: (k) => k.sumber,
+                      },
+                      {
+                        key: "oleh",
+                        header: "Dicatat Oleh",
+                        role: "primary",
+                        className: "whitespace-nowrap",
+                        cell: (k) => k.oleh || "-",
+                      },
+                    ]}
+                  />
+                </div>
+              </details>
+            )}
             <div className="mt-3 grid gap-1 text-[11.5px] text-muted leading-snug px-1">
               <p>
                 <b className="text-ink">Penilaian:</b> pemusnahan dengan harga lot
@@ -608,6 +709,13 @@ export default function OtherExpensesReport({ data }: { data: BiayaLain }) {
                 <b className="text-ink">Produk jadi dihitung bersih per produk per
                 opname:</b> perpindahan stok antar varian (waktu nama varian diganti)
                 tercatat sebagai pasangan minus dan plus, dan itu bukan kerugian.
+              </p>
+              <p>
+                <b className="text-ink">Penyesuaian oleh Admin tidak dihitung:</b>{" "}
+                selisih opname bahan dan produk jadi yang dicatat Admin dianggap
+                koreksi atau penyesuaian awal, termasuk opname waktu aplikasi mulai
+                dipakai. Yang dicatat staf dihitung. Pemusnahan selalu dihitung.
+                Peran pembuat dibaca saat laporan dibuka.
               </p>
               <p>
                 <b className="text-ink">Tidak termasuk:</b> barang ditolak QC (biasanya

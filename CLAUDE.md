@@ -1542,6 +1542,34 @@ Aturan yang mengikat:
   Tab Stock Movement masih membandingkannya langsung dengan tanggal,
   dan pemusnahan jam 00.00 s/d 08.00 WITA di sana jatuh ke hari
   sebelumnya.
+- **Selisih opname yang dicatat Admin TIDAK dihitung sebagai kerugian,
+  yang dicatat staf dihitung.** Keputusan pemakainya: penyesuaian oleh
+  Admin adalah koreksi atau penyesuaian awal, dan seluruh opname waktu
+  aplikasi mulai dipakai memang dibuat Admin (dicek September 2026:
+  ketiga pembuatnya berperan `Admin`), jadi data pembukaan keluar
+  dengan sendirinya tanpa tanggal batas. Admin = `role = 'Admin'` atau
+  `is_super_admin`. Berlaku untuk selisih opname bahan
+  (`stock_adjustments.dibuat_oleh`) dan produk jadi
+  (`finished_goods_adjustments.dibuat_oleh`, yang diisi
+  `finish_stock_opname_tx` dengan PEMBUAT opname, bukan penutupnya).
+  **Pemusnahan selalu dihitung**: barangnya memang dibuang. Pembuat yang
+  tidak diketahui DIHITUNG, supaya kerugian tidak lolos karena kolomnya
+  kosong.
+- **Yang tidak dihitung tetap ditampilkan** (`dikecualikan`, bagian lipat
+  di bawah tabel kerugian, lengkap dengan nama pembuatnya). Baris yang
+  lenyap dari laporan tanpa keterangan adalah cara paling cepat membuat
+  orang berhenti percaya pada totalnya.
+- **Peran pembuat dibaca lewat `createAdminClient`**, bukan klien sesi.
+  Laporan bisa dibuka staf yang tidak berhak membaca profil Admin, dan
+  peran yang terbaca kosong akan membuat kerugian yang sama dihitung
+  untuk satu penonton dan tidak untuk yang lain. Yang ditanyakan cuma id
+  pembuat dari baris milik organisasi itu. Konsekuensi yang diterima:
+  perannya peran SAAT laporan dibuka, jadi staf yang kelak dijadikan
+  Admin ikut membuat penyesuaian lamanya berhenti terhitung.
+- **Ongkir mengikuti tanggal TERIMA faktur**, sama dengan tab Purchasing,
+  bukan tanggal input. Faktur 21 Agustus yang baru diinput 14 September
+  jatuh ke Agustus, dan itu yang sempat dikira ongkirnya belum masuk.
+  Kalimatnya ditulis di bawah judul tabel ongkir.
 - **Yang tidak masuk:** ongkir yang sudah dibebankan ke HPP (disebut di
   bawah tabelnya, tidak dihitung), barang ditolak QC (biasanya diretur
   dan memotong hutang, sistem tidak tahu mana yang tidak diretur), dan
