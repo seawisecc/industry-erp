@@ -2008,8 +2008,8 @@ ketiganya yang terakhir ikut diisi karena bertipe `Record<VerifyKey, ...>`:
 | `app/print/<jenis>/[id]/page.tsx` | halamannya sendiri |
 
 **Tidak semua halaman cetak perlu didaftarkan.** Lembar hitung Stock
-Opname, Lembar Kerja R&D, dan Pengajuan Purchase Order sengaja berdiri
-di luar keempat tempat itu: ketiganya lembar INTERNAL, bukan dokumen
+Opname, Lembar Kerja R&D, Pengajuan Purchase Order, dan Dokumen PPIC
+sengaja berdiri di luar keempat tempat itu: ketiganya lembar INTERNAL, bukan dokumen
 yang diterbitkan ke pihak luar, jadi tidak ada yang perlu diverifikasi
 lewat QR. Kalau nanti salah satunya berubah jadi dokumen yang dikirim
 keluar, keempat tempat itu yang harus diisi.
@@ -2024,6 +2024,28 @@ sendiri, sedangkan kertas ini justru dibuat untuk dimintakan tanda
 tangan. Alasan yang sama dengan kolom "Diterima oleh" di Tanda Terima
 Konsinyasi, jadi halamannya memanggil `getDocSignConfig` langsung, bukan
 `getDocSigners`.
+
+## Dokumen PPIC: rencana dibawa lewat URL, rumusnya satu
+
+PPIC Planner tidak menyimpan apa pun, jadi `/print/ppic` menerima
+rencananya lewat `?r=<product_id>:<batch>,...` lalu menghitung ulang di
+server. Tiga hal yang harus dijaga:
+
+- **Rumusnya cuma di `lib/ppic.ts` (`hitungPpic`)**, dipakai layar dan
+  kertas. Dulu rumusnya di dalam `PpicPlanner.tsx`; salinan kedua di
+  halaman cetak berarti dua angka Qty Beli yang bisa berbeda untuk
+  rencana yang sama, dan yang dibawa ke meja pembelian justru kertasnya.
+  Pembaca datanya juga satu, `app/(app)/ppic/data.ts`, diambil per 1000
+  baris karena stok yang terpotong tetap terlihat masuk akal.
+- **Layar Planner ikut menulis rencananya ke URL** lewat
+  `history.replaceState` di handler. Tanpa itu tombol Kembali dari
+  halaman cetak mendarat di Planner yang kosong, dan rencana yang sudah
+  disusun harus diketik ulang. `replaceState`, bukan `pushState`: tiap
+  ketikan jumlah batch tidak boleh jadi satu langkah di tombol Kembali.
+- **Halaman `/print` tidak lewat `AccessGuard`**, jadi izin modul
+  `ppic` diperiksa sendiri di halaman cetaknya. Kolom tanda tangannya
+  memakai pengaturan dokumen Produksi, karena yang disahkan adalah
+  rencana produksinya.
 
 `doc_type` di `doc_sign_settings` cuma teks tanpa constraint, jadi jenis
 baru TIDAK butuh migrasi. Barisnya juga tidak perlu ada: kalau belum

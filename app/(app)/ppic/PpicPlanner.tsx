@@ -6,37 +6,37 @@
    Output: kebutuhan bahan per item vs stok, lalu daftar belanja
    dengan pembulatan MOQ, supplier, dan estimasi dana.
    Murni kalkulasi di layar, tidak menyimpan apa pun.
+
+   Rumusnya di lib/ppic.ts, dipakai bersama dokumen cetak /print/ppic.
+   Rencananya ikut ditulis ke URL (?r=), jadi tombol Kembali dari
+   halaman cetak mengembalikan rencana yang sama, bukan layar kosong.
    ============================================================ */
 
 import { useState } from "react";
-import { Plus, Trash2, ShoppingCart, PackageSearch } from "lucide-react";
+import Link from "next/link";
+import {
+  Plus,
+  Trash2,
+  ShoppingCart,
+  PackageSearch,
+  Printer,
+} from "lucide-react";
 import DataTable from "@/components/DataTable";
-import { bulatkanMoq } from "@/lib/moq";
 import NumberInput from "@/components/NumberInput";
 import ProductPicker, { type ProductOption } from "@/components/ProductPicker";
+import {
+  hitungPpic,
+  rencanaKeQuery,
+  type PpicItem,
+  type PpicProduct,
+  type PpicRencana,
+} from "@/lib/ppic";
 
-export type PpicProduct = {
-  id: string;
-  kode: string | null;
-  nama: string;
-  brand: string | null;
-  kategori: string | null;
-  batchKg: number;
-  formulas: { item_id: string; percentage: number }[];
-};
-
-export type PpicItem = {
-  id: string;
-  kode: string;
-  nama: string;
-  satuan: string;
-  moq: number | null;
-  stok: number;
-  harga: number | null; // harga pembelian terakhir
-  supplier: string | null;
-};
+export type { PpicItem, PpicProduct } from "@/lib/ppic";
 
 type Row = { productId: string; batches: string };
+
+const BARIS_KOSONG: Row = { productId: "", batches: "1" };
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
@@ -48,16 +48,46 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
 
+function keRencana(rows: Row[]): PpicRencana[] {
+  return rows.map((r) => ({
+    productId: r.productId,
+    batches: parseNum(r.batches),
+  }));
+}
+
 export default function PpicPlanner({
   products,
   items,
+  rencanaAwal,
+  gagalMuat,
 }: {
   products: PpicProduct[];
   items: PpicItem[];
+  /** Rencana dari URL (?r=), kosong kalau layar dibuka biasa. */
+  rencanaAwal: PpicRencana[];
+  /** Sebagian data stok/harga gagal dimuat. */
+  gagalMuat: boolean;
 }) {
-  const [rows, setRows] = useState<Row[]>([{ productId: "", batches: "1" }]);
+  const [rows, setRows] = useState<Row[]>(() =>
+    rencanaAwal.length > 0
+      ? rencanaAwal.map((r) => ({
+          productId: r.productId,
+          batches: String(r.batches),
+        }))
+      : [{ ...BARIS_KOSONG }]
+  );
 
-  const itemMap = new Map(items.map((it) => [it.id, it]));
+  /**
+   * Ubah rencana sekaligus tulis ke URL. Dikerjakan di handler, bukan
+   * useEffect yang mengawasi rows: alasan yang sama dengan bab State
+   * klien di CLAUDE.md. replaceState, bukan pushState: tiap ketikan
+   * jumlah batch tidak boleh jadi satu langkah di tombol Kembali.
+   */
+  function ubahRows(baru: Row[]) {
+    setRows(baru);
+    const q = rencanaKeQuery(keRencana(baru));
+    window.history.replaceState(null, "", q ? `/ppic?r=${q}` : "/ppic");
+  }
 
   // PPIC merencanakan per PRODUK, bukan per varian: formula dan ukuran
   // batch menempel di produk. Stok produk jadi tidak relevan di sini,
@@ -71,69 +101,51 @@ export default function PpicPlanner({
     service_id: null,
   }));
 
-  // ===== Hitung kebutuhan per item dari semua baris rencana =====
-  const kebutuhan = new Map<string, number>(); // item_id -> qty butuh
-  for (const r of rows) {
-    const p = products.find((x) => x.id === r.productId);
-    const nBatch = parseNum(r.batches);
-    if (!p || nBatch <= 0 || p.batchKg <= 0) continue;
-    for (const f of p.formulas) {
-      const qty = (f.percentage / 100) * p.batchKg * nBatch;
-      kebutuhan.set(f.item_id, (kebutuhan.get(f.item_id) || 0) + qty);
-    }
-  }
-
-  type Calc = {
-    item: PpicItem;
-    butuh: number;
-    kurang: number;
-    qtyBeli: number;
-    dana: number | null;
-  };
-  const calcs: Calc[] = [];
-  for (const [itemId, butuh] of kebutuhan) {
-    const item = itemMap.get(itemId);
-    if (!item) continue;
-    const kurang = Math.max(0, butuh - item.stok);
-    const qtyBeli = bulatkanMoq(kurang, item.moq);
-    calcs.push({
-      item,
-      butuh,
-      kurang,
-      qtyBeli,
-      dana: item.harga != null ? qtyBeli * item.harga : null,
-    });
-  }
-  calcs.sort((a, b) => b.kurang - a.kurang || a.item.kode.localeCompare(b.item.kode));
-
-  const perluBeli = calcs.filter((c) => c.kurang > 0);
-  const totalDana = perluBeli.reduce((s, c) => s + (c.dana || 0), 0);
-  const adaTanpaHarga = perluBeli.some((c) => c.dana == null);
-  const batchTanpaUkuran = rows.some((r) => {
-    const p = products.find((x) => x.id === r.productId);
-    return p && p.batchKg <= 0;
-  });
+  const hasil = hitungPpic(products, items, keRencana(rows));
+  const calcs = hasil.bahan;
+  const { perluBeli, totalDana, adaTanpaHarga } = hasil;
+  const batchTanpaUkuran = hasil.tanpaUkuranBatch.length > 0;
+  const queryCetak = rencanaKeQuery(keRencana(rows));
 
   const inputCls =
     "w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700";
 
   return (
     <div className="flex flex-col gap-4">
+      {gagalMuat && (
+        <p className="text-clay-600 text-[12.5px] bg-clay-100 rounded-lg px-3 py-2">
+          Sebagian data stok atau harga gagal dimuat, jadi angka di bawah bisa
+          keliru. Muat ulang halaman sebelum dipakai.
+        </p>
+      )}
+
       {/* ===== Rencana produksi =====
           relative + z-20: daftar saran pemilih produk harus tampil di atas
           kartu hasil di bawahnya, `.glass` membentuk stacking context. */}
       <div className="relative z-20 glass rounded-2xl p-6 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <h3 className="font-display text-[15px] font-semibold text-ink">
             Rencana Produksi
           </h3>
-          <button
-            type="button"
-            onClick={() => setRows((rs) => [...rs, { productId: "", batches: "1" }])}
-            className="flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline"
-          >
-            <Plus size={14} /> Tambah Produk
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Cuma muncul kalau ada rencana yang sah: tombol yang
+                mencetak kertas kosong lebih buruk daripada tidak ada. */}
+            {hasil.rencana.length > 0 && (
+              <Link
+                href={`/print/ppic?r=${queryCetak}`}
+                className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+              >
+                <Printer size={14} /> Cetak Dokumen
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => ubahRows([...rows, { ...BARIS_KOSONG }])}
+              className="flex items-center gap-1 text-botanical-700 text-[12.5px] font-medium hover:underline"
+            >
+              <Plus size={14} /> Tambah Produk
+            </button>
+          </div>
         </div>
 
         {rows.map((row, idx) => {
@@ -148,8 +160,8 @@ export default function PpicPlanner({
                   options={pilihanProduk}
                   value={row.productId}
                   onChange={(key) =>
-                    setRows((rs) =>
-                      rs.map((r, i) => (i === idx ? { ...r, productId: key } : r))
+                    ubahRows(
+                      rows.map((r, i) => (i === idx ? { ...r, productId: key } : r))
                     )
                   }
                   placeholder="Ketik kode / nama produk / brand..."
@@ -158,10 +170,8 @@ export default function PpicPlanner({
                 <NumberInput
                   value={row.batches}
                   onChange={(nilai) =>
-                    setRows((rs) =>
-                      rs.map((r, i) =>
-                        i === idx ? { ...r, batches: nilai } : r
-                      )
+                    ubahRows(
+                      rows.map((r, i) => (i === idx ? { ...r, batches: nilai } : r))
                     )
                   }
                   placeholder="Jml batch"
@@ -177,10 +187,10 @@ export default function PpicPlanner({
                 <button
                   type="button"
                   onClick={() =>
-                    setRows((rs) =>
-                      rs.length > 1
-                        ? rs.filter((_, i) => i !== idx)
-                        : [{ productId: "", batches: "1" }]
+                    ubahRows(
+                      rows.length > 1
+                        ? rows.filter((_, i) => i !== idx)
+                        : [{ ...BARIS_KOSONG }]
                     )
                   }
                   className="text-muted hover:text-clay-600 p-2 justify-self-end"
