@@ -31,8 +31,10 @@ export type ClientPriceMap = Record<string, number>;
  *   harga dasar = harga khusus kalau ada, kalau tidak harga master
  *   harga akhir = harga dasar - (harga dasar * diskon / 100)
  *
- * Dipakai di konsinyasi saja: pengiriman memakai harga dasar penuh,
- * potongannya muncul waktu laku dicatat dan Proforma terbit.
+ * Dipakai di konsinyasi, Invoice, dan POS. Di konsinyasi pengiriman
+ * memakai harga dasar penuh, potongannya muncul waktu laku dicatat dan
+ * Proforma terbit. Di Invoice & POS potongannya terisi di kolom Discount
+ * begitu client dan produknya dipilih.
  */
 export type ClientDiscountMap = Record<string, number>;
 

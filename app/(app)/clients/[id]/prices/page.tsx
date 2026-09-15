@@ -126,10 +126,10 @@ export default async function ClientPricesPage({
       </div>
       <p className="text-muted text-sm mb-6">
         {client.company_brand}
-        {client.kategori ? ` · ${client.kategori}` : ""} · harga khusus dipakai
-        di Invoice, POS, dan Konsinyasi begitu client ini dipilih. Diskon
-        dipakai di Konsinyasi: potongannya masuk sendiri ke Proforma saat
-        barang laku dicatat.
+        {client.kategori ? ` · ${client.kategori}` : ""} · harga dan diskon
+        khusus dipakai di Invoice, POS, dan Konsinyasi begitu client ini
+        dipilih. Di Konsinyasi, diskonnya baru dipotong saat barang laku
+        dicatat.
       </p>
 
       {options.length === 0 ? (

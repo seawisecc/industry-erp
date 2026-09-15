@@ -8,7 +8,12 @@ import { createInvoice } from "./actions";
 import { computeTotals, type TaxSettings } from "@/lib/invoiceMath";
 import ClientPicker from "@/components/ClientPicker";
 import ProductPicker from "@/components/ProductPicker";
-import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
+import {
+  clientPriceKey,
+  diskonTertimbang,
+  type ClientDiscountMap,
+  type ClientPriceMap,
+} from "@/lib/clientPrice";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
@@ -50,12 +55,15 @@ export default function InvoiceForm({
   clients,
   options,
   clientPrices,
+  clientDiscounts,
   mode,
   taxSettings,
 }: {
   clients: ClientOpt[];
   options: ProductVariantOpt[];
   clientPrices: ClientPriceMap;
+  /** Diskon khusus client dalam persen, kuncinya sama dengan clientPrices. */
+  clientDiscounts: ClientDiscountMap;
   mode: "invoice" | "pos";
   /**
    * Model pajak & tarif bawaan perusahaan. Cuma untuk tampilan: server
@@ -75,6 +83,13 @@ export default function InvoiceForm({
   const [namaPembeli, setNamaPembeli] = useState("");
   const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
   const [diskon, setDiskon] = useState("0");
+  /**
+   * Diskon yang sudah diketik user tidak boleh tertimpa angka otomatis.
+   * Selama mati, kolom Discount menampilkan diskon tertimbang yang
+   * dihitung saat render, jadi ganti client, produk, atau qty langsung
+   * ikut tanpa handler tambahan dan tanpa useEffect.
+   */
+  const [diskonManual, setDiskonManual] = useState(false);
   const [pakaiTax, setPakaiTax] = useState(false);
   const [top, setTop] = useState(isPos ? "0" : "");
   const [catatan, setCatatan] = useState("");
@@ -103,6 +118,14 @@ export default function InvoiceForm({
     return clientPrices[clientPriceKey(clientId, o.product_id, o.varian)] != null;
   };
 
+  /** Diskon khusus client untuk satu baris, 0 kalau tidak ada. */
+  function diskonUntuk(key: string, cid: string): number {
+    const o = optOf(key);
+    // Jasa tidak punya kesepakatan per client, walk-in tidak punya client
+    if (!o || !cid || o.service_id) return 0;
+    return clientDiscounts[clientPriceKey(cid, o.product_id, o.varian)] ?? 0;
+  }
+
   /**
    * Ganti client: harga baris yang belum disentuh user diisi ulang dengan
    * harga client baru. Dikerjakan di handler, BUKAN useEffect: mengubah
@@ -121,12 +144,30 @@ export default function InvoiceForm({
     );
   }
 
-  const calcItems = rows
-    .filter((r) => r.key)
-    .map((r) => ({ qty: parseNum(r.qty), harga: parseNum(r.harga) }));
+  const barisIsi = rows.filter((r) => r.key);
+  const calcItems = barisIsi.map((r) => ({
+    qty: parseNum(r.qty),
+    harga: parseNum(r.harga),
+  }));
+
+  // Invoice menyimpan satu diskon per dokumen, jadi diskon per produk
+  // dirangkum jadi persentase tertimbang, sama dengan konsinyasi. Rupiah
+  // potongannya sama persis dengan menghitung baris per baris.
+  const diskonOtomatis = diskonTertimbang(
+    barisIsi.map((r) => ({
+      qty: parseNum(r.qty),
+      harga: parseNum(r.harga),
+      diskonPersen: diskonUntuk(r.key, clientId),
+    }))
+  );
+  const adaDiskonKhusus = barisIsi.some((r) => diskonUntuk(r.key, clientId) > 0);
+  const diskonDipakai = diskonManual
+    ? diskon
+    : String(Math.round(diskonOtomatis * 10000) / 10000);
+
   const totals = computeTotals(
     calcItems,
-    parseNum(diskon),
+    parseNum(diskonDipakai),
     pakaiTax,
     taxSettings.taxPercent,
     taxSettings.taxMode,
@@ -154,6 +195,16 @@ export default function InvoiceForm({
         { label: "Pembeli", nilai: pembeli },
         { label: "Tanggal", nilai: tanggal },
         { label: "Item", nilai: rows.filter((r) => r.key).length + " baris" },
+        ...(parseNum(diskonDipakai) > 0
+          ? [
+              {
+                label: "Diskon",
+                nilai: `${parseNum(diskonDipakai).toLocaleString("id-ID", {
+                  maximumFractionDigits: 2,
+                })}% · ${formatRupiah(totals.diskon)}`,
+              },
+            ]
+          : []),
         ...(pakaiTax
           ? [
               {
@@ -181,7 +232,7 @@ export default function InvoiceForm({
         client_id: clientId || null,
         nama_pembeli: namaPembeli || null,
         tanggal,
-        diskon_percent: parseNum(diskon),
+        diskon_percent: parseNum(diskonDipakai),
         pakai_tax: pakaiTax,
         top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
         catatan: catatan || null,
@@ -232,6 +283,7 @@ export default function InvoiceForm({
     setClientId("");
     setNamaPembeli("");
     setDiskon("0");
+    setDiskonManual(false);
     setPakaiTax(false);
     setCatatan("");
     setRows([{ ...BARIS_KOSONG }]);
@@ -395,6 +447,11 @@ export default function InvoiceForm({
         {rows.map((row, idx) => {
           const o = optOf(row.key);
           const over = o && !o.service_id && parseNum(row.qty) > o.available;
+          const khusus = punyaHargaKhusus(row.key) && !row.hargaManual;
+          // Saat diskon diikat manual, diskon per produk tidak dipakai,
+          // jadi keterangannya ikut disembunyikan.
+          const dsk = diskonManual ? 0 : diskonUntuk(row.key, clientId);
+          const hargaBaris = parseNum(row.harga);
           return (
             <div
               key={idx}
@@ -454,9 +511,25 @@ export default function InvoiceForm({
                   <Trash2 size={15} />
                 </button>
               </div>
-              {punyaHargaKhusus(row.key) && !row.hargaManual && (
+              {(khusus || dsk > 0) && (
                 <p className="text-botanical-700 text-[11.5px]">
-                  Harga khusus client dipakai
+                  {[
+                    khusus ? "Harga khusus client dipakai" : null,
+                    dsk > 0
+                      ? `${khusus ? "diskon" : "Diskon client"} ${dsk.toLocaleString(
+                          "id-ID",
+                          { maximumFractionDigits: 2 }
+                        )}%${
+                          hargaBaris > 0
+                            ? ` jadi ${formatRupiah(
+                                hargaBaris - (hargaBaris * dsk) / 100
+                              )}/pcs`
+                            : ""
+                        }`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               )}
               {over && (
@@ -474,10 +547,34 @@ export default function InvoiceForm({
         <InvoiceTotals
           totals={totals}
           taxSettings={taxSettings}
-          diskon={diskon}
-          onDiskonChange={setDiskon}
+          diskon={diskonDipakai}
+          onDiskonChange={(nilai) => {
+            setDiskonManual(true);
+            setDiskon(nilai);
+          }}
           pakaiTax={pakaiTax}
           onPakaiTaxChange={setPakaiTax}
+          diskonHint={
+            adaDiskonKhusus ? (
+              !diskonManual ? (
+                <p className="text-botanical-700 text-[11.5px] -mt-1">
+                  Terisi otomatis dari diskon khusus client ini. Tetap bisa
+                  diubah.
+                </p>
+              ) : (
+                <p className="text-[11.5px] text-muted -mt-1">
+                  Diikat manual.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setDiskonManual(false)}
+                    className="text-botanical-700 font-medium hover:underline"
+                  >
+                    Pakai diskon khusus lagi
+                  </button>
+                </p>
+              )
+            ) : null
+          }
         />
       </div>
 
