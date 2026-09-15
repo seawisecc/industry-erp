@@ -866,6 +866,26 @@ menghitungnya, dipakai tiga layar: laporan laku per pengiriman
 Invoice & POS (`InvoiceForm`). Invoice pun cuma punya satu kolom diskon
 per dokumen, jadi rumusnya sama persis.
 
+**Persen tertimbang TIDAK BOLEH dibulatkan sebelum dipakai.** Klaim
+"rupiahnya sama persis" cuma benar selama persennya utuh. Versi pertama
+`ReportSaleForm` dan `InvoiceForm` membulatkannya ke 4 desimal lalu
+menghitung ulang rupiahnya dari angka itu: potongan per baris tepat
+Rp 705.000, tapi `24,1438% x 2.920.000` jadi 704.998,96, dan tagihannya
+tertulis Rp 2.215.001,04. Tidak ada error, cuma sen yang tidak ada di
+kesepakatan mana pun. Sekarang ada dua variabel yang sengaja dipisah:
+`diskonPersen` (utuh, untuk hitungan dan payload) dan `diskonTampil`
+(dibulatkan, cuma untuk kotak Discount). `OutletActions` sudah benar
+sejak awal karena memang tidak pernah membulatkan.
+
+Yang membuatnya aman disimpan utuh: `sales_invoices.diskon_percent`
+bertipe `numeric` TANPA skala (dicek September 2026 lewat
+`diskon_percent::text`, nilai `20` terbaca `"20"`, bukan `"20.0000"`).
+Kalau kolomnya suatu hari diberi skala, database akan membulatkannya
+diam-diam dan halaman cetak, yang menghitung ulang rupiah diskon dari
+persen tersimpan, kembali memunculkan sen yang sama. Sisa galat float
+yang tertinggal (sepersejuta rupiah) ditelan toleransi Rp 0,5 di
+`recompute_invoice_status` dan `record_sales_payment_tx`.
+
 **`harga` BOLEH null, dan tiap pembacanya wajib menyaringnya.** Ini
 sudah sekali lolos ke produksi dan harus tidak terulang. Waktu kolomnya
 dijadikan nullable, `getSalesOptions` masih memetakannya dengan

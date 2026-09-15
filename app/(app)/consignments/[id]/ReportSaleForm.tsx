@@ -82,13 +82,17 @@ export default function ReportSaleForm({
   // dengan menghitung baris per baris.
   const diskonOtomatis = diskonTertimbang(barisLaku);
   const adaDiskonKhusus = items.some((it) => it.diskon_persen > 0);
-  const diskonDipakai = diskonManual
+  // Persen tertimbang dipakai APA ADANYA untuk menghitung dan dikirim ke
+  // RPC; pembulatan cuma untuk kotak Discount. Membulatkannya lebih dulu
+  // memunculkan sen yang tidak ada di potongan per barisnya.
+  const diskonPersen = diskonManual ? parseNum(diskon) : diskonOtomatis;
+  const diskonTampil = diskonManual
     ? diskon
     : String(Math.round(diskonOtomatis * 10000) / 10000);
 
   const totals = computeTotals(
     calcItems,
-    parseNum(diskonDipakai),
+    diskonPersen,
     pakaiTax,
     taxSettings.taxPercent,
     taxSettings.taxMode,
@@ -108,8 +112,8 @@ export default function ReportSaleForm({
         {
           label: "Diskon",
           nilai:
-            parseNum(diskonDipakai) > 0
-              ? `${parseNum(diskonDipakai).toLocaleString("id-ID", {
+            diskonPersen > 0
+              ? `${diskonPersen.toLocaleString("id-ID", {
                   maximumFractionDigits: 2,
                 })}% · ${formatRupiah(totals.diskon)}`
               : "tanpa diskon",
@@ -142,7 +146,7 @@ export default function ReportSaleForm({
             consignment_item_id: it.id,
             qty_laku: parseNum(laku[it.id]),
           })),
-        diskon_percent: parseNum(diskonDipakai),
+        diskon_percent: diskonPersen,
         pakai_tax: pakaiTax,
         tax_percent: taxSettings.taxPercent,
         top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
@@ -339,7 +343,7 @@ export default function ReportSaleForm({
             judul="Generate Proforma Invoice"
             totals={totals}
             taxSettings={taxSettings}
-            diskon={diskonDipakai}
+            diskon={diskonTampil}
             onDiskonChange={(nilai) => {
               setDiskonManual(true);
               setDiskon(nilai);

@@ -161,13 +161,18 @@ export default function InvoiceForm({
     }))
   );
   const adaDiskonKhusus = barisIsi.some((r) => diskonUntuk(r.key, clientId) > 0);
-  const diskonDipakai = diskonManual
+  // Persen tertimbang dipakai APA ADANYA untuk menghitung dan dikirim ke
+  // server; pembulatan cuma untuk kotak Discount. Membulatkannya lebih
+  // dulu memunculkan sen yang tidak ada: 24,1438% x 2.920.000 =
+  // 704.998,96, padahal potongan per barisnya tepat Rp 705.000.
+  const diskonPersen = diskonManual ? parseNum(diskon) : diskonOtomatis;
+  const diskonTampil = diskonManual
     ? diskon
     : String(Math.round(diskonOtomatis * 10000) / 10000);
 
   const totals = computeTotals(
     calcItems,
-    parseNum(diskonDipakai),
+    diskonPersen,
     pakaiTax,
     taxSettings.taxPercent,
     taxSettings.taxMode,
@@ -195,11 +200,11 @@ export default function InvoiceForm({
         { label: "Pembeli", nilai: pembeli },
         { label: "Tanggal", nilai: tanggal },
         { label: "Item", nilai: rows.filter((r) => r.key).length + " baris" },
-        ...(parseNum(diskonDipakai) > 0
+        ...(diskonPersen > 0
           ? [
               {
                 label: "Diskon",
-                nilai: `${parseNum(diskonDipakai).toLocaleString("id-ID", {
+                nilai: `${diskonPersen.toLocaleString("id-ID", {
                   maximumFractionDigits: 2,
                 })}% · ${formatRupiah(totals.diskon)}`,
               },
@@ -232,7 +237,7 @@ export default function InvoiceForm({
         client_id: clientId || null,
         nama_pembeli: namaPembeli || null,
         tanggal,
-        diskon_percent: parseNum(diskonDipakai),
+        diskon_percent: diskonPersen,
         pakai_tax: pakaiTax,
         top_days: top === "" ? null : Math.max(0, Math.round(parseNum(top))),
         catatan: catatan || null,
@@ -547,7 +552,7 @@ export default function InvoiceForm({
         <InvoiceTotals
           totals={totals}
           taxSettings={taxSettings}
-          diskon={diskonDipakai}
+          diskon={diskonTampil}
           onDiskonChange={(nilai) => {
             setDiskonManual(true);
             setDiskon(nilai);
