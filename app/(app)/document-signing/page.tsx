@@ -3,6 +3,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import SettingsShell from "@/components/SettingsShell";
 import {
   DOC_TYPES,
+  DOC_TYPES_INTERNAL,
   bacaQrDoc,
   defaultSlots,
   type DocTypeKey,
@@ -47,6 +48,21 @@ export default async function DocumentSigningPage() {
         ? row.slots
         : defaultSlots(legacy);
     qrAwal[d.key as DocTypeKey] = bacaQrDoc(row?.qr_sign);
+  }
+
+  const slotTersimpan = (key: string) => {
+    const row = saved.get(key);
+    return row?.slots && Array.isArray(row.slots) && row.slots.length > 0
+      ? row.slots
+      : null;
+  };
+  for (const d of DOC_TYPES_INTERNAL) {
+    // Belum pernah disimpan: tampilkan yang BENAR-BENAR tercetak sekarang,
+    // yaitu pengaturan dokumen yang diwarisinya. Kalau form menampilkan
+    // tiga key person lama sementara kertasnya mencetak slot Produksi,
+    // orang akan mengetik ulang nama yang sebenarnya sudah benar.
+    initial[d.key] =
+      slotTersimpan(d.key) ?? slotTersimpan(d.ikut) ?? defaultSlots(legacy);
   }
 
   return (

@@ -35,9 +35,11 @@ import PrintKop from "@/components/PrintKop";
 
    TIDAK terdaftar di DOC_TYPES / JUDUL_DOKUMEN / SUMBER_DOKUMEN, sama
    seperti Pengajuan PO: lembar internal tanpa nomor tetap, jadi tidak
-   ada yang bisa diverifikasi lewat QR. Kolom tanda tangannya memakai
-   pengaturan dokumen Produksi, karena yang disahkan di sini adalah
-   rencana produksinya.
+   ada yang bisa diverifikasi lewat QR. Kolom tanda tangannya diatur
+   sendiri di Document Signing, bagian Lembar Internal ("ppic"). Selama
+   belum pernah diatur, dia mewarisi pengaturan dokumen Produksi, yang
+   dipakai sebelum pengaturannya ada, supaya kertas yang sudah biasa
+   dicetak tidak mendadak berganti nama penandatangan.
 
    Halaman /print tidak lewat AccessGuard layout (app), jadi izin modul
    PPIC diperiksa sendiri di sini.
@@ -124,16 +126,19 @@ export default async function PrintPpicPage({
   }
 
   const supabase = await createClient();
-  const [{ data: org }, { data: settings }, signCfg, data] = await Promise.all([
-    supabase.from("organizations").select("nama").eq("id", organizationId).single(),
-    supabase
-      .from("organization_settings")
-      .select("alamat, no_telp, email, npwp, logo")
-      .eq("organization_id", organizationId)
-      .maybeSingle(),
-    getDocSignConfig(organizationId!, "production"),
-    getPpicData(organizationId!),
-  ]);
+  const [{ data: org }, { data: settings }, signPpic, signProduksi, data] =
+    await Promise.all([
+      supabase.from("organizations").select("nama").eq("id", organizationId).single(),
+      supabase
+        .from("organization_settings")
+        .select("alamat, no_telp, email, npwp, logo")
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      getDocSignConfig(organizationId!, "ppic"),
+      getDocSignConfig(organizationId!, "production"),
+      getPpicData(organizationId!),
+    ]);
+  const signCfg = signPpic.diatur ? signPpic : signProduksi;
 
   const hasil = hitungPpic(
     data.products,

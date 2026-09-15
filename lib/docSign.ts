@@ -19,6 +19,48 @@ export const DOC_TYPES = [
 
 export type DocTypeKey = (typeof DOC_TYPES)[number]["key"];
 
+/**
+ * Lembar INTERNAL: cuma kolom tanda tangan yang diatur, tanpa QR.
+ *
+ * Sengaja terpisah dari DOC_TYPES. DocTypeKey ikut membentuk VerifyKey
+ * (lib/qrSign.ts), jadi tiap anggotanya wajib punya judul verifikasi dan
+ * tabel sumber nomor dokumen. Lembar internal tidak punya nomor tetap
+ * yang bisa ditunjuk QR, tapi tetap dimintakan tanda tangan, dan
+ * pengaturan yang tidak bisa ditemukan di layar sama saja dengan tidak
+ * ada: lembar PPIC dulu diam-diam meminjam slot "Produksi".
+ *
+ * `ikut`: jenis dokumen yang pengaturannya diwarisi selama lembar ini
+ * belum pernah disimpan sendiri, supaya kertas yang sudah biasa dicetak
+ * tidak mendadak berganti nama penandatangan.
+ */
+export const DOC_TYPES_INTERNAL = [
+  {
+    key: "ppic",
+    label: "Dokumen PPIC",
+    ikut: "production",
+    keterangan:
+      "Rencana Produksi & Kebutuhan Belanja dari PPIC Planner. Selama belum pernah disimpan di sini, kolomnya mengikuti pengaturan dokumen Produksi.",
+  },
+] as const satisfies readonly {
+  key: string;
+  label: string;
+  ikut: DocTypeKey;
+  keterangan: string;
+}[];
+
+export type InternalDocKey = (typeof DOC_TYPES_INTERNAL)[number]["key"];
+
+/** Semua jenis yang punya pengaturan tanda tangan: dokumen + lembar internal. */
+export type SignDocKey = DocTypeKey | InternalDocKey;
+
+export function adalahDokumenInternal(v: string): v is InternalDocKey {
+  return DOC_TYPES_INTERNAL.some((d) => d.key === v);
+}
+
+export function adalahSignDocKey(v: string): v is SignDocKey {
+  return DOC_TYPES.some((d) => d.key === v) || adalahDokumenInternal(v);
+}
+
 export type SignSlot = {
   key: "dibuat" | "disetujui" | "mengetahui";
   label: string; // "Dibuat oleh," dst, tampil di dokumen

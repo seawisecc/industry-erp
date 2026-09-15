@@ -5,6 +5,7 @@ import {
   pengesahQr,
   type DocTypeKey,
   type QrSignDoc,
+  type SignDocKey,
   type SignSlot,
   type LegacySettings,
 } from "@/lib/docSign";
@@ -15,6 +16,12 @@ export type DocSignConfig = {
   qr: QrSignDoc;
   /** Slot yang sah mengesahkan lewat QR, atau null */
   pengesah: SignSlot | null;
+  /**
+   * Jenis dokumen ini sudah pernah disimpan di Document Signing. False =
+   * slotnya hasil fallback, dipakai lembar internal yang mewarisi
+   * pengaturan dokumen lain selama belum diatur sendiri.
+   */
+  diatur: boolean;
 };
 
 /**
@@ -25,7 +32,7 @@ export type DocSignConfig = {
  */
 export async function getDocSignConfig(
   organizationId: string,
-  docType: DocTypeKey
+  docType: SignDocKey
 ): Promise<DocSignConfig> {
   const supabase = await createClient();
 
@@ -45,13 +52,13 @@ export async function getDocSignConfig(
       .maybeSingle(),
   ]);
 
-  const slots =
-    row?.slots && Array.isArray(row.slots) && row.slots.length > 0
-      ? (row.slots as SignSlot[])
-      : defaultSlots(legacy as LegacySettings);
+  const diatur = !!row?.slots && Array.isArray(row.slots) && row.slots.length > 0;
+  const slots = diatur
+    ? (row!.slots as SignSlot[])
+    : defaultSlots(legacy as LegacySettings);
 
   const qr = bacaQrDoc(row?.qr_sign);
-  return { slots, qr, pengesah: pengesahQr(slots, qr) };
+  return { slots, qr, pengesah: pengesahQr(slots, qr), diatur };
 }
 
 /**

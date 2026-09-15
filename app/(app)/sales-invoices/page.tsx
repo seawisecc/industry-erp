@@ -227,7 +227,11 @@ export default async function SalesInvoicesPage({
                 {formatRupiah(Number(inv.total))}
                 {Number(inv.diskon_percent) > 0 && (
                   <div className="text-[10.5px] text-muted">
-                    disc {Number(inv.diskon_percent)}%
+                    disc{" "}
+                    {Number(inv.diskon_percent).toLocaleString("id-ID", {
+                      maximumFractionDigits: 2,
+                    })}
+                    %
                   </div>
                 )}
               </>

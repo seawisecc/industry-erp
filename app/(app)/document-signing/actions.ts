@@ -4,14 +4,17 @@ import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import {
+  adalahDokumenInternal,
+  adalahSignDocKey,
   pengesahQr,
-  type DocTypeKey,
+  QR_DOC_DEFAULT,
   type QrSignDoc,
+  type SignDocKey,
   type SignSlot,
 } from "@/lib/docSign";
 
 export type DocSignPayload = {
-  doc_type: DocTypeKey;
+  doc_type: SignDocKey;
   slots: SignSlot[];
   qr_sign: QrSignDoc;
 }[];
@@ -31,7 +34,15 @@ export async function saveDocSignSettings(
     // dilewati, server action tidak. QR yang menunjuk pengesah kosong akan
     // menerbitkan dokumen yang tampak sah tanpa ada yang bertanggung jawab.
     for (const p of payload) {
-      if (p.qr_sign?.aktif && !pengesahQr(p.slots, p.qr_sign))
+      // doc_type di tabelnya cuma teks tanpa constraint, jadi daftar
+      // putihnya di sini: jenis yang tidak dikenal tidak boleh jadi baris.
+      if (!adalahSignDocKey(p.doc_type))
+        throw new Error("Jenis dokumen tidak dikenal");
+      if (
+        !adalahDokumenInternal(p.doc_type) &&
+        p.qr_sign?.aktif &&
+        !pengesahQr(p.slots, p.qr_sign)
+      )
         throw new Error(
           "Pengesah QR harus kolom tanda tangan yang aktif dan lengkap nama serta jabatannya."
         );
@@ -48,7 +59,11 @@ export async function saveDocSignSettings(
           jabatan: s.jabatan.trim(),
           aktif: s.aktif,
         })),
-        qr_sign: { aktif: p.qr_sign?.aktif === true, slot: p.qr_sign?.slot },
+        // Lembar internal tidak punya nomor dokumen yang bisa diverifikasi,
+        // jadi QR-nya dipaksa mati apa pun yang dikirim klien.
+        qr_sign: adalahDokumenInternal(p.doc_type)
+          ? { ...QR_DOC_DEFAULT, aktif: false }
+          : { aktif: p.qr_sign?.aktif === true, slot: p.qr_sign?.slot },
       })),
       { onConflict: "organization_id,doc_type" }
     );

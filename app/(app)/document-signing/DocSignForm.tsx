@@ -4,16 +4,20 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DOC_TYPES,
+  DOC_TYPES_INTERNAL,
+  QR_DOC_DEFAULT,
   SLOT_DEFS,
   pengesahQr,
   type DocTypeKey,
   type QrSignDoc,
+  type SignDocKey,
   type SignSlot,
 } from "@/lib/docSign";
 import { saveDocSignSettings } from "./actions";
 import { useConfirmSave } from "@/components/ConfirmSave";
 
-export type DocSignInitial = Record<DocTypeKey, SignSlot[]>;
+export type DocSignInitial = Record<SignDocKey, SignSlot[]>;
+/** QR cuma untuk dokumen yang bisa diverifikasi; lembar internal tidak punya. */
 export type QrSignInitial = Record<DocTypeKey, QrSignDoc>;
 
 export default function DocSignForm({
@@ -41,11 +45,7 @@ export default function DocSignForm({
     (d) => qr[d.key].aktif && !pengesahQr(data[d.key], qr[d.key])
   );
 
-  function setSlot(
-    docType: DocTypeKey,
-    idx: number,
-    patch: Partial<SignSlot>
-  ) {
+  function setSlot(docType: SignDocKey, idx: number, patch: Partial<SignSlot>) {
     setSaved(false);
     setData((d) => ({
       ...d,
@@ -72,7 +72,10 @@ export default function DocSignForm({
       judul: "Simpan pengaturan tanda tangan dokumen?",
       pesan: "Berlaku untuk dokumen yang dicetak setelah ini.",
       ringkasan: [
-        { label: "Jenis Dokumen", nilai: DOC_TYPES.length + " dokumen" },
+        {
+          label: "Jenis Dokumen",
+          nilai: DOC_TYPES.length + DOC_TYPES_INTERNAL.length + " dokumen",
+        },
         {
           label: "Pakai QR",
           nilai: DOC_TYPES.filter((d) => qr[d.key]?.aktif).length + " dokumen",
@@ -85,13 +88,18 @@ export default function DocSignForm({
     setError("");
     setSaved(false);
     try {
-      const result = await saveDocSignSettings(
-        DOC_TYPES.map((d) => ({
-          doc_type: d.key,
+      const result = await saveDocSignSettings([
+        ...DOC_TYPES.map((d) => ({
+          doc_type: d.key as SignDocKey,
           slots: data[d.key],
           qr_sign: qr[d.key],
-        }))
-      );
+        })),
+        ...DOC_TYPES_INTERNAL.map((d) => ({
+          doc_type: d.key as SignDocKey,
+          slots: data[d.key],
+          qr_sign: { ...QR_DOC_DEFAULT, aktif: false },
+        })),
+      ]);
       if (result.ok) {
         setSaved(true);
         router.refresh();
@@ -110,6 +118,57 @@ export default function DocSignForm({
   const inputCls =
     "w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700 disabled:opacity-40";
 
+  function barisSlot(docKey: SignDocKey) {
+    return data[docKey].map((slot, idx) => (
+      <div
+        key={slot.key}
+        className="grid grid-cols-1 sm:grid-cols-[150px_1fr_1fr] gap-3 items-center"
+      >
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={slot.aktif}
+            onChange={(e) => setSlot(docKey, idx, { aktif: e.target.checked })}
+            className="accent-[#2f4f3e] w-4 h-4"
+          />
+          <span
+            className={`text-[13px] font-medium ${
+              slot.aktif ? "text-ink" : "text-muted line-through"
+            }`}
+          >
+            {slot.label.replace(",", "")}
+          </span>
+        </label>
+        <input
+          value={slot.nama}
+          onChange={(e) => setSlot(docKey, idx, { nama: e.target.value })}
+          disabled={!slot.aktif}
+          placeholder="Nama"
+          className={inputCls}
+        />
+        <input
+          value={slot.jabatan}
+          onChange={(e) => setSlot(docKey, idx, { jabatan: e.target.value })}
+          disabled={!slot.aktif}
+          placeholder="Jabatan"
+          className={inputCls}
+        />
+      </div>
+    ));
+  }
+
+  function PilJumlah({ aktif, teks }: { aktif: boolean; teks: string }) {
+    return (
+      <span
+        className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
+          aktif ? "bg-botanical-100 text-botanical-700" : "bg-clay-100 text-clay-600"
+        }`}
+      >
+        {teks}
+      </span>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {DOC_TYPES.map((doc) => {
@@ -122,21 +181,16 @@ export default function DocSignForm({
               <h3 className="font-display text-[15px] font-semibold text-ink">
                 {doc.label}
               </h3>
-              <span
-                className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
+              <PilJumlah
+                aktif={!!pengesah || aktifCount > 0}
+                teks={
                   pengesah
-                    ? "bg-botanical-100 text-botanical-700"
+                    ? `QR · ${pengesah.nama}`
                     : aktifCount > 0
-                      ? "bg-botanical-100 text-botanical-700"
-                      : "bg-clay-100 text-clay-600"
-                }`}
-              >
-                {pengesah
-                  ? `QR · ${pengesah.nama}`
-                  : aktifCount > 0
-                    ? `${aktifCount} kolom tanda tangan`
-                    : "Tanpa tanda tangan"}
-              </span>
+                      ? `${aktifCount} kolom tanda tangan`
+                      : "Tanpa tanda tangan"
+                }
+              />
               {doc.key === "qa" && (
                 <span className="w-full text-[11.5px] text-muted">
                   Muncul di Sertifikat Analisa produk jadi, biasanya Diperiksa
@@ -151,46 +205,7 @@ export default function DocSignForm({
               )}
             </div>
 
-            {data[doc.key].map((slot, idx) => (
-              <div
-                key={slot.key}
-                className="grid grid-cols-1 sm:grid-cols-[150px_1fr_1fr] gap-3 items-center"
-              >
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={slot.aktif}
-                    onChange={(e) =>
-                      setSlot(doc.key, idx, { aktif: e.target.checked })
-                    }
-                    className="accent-[#2f4f3e] w-4 h-4"
-                  />
-                  <span
-                    className={`text-[13px] font-medium ${
-                      slot.aktif ? "text-ink" : "text-muted line-through"
-                    }`}
-                  >
-                    {slot.label.replace(",", "")}
-                  </span>
-                </label>
-                <input
-                  value={slot.nama}
-                  onChange={(e) => setSlot(doc.key, idx, { nama: e.target.value })}
-                  disabled={!slot.aktif}
-                  placeholder="Nama"
-                  className={inputCls}
-                />
-                <input
-                  value={slot.jabatan}
-                  onChange={(e) =>
-                    setSlot(doc.key, idx, { jabatan: e.target.value })
-                  }
-                  disabled={!slot.aktif}
-                  placeholder="Jabatan"
-                  className={inputCls}
-                />
-              </div>
-            ))}
+            {barisSlot(doc.key)}
 
             {/* ===== QR Signature dokumen ini ===== */}
             <div className="border-t border-line pt-3 mt-1 flex flex-col gap-2.5">
@@ -198,9 +213,7 @@ export default function DocSignForm({
                 <input
                   type="checkbox"
                   checked={qrDoc.aktif}
-                  onChange={(e) =>
-                    setQrDoc(doc.key, { aktif: e.target.checked })
-                  }
+                  onChange={(e) => setQrDoc(doc.key, { aktif: e.target.checked })}
                   className="accent-[#2f4f3e] w-4 h-4 mt-0.5"
                 />
                 <span>
@@ -217,9 +230,7 @@ export default function DocSignForm({
 
               {qrDoc.aktif && (
                 <div className="pl-6 flex flex-col gap-2">
-                  <span className="text-[12px] text-muted">
-                    Yang mengesahkan:
-                  </span>
+                  <span className="text-[12px] text-muted">Yang mengesahkan:</span>
                   <div className="flex flex-wrap gap-x-5 gap-y-2">
                     {SLOT_DEFS.map((def) => {
                       const s2 = data[doc.key].find((x) => x.key === def.key);
@@ -265,6 +276,40 @@ export default function DocSignForm({
                 </div>
               )}
             </div>
+          </div>
+        );
+      })}
+
+      {/* ===== Lembar internal: tanda tangan saja, tanpa QR ===== */}
+      <div className="mt-2">
+        <h3 className="font-display text-[15px] font-semibold text-ink">
+          Lembar Internal
+        </h3>
+        <p className="text-[12px] text-muted leading-snug">
+          Lembar kerja yang tidak diterbitkan ke pihak luar dan tidak punya nomor
+          dokumen tetap, jadi tidak bisa disahkan lewat QR. Cuma kolom tanda
+          tangannya yang diatur di sini.
+        </p>
+      </div>
+      {DOC_TYPES_INTERNAL.map((doc) => {
+        const aktifCount = data[doc.key].filter((s) => s.aktif).length;
+        return (
+          <div key={doc.key} className="glass rounded-2xl p-6 flex flex-col gap-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="font-display text-[15px] font-semibold text-ink">
+                {doc.label}
+              </h3>
+              <PilJumlah
+                aktif={aktifCount > 0}
+                teks={
+                  aktifCount > 0
+                    ? `${aktifCount} kolom tanda tangan`
+                    : "Tanpa tanda tangan"
+                }
+              />
+              <span className="w-full text-[11.5px] text-muted">{doc.keterangan}</span>
+            </div>
+            {barisSlot(doc.key)}
           </div>
         );
       })}

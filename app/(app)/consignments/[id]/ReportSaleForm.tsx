@@ -88,7 +88,7 @@ export default function ReportSaleForm({
   const diskonPersen = diskonManual ? parseNum(diskon) : diskonOtomatis;
   const diskonTampil = diskonManual
     ? diskon
-    : String(Math.round(diskonOtomatis * 10000) / 10000);
+    : String(Math.round(diskonOtomatis * 100) / 100);
 
   const totals = computeTotals(
     calcItems,
