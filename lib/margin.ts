@@ -64,11 +64,20 @@ type OutputRow = {
   production_batches: { total_cost_bahan: number; qa_status: string | null } | null;
 };
 
-export async function getMarginReport(
-  organizationId: string,
-  from: string,
-  to: string
-): Promise<MarginReport> {
+type Alokasi = { totalCost: number; qty: number };
+
+/**
+ * Biaya bahan per produk-varian dari SELURUH riwayat produksi, dikunci
+ * `${product_id}|${varianKey(varian)}`.
+ *
+ * Dipakai dua laporan: Product Margin (HPP barang yang terjual) dan
+ * Other Expenses (nilai produk jadi yang hilang di opname). Satu
+ * perhitungan untuk keduanya, supaya satu pcs produk yang sama tidak
+ * punya dua harga pokok di dua tab yang berbeda.
+ */
+async function biayaPerVarian(
+  organizationId: string
+): Promise<Map<string, Alokasi>> {
   const supabase = await createClient();
 
   // ---- 1. Seluruh riwayat produksi, dibaca halaman per halaman ----
@@ -120,7 +129,6 @@ export async function getMarginReport(
   //
   // Batch yang DITOLAK QA tidak ikut: hasilnya tidak pernah masuk stok
   // jual, jadi tidak pernah jadi harga pokok barang yang terjual.
-  type Alokasi = { totalCost: number; qty: number };
   const perBatch = new Map<
     string,
     { cost: number; items: { key: string; qty: number }[] }
@@ -160,6 +168,33 @@ export async function getMarginReport(
       biaya.set(i.key, cur);
     }
   }
+
+  return biaya;
+}
+
+/**
+ * HPP rata-rata per pcs tiap produk-varian, dari seluruh riwayat
+ * produksi. Varian yang belum pernah diproduksi lewat modul Produksi
+ * tidak punya entri: pemanggil wajib memperlakukannya sebagai "tidak
+ * diketahui", bukan nol.
+ */
+export async function getHppPerPcs(
+  organizationId: string
+): Promise<Map<string, number>> {
+  const hpp = new Map<string, number>();
+  for (const [key, b] of await biayaPerVarian(organizationId)) {
+    if (b.qty > 0) hpp.set(key, b.totalCost / b.qty);
+  }
+  return hpp;
+}
+
+export async function getMarginReport(
+  organizationId: string,
+  from: string,
+  to: string
+): Promise<MarginReport> {
+  const supabase = await createClient();
+  const biaya = await biayaPerVarian(organizationId);
 
   // ---- 4. Penjualan pada periode terpilih ----
   const { data: penjualan } = await supabase

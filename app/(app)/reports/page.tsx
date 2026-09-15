@@ -11,6 +11,8 @@ import {
   rincianDariTotal,
 } from "@/lib/purchaseTax";
 import type { ExecutionData } from "@/app/(app)/production/actions";
+import { getBiayaLain } from "./biayaLain";
+import OtherExpensesReport from "./OtherExpensesReport";
 
 type ReportType =
   | "sales"
@@ -18,6 +20,7 @@ type ReportType =
   | "purchasing"
   | "production"
   | "stock"
+  | "expenses"
   | "margin"
   | "finance"
   | "tax";
@@ -28,6 +31,7 @@ const TYPES: { key: ReportType; label: string; desc: string }[] = [
   { key: "purchasing", label: "Purchasing", desc: "Purchase invoices per period" },
   { key: "production", label: "Production", desc: "Batches, COGS & yield" },
   { key: "stock", label: "Stock Movement", desc: "Material stock movement & finished goods corrections" },
+  { key: "expenses", label: "Other Expenses", desc: "Biaya di luar HPP & kerugian persediaan" },
   { key: "margin", label: "Product Margin", desc: "Real COGS vs actual selling price per product" },
   { key: "finance", label: "Receivables & Payables", desc: "Open sales & purchase balances" },
   { key: "tax", label: "Tax (PPN)", desc: "Pajak keluaran dari penjualan & pajak masukan dari pembelian" },
@@ -255,8 +259,13 @@ export default async function ReportsPage({
                 role: "secondary",
                 align: "right",
                 cell: (r) =>
+                  // Persen tertimbang bisa berupa 24,143835616438356. Nilai
+                  // utuhnya tetap tersimpan untuk hitungan; di layar cukup
+                  // dua desimal, rupiahnya ada di kolom sebelahnya.
                   Number(r.diskon_percent) > 0
-                    ? `${Number(r.diskon_percent)}%`
+                    ? `${Number(r.diskon_percent).toLocaleString("id-ID", {
+                        maximumFractionDigits: 2,
+                      })}%`
                     : "-",
               },
               {
@@ -2148,6 +2157,12 @@ export default async function ReportsPage({
           {tabel("Accounts Payable", hutang, totalHutang, "Supplier", "text-clay-600")}
         </div>
       </>
+    );
+  }
+
+  if (type === "expenses") {
+    content = (
+      <OtherExpensesReport data={await getBiayaLain(organizationId!, from, to)} />
     );
   }
 

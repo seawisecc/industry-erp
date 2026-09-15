@@ -877,6 +877,12 @@ kesepakatan mana pun. Sekarang ada dua variabel yang sengaja dipisah:
 (dibulatkan, cuma untuk kotak Discount). `OutletActions` sudah benar
 sejak awal karena memang tidak pernah membulatkan.
 
+Kebalikannya juga berlaku: **persen yang DITAMPILKAN selalu dibulatkan
+dua desimal**, di kotak Discount, laporan Sales, dan daftar Sales
+Invoices. Laporan Sales sempat mencetak `24.143835616438356%` apa
+adanya. Angka utuh itu milik hitungan, bukan milik mata orang, dan
+rupiah potongannya sudah tertulis di kolom sebelahnya.
+
 Yang membuatnya aman disimpan utuh: `sales_invoices.diskon_percent`
 bertipe `numeric` TANPA skala (dicek September 2026 lewat
 `diskon_percent::text`, nilai `20` terbaca `"20"`, bukan `"20.0000"`).
@@ -1490,6 +1496,57 @@ sebelahnya. Rupiah di catatan adalah nilai baris apa adanya (qty x harga
 seperti yang tertulis di faktur), jadi pada PO `Include` angkanya sudah
 memuat pajak; kolom Total yang menerapkan model pajaknya.
 
+# Laporan Other Expenses: biaya di luar HPP & kerugian persediaan
+
+`/reports?type=expenses`. Uang yang keluar tapi tidak pernah jadi
+persediaan maupun HPP, dan barang yang hilang dari pembukuan stok.
+Tanpa tab ini keduanya tidak terbaca di laporan mana pun: tidak masuk
+nilai stok, tidak masuk margin. Datanya di `app/(app)/reports/biayaLain.ts`,
+tampilannya `OtherExpensesReport.tsx`.
+
+**Dua kelompok, dua total, TIDAK PERNAH dijumlahkan jadi satu.**
+
+| Kelompok | Isi | Penilaian |
+| --- | --- | --- |
+| Biaya di Luar HPP | Material Issue (per tujuan) | `material_issues.total_biaya`, biaya lot saat dokumen dibuat |
+| | Ongkos kirim, `kirim_ke_hpp = false` | `receivings.biaya_kirim` |
+| Kerugian Persediaan | Pemusnahan (`batch_dispositions` tipe `Musnah`) | qty x `purchase_batches.harga_per_unit` lot itu |
+| | Selisih opname bahan yang turun | qty x `stock_adjustment_items.harga_per_unit` |
+| | Selisih opname produk jadi yang turun | qty bersih x HPP per pcs (`getHppPerPcs`) |
+
+Biaya adalah keputusan yang disengaja, kerugian adalah kebocoran. Satu
+total membuat angka "biaya" naik tiap kali gudang kehilangan barang,
+dan dua pertanyaan yang jawabannya berbeda jadi tidak bisa dibedakan.
+
+Aturan yang mengikat:
+
+- **Produk jadi dihitung BERSIH per produk per opname.** Memindahkan
+  stok waktu nama varian diganti menghasilkan pasangan `-462` / `+462`
+  dalam opname yang sama. Menjumlahkan baris negatifnya saja mengarang
+  kerugian: di data asli (September 2026) tujuh dari sepuluh baris
+  negatif adalah pasangan seperti itu, dan cuma tiga yang benar-benar
+  hilang (5, 23, 44 pcs).
+- **Yang tidak bisa dinilai ditulis "belum bisa dinilai", bukan nol.**
+  Produk yang belum pernah diproduksi lewat modul Produksi tidak punya
+  HPP. Nol di kolom nilai terbaca sebagai "tidak ada kerugian".
+- **HPP per pcs cuma dari `getHppPerPcs` di `lib/margin.ts`**, fungsi
+  yang sama dengan Product Margin. Dua tab yang memberi satu pcs produk
+  dua harga pokok berbeda adalah persis bug yang dijaga di bab stok.
+- **Selisih opname bahan dinilai harga pembelian terakhir**, karena
+  itulah yang ditulis `finish_stock_opname_tx` ke baris penyesuaian.
+  Biaya lot yang benar-benar dipotong FEFO tidak disimpan di mana pun,
+  dan layar menyebut dasar nilainya di bawah angka.
+- **Tanggal pemusnahan dibaca di zona operasional.**
+  `batch_dispositions` cuma punya `created_at` (timestamptz), jadi
+  rentangnya dilebarkan sehari lalu disaring dengan `localDateStr`.
+  Tab Stock Movement masih membandingkannya langsung dengan tanggal,
+  dan pemusnahan jam 00.00 s/d 08.00 WITA di sana jatuh ke hari
+  sebelumnya.
+- **Yang tidak masuk:** ongkir yang sudah dibebankan ke HPP (disebut di
+  bawah tabelnya, tidak dihitung), barang ditolak QC (biasanya diretur
+  dan memotong hutang, sistem tidak tahu mana yang tidak diretur), dan
+  selisih LEBIH opname (tidak dipakai mengurangi kerugian).
+
 # Batal invoice konsinyasi: asal stok harus dicatat dulu
 
 Invoice yang lahir dari konsinyasi dulu tidak bisa dibatalkan.
@@ -2044,8 +2101,8 @@ server. Tiga hal yang harus dijaga:
   ketikan jumlah batch tidak boleh jadi satu langkah di tombol Kembali.
 - **Halaman `/print` tidak lewat `AccessGuard`**, jadi izin modul
   `ppic` diperiksa sendiri di halaman cetaknya. Kolom tanda tangannya
-  memakai pengaturan dokumen Produksi, karena yang disahkan adalah
-  rencana produksinya.
+  diatur di Document Signing, bagian Lembar Internal (lihat bab Lembar
+  internal di bawah).
 
 ## Status bahan di PPIC: dihitung dari jumlah, bukan dari ada tidaknya PO
 
@@ -2144,6 +2201,35 @@ rekomendasi per supplier lewat `groupBy`.
 baru TIDAK butuh migrasi. Barisnya juga tidak perlu ada: kalau belum
 pernah diatur, `getDocSignConfig` jatuh ke tiga key person lama dan
 dokumennya tetap terbit dengan kolom tanda tangan yang benar.
+
+## Lembar internal: tanda tangannya diatur, QR-nya tidak ada
+
+Lembar yang dimintakan tanda tangan tapi tidak diterbitkan ke pihak
+luar didaftarkan di `DOC_TYPES_INTERNAL` (`lib/docSign.ts`), BUKAN di
+`DOC_TYPES`. Alasannya tipe: `DocTypeKey` ikut membentuk `VerifyKey`,
+jadi anggota `DOC_TYPES` wajib punya `JUDUL_DOKUMEN` dan
+`SUMBER_DOKUMEN`, padahal lembar internal tidak punya tabel sumber
+maupun nomor tetap yang bisa ditunjuk QR.
+
+Daftar ini lahir dari satu keluhan: lembar PPIC mencetak kolom tanda
+tangan, tapi pengaturannya tidak ada di mana pun, karena halamannya
+diam-diam meminjam slot `production`. Pengaturan yang tidak bisa
+ditemukan di layar sama saja dengan tidak ada.
+
+Tiga hal yang menjaganya:
+
+- **`ikut`: warisan selama belum pernah disimpan.** `getDocSignConfig`
+  mengembalikan `diatur`, dan halaman cetak memakai pengaturan dokumen
+  yang diwarisi kalau `diatur` false. Halaman Document Signing juga
+  menampilkan slot warisan itu, bukan tiga key person lama, supaya yang
+  terlihat di form sama dengan yang tercetak.
+- **QR dipaksa mati di server** untuk lembar internal, dan
+  `saveDocSignSettings` menolak `doc_type` di luar kedua daftar
+  (`adalahSignDocKey`). Kolomnya teks tanpa constraint, jadi daftar
+  putihnya memang harus di aplikasi.
+- **Pengajuan Purchase Order belum dipindah ke sini** dan tetap memakai
+  slot `po`. Memindahkannya berarti menambah satu entri dengan
+  `ikut: "po"`, tanpa migrasi.
 
 ## Tanda tangan penerima bukan tanda tangan pengesahan
 
