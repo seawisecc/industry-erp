@@ -14,6 +14,16 @@
    satuan item itu sendiri. Stok yang dibandingkan adalah jumlah
    purchase_batches.qty_sisa, angka yang sama yang dipotong
    create_production.
+
+   Neraca satu bahan:
+
+     Kekurangan = Plan Berjalan + Kebutuhan PPIC - Stok Sisa
+
+   Plan Berjalan adalah jatah Plan Produksi yang sudah disimpan tapi
+   belum Input Hasil. Stoknya belum terpotong (create_production baru
+   memotong di akhir), jadi tanpa komponen ini dua rencana bisa
+   sama-sama bilang "Cukup" untuk bahan yang cuma cukup untuk salah
+   satunya.
    ============================================================ */
 
 import { adaMoq, bulatkanMoq } from "@/lib/moq";
@@ -52,6 +62,10 @@ export const PO_SUDAH_DIKIRIM: PoTerbukaStatus[] = ["Dikirim", "Diterima Sebagia
  * ada. PO yang ditolak atau dibatalkan keluar dari hitungan sendiri.
  */
 export const PO_BELUM_DIKIRIM: PoTerbukaStatus[] = ["Dibuat", "Disetujui"];
+
+export type PlanTerbukaStatus = "Direncanakan" | "Sedang Produksi";
+/** Plan yang bahannya belum terpotong: belum Input Hasil. */
+export const PLAN_TERBUKA: PlanTerbukaStatus[] = ["Direncanakan", "Sedang Produksi"];
 
 /** Toleransi galat float saat membandingkan kebutuhan dengan persediaan. */
 const TOLERANSI = 1e-9;
@@ -98,6 +112,71 @@ export type PpicItem = {
   poTerbuka: PpicPoTerbuka[];
 };
 
+/** Plan Produksi yang sudah disimpan tapi bahannya belum terpotong. */
+export type PpicPlanTerbuka = {
+  id: string;
+  noBatch: string;
+  status: PlanTerbukaStatus;
+  tanggal: string | null;
+  produk: string;
+  brand: string | null;
+  jumlahBatch: number;
+  /** true = jatah dari data penimbangan, false = hitungan formula */
+  dariTimbangan: boolean;
+  /** Jatah bahan per item, sudah digabung. */
+  jatah: { item_id: string; qty: number }[];
+};
+
+/** Bentuk minimum execution_data yang dibaca untuk menghitung jatah. */
+export type EksekusiRingkas = {
+  bahan?: { item_id: string; teoritis?: number; real?: number }[] | null;
+  kemasan?: { item_id: string; qty?: number }[] | null;
+  adjust?: { item_id: string; qty?: number }[] | null;
+};
+
+/**
+ * Jatah bahan satu Plan Produksi yang belum Input Hasil.
+ *
+ * Cerminan `finishProduction`: yang dipotong di sana adalah bahan
+ * formula (timbangan real) + kemasan + adjusting. Bedanya satu, dan
+ * disengaja: bahan yang BELUM ditimbang (real 0) dihitung dengan angka
+ * teoritisnya, karena bahan itu tetap akan dipakai, cuma belum dicatat.
+ *
+ * Plan yang belum punya data penimbangan dihitung dari formula produk
+ * yang berlaku sekarang, sama dengan PlanForm. Kemasannya belum bisa
+ * dihitung di tahap itu (pcs per varian baru diisi di layar Execution).
+ */
+export function hitungJatahPlan(arg: {
+  jumlahBatch: number;
+  batchKg: number;
+  formulas: { item_id: string; percentage: number }[];
+  eksekusi: EksekusiRingkas | null;
+}): { dariTimbangan: boolean; jatah: { item_id: string; qty: number }[] } {
+  const total = new Map<string, number>();
+  const tambah = (id: string, qty: number) => {
+    if (id && qty > 0) total.set(id, (total.get(id) || 0) + qty);
+  };
+
+  const e = arg.eksekusi;
+  const dariTimbangan = !!e && Array.isArray(e.bahan);
+  if (dariTimbangan) {
+    for (const b of e!.bahan!) {
+      const real = Number(b.real) || 0;
+      tambah(b.item_id, real > 0 ? real : Number(b.teoritis) || 0);
+    }
+    for (const k of e!.kemasan || []) tambah(k.item_id, Number(k.qty) || 0);
+    for (const a of e!.adjust || []) tambah(a.item_id, Number(a.qty) || 0);
+  } else {
+    const kg = arg.batchKg * arg.jumlahBatch;
+    for (const f of arg.formulas) tambah(f.item_id, (f.percentage / 100) * kg);
+  }
+
+  return {
+    dariTimbangan,
+    jatah: [...total].map(([item_id, qty]) => ({ item_id, qty })),
+  };
+}
+
 /** Satu baris rencana: produk x jumlah batch. */
 export type PpicRencana = { productId: string; batches: number };
 
@@ -111,12 +190,22 @@ export type PpicBarisRencana = {
 /** Berapa banyak satu bahan dipakai oleh satu produk dalam rencana ini. */
 export type PpicPemakaian = { product: PpicProduct; qty: number };
 
+/** Berapa banyak satu bahan sudah dijatah oleh satu Plan berjalan. */
+export type PpicAlokasi = { plan: PpicPlanTerbuka; qty: number };
+
 export type PpicBahan = {
   item: PpicItem;
+  /** Kebutuhan rencana PPIC yang sedang disusun. */
   butuh: number;
+  /** Jatah Plan Produksi yang belum Input Hasil. */
+  alokasi: number;
+  /** alokasi + butuh */
+  totalButuh: number;
+  /** Stok sisa - alokasi. Boleh negatif: Plan berjalan sudah melebihi stok. */
+  tersedia: number;
   /**
-   * butuh - stok SIAP PAKAI. Sengaja tidak dikurangi karantina maupun PO:
-   * yang bisa dipotong produksi hari ini cuma qty_sisa.
+   * totalButuh - stok SIAP PAKAI. Sengaja tidak dikurangi karantina
+   * maupun PO: yang bisa dipotong produksi hari ini cuma qty_sisa.
    */
   kurang: number;
   qtyKarantina: number;
@@ -130,19 +219,26 @@ export type PpicBahan = {
   status: PpicStatus;
   /** Perlu dibeli tapi MOQ belum diisi, jadi Qty Beli = belumDipesan apa adanya. */
   tanpaMoq: boolean;
-  /** Produk yang memakai bahan ini, terbesar dulu. Jumlah qty-nya = butuh. */
+  /** Produk rencana PPIC yang memakai bahan ini, terbesar dulu. Jumlahnya = butuh. */
   untuk: PpicPemakaian[];
+  /** Plan berjalan yang menjatah bahan ini, terbesar dulu. Jumlahnya = alokasi. */
+  alokasiPlan: PpicAlokasi[];
 };
 
 export type PpicHasil = {
   /** Baris rencana yang sah (produknya ada, batch > 0), urutan apa adanya. */
   rencana: PpicBarisRencana[];
-  /** Seluruh bahan yang terlibat, yang paling butuh tindakan dulu. */
+  /**
+   * Bahan yang dibutuhkan rencana PPIC, ditambah bahan yang SUDAH kurang
+   * cuma untuk Plan berjalan. Yang paling butuh tindakan dulu.
+   */
   bahan: PpicBahan[];
   /** Bahan yang masih harus dipesan. */
   perluBeli: PpicBahan[];
   /** Bahan yang kurang dan sebagian atau seluruhnya sudah di karantina / PO. */
   dalamProses: PpicBahan[];
+  /** Plan berjalan yang ikut menjatah bahan di neraca ini. */
+  planTerlibat: PpicPlanTerbuka[];
   totalDana: number;
   adaTanpaHarga: boolean;
   tanpaMoq: PpicBahan[];
@@ -158,7 +254,8 @@ export type PpicHasil = {
 export function hitungPpic(
   products: PpicProduct[],
   items: PpicItem[],
-  rencana: PpicRencana[]
+  rencana: PpicRencana[],
+  planTerbuka: PpicPlanTerbuka[] = []
 ): PpicHasil {
   const productMap = new Map(products.map((p) => [p.id, p]));
   const itemMap = new Map(items.map((it) => [it.id, it]));
@@ -194,14 +291,44 @@ export function hitungPpic(
     }
   }
 
-  const bahan: PpicBahan[] = [];
-  for (const [itemId, perProduk] of pakai) {
+  // item_id -> jatah per Plan berjalan
+  const alokasiOf = new Map<string, PpicAlokasi[]>();
+  for (const plan of planTerbuka) {
+    for (const j of plan.jatah) {
+      const daftar = alokasiOf.get(j.item_id) || [];
+      daftar.push({ plan, qty: j.qty });
+      alokasiOf.set(j.item_id, daftar);
+    }
+  }
+
+  // Yang masuk neraca: dipakai rencana PPIC, ATAU sudah kurang cuma
+  // karena Plan berjalan. Bahan kemasan milik Plan berjalan yang stoknya
+  // cukup tidak ikut, dia tidak mengubah keputusan belanja apa pun.
+  const terlibat = new Set<string>(pakai.keys());
+  for (const [itemId, daftar] of alokasiOf) {
     const item = itemMap.get(itemId);
     if (!item) continue;
-    const untuk = [...perProduk]
+    const alokasi = daftar.reduce((s, a) => s + a.qty, 0);
+    if (alokasi > item.stok + TOLERANSI) terlibat.add(itemId);
+  }
+
+  const bahan: PpicBahan[] = [];
+  const planDipakai = new Set<string>();
+  for (const itemId of terlibat) {
+    const item = itemMap.get(itemId);
+    if (!item) continue;
+
+    const untuk = [...(pakai.get(itemId) || new Map<string, number>())]
       .map(([pid, qty]) => ({ product: productMap.get(pid)!, qty }))
       .sort((a, b) => b.qty - a.qty);
     const butuh = untuk.reduce((s, u) => s + u.qty, 0);
+
+    const alokasiPlan = [...(alokasiOf.get(itemId) || [])].sort(
+      (a, b) => b.qty - a.qty
+    );
+    const alokasi = alokasiPlan.reduce((s, a) => s + a.qty, 0);
+    for (const a of alokasiPlan) planDipakai.add(a.plan.id);
+    const totalButuh = alokasi + butuh;
 
     const qtyKarantina = item.karantina.reduce((s, k) => s + k.qty, 0);
     const qtyPoDikirim = item.poTerbuka
@@ -212,12 +339,13 @@ export function hitungPpic(
       .reduce((s, p) => s + p.sisa, 0);
 
     // Tangga persediaan, dari yang paling pasti. Statusnya adalah anak
-    // tangga pertama yang sudah menutup seluruh kebutuhan.
+    // tangga pertama yang sudah menutup SELURUH kebutuhan (Plan berjalan
+    // + rencana PPIC).
     const siap = item.stok;
     const plusQc = siap + qtyKarantina;
     const plusDikirim = plusQc + qtyPoDikirim;
     const plusSemuaPo = plusDikirim + qtyPoBelumDikirim;
-    const tertutup = (n: number) => n >= butuh - TOLERANSI;
+    const tertutup = (n: number) => n >= totalButuh - TOLERANSI;
     const status: PpicStatus = tertutup(siap)
       ? "Cukup"
       : tertutup(plusQc)
@@ -228,13 +356,16 @@ export function hitungPpic(
             ? "PO Belum Dikirim"
             : "Perlu Beli";
 
-    const kurang = status === "Cukup" ? 0 : butuh - siap;
-    const belumDipesan = status === "Perlu Beli" ? butuh - plusSemuaPo : 0;
+    const kurang = status === "Cukup" ? 0 : totalButuh - siap;
+    const belumDipesan = status === "Perlu Beli" ? totalButuh - plusSemuaPo : 0;
     const qtyBeli = bulatkanMoq(belumDipesan, item.moq);
 
     bahan.push({
       item,
       butuh,
+      alokasi,
+      totalButuh,
+      tersedia: siap - alokasi,
       kurang,
       qtyKarantina,
       qtyPoDikirim,
@@ -245,6 +376,7 @@ export function hitungPpic(
       status,
       tanpaMoq: belumDipesan > 0 && !adaMoq(item.moq),
       untuk,
+      alokasiPlan,
     });
   }
   bahan.sort(
@@ -269,6 +401,7 @@ export function hitungPpic(
         c.kurang > 0 &&
         c.qtyKarantina + c.qtyPoDikirim + c.qtyPoBelumDikirim > 0
     ),
+    planTerlibat: planTerbuka.filter((p) => planDipakai.has(p.id)),
     totalDana: perluBeli.reduce((s, c) => s + (c.dana || 0), 0),
     adaTanpaHarga: perluBeli.some((c) => c.dana == null),
     tanpaMoq: perluBeli.filter((c) => c.tanpaMoq),
@@ -278,23 +411,41 @@ export function hitungPpic(
   };
 }
 
+/** Satu dokumen yang sedang dalam proses untuk satu bahan. */
+export type PpicDokumenProses = {
+  jenis: "Karantina" | "PO";
+  /** nomor PO, atau nomor lot supplier untuk karantina */
+  nomor: string;
+  /** "Karantina QC" atau status PO */
+  tahap: string;
+  supplier: string | null;
+  tanggal: string | null;
+  qty: number;
+};
+
 /**
- * Baris keterangan barang yang sedang dalam proses untuk satu bahan:
- * lot karantina dan PO terbuka. Satu sumber untuk layar dan kertas,
- * supaya nomor PO yang harus ditagih terbaca sama di keduanya.
+ * Lot karantina dan PO terbuka untuk satu bahan, dalam bentuk baris.
+ * Satu sumber untuk layar dan kertas, supaya nomor PO yang harus
+ * ditagih terbaca sama di keduanya.
  */
-export function rincianProses(item: PpicItem): string[] {
-  const f = (n: number) =>
-    n.toLocaleString("id-ID", { maximumFractionDigits: 3 });
+export function dokumenProses(item: PpicItem): PpicDokumenProses[] {
   return [
-    ...item.karantina.map(
-      (k) =>
-        `Karantina QC ${f(k.qty)} ${item.satuan}${k.lot ? ` · lot ${k.lot}` : ""}`
-    ),
-    ...item.poTerbuka.map(
-      (p) =>
-        `${p.noPo || "PO tanpa nomor"} · ${p.status} · sisa ${f(p.sisa)} ${item.satuan}`
-    ),
+    ...item.karantina.map((k) => ({
+      jenis: "Karantina" as const,
+      nomor: k.lot ? `Lot ${k.lot}` : "Lot tanpa nomor",
+      tahap: "Karantina QC",
+      supplier: k.supplier,
+      tanggal: k.tanggal,
+      qty: k.qty,
+    })),
+    ...item.poTerbuka.map((p) => ({
+      jenis: "PO" as const,
+      nomor: p.noPo || "PO tanpa nomor",
+      tahap: p.status,
+      supplier: p.supplier,
+      tanggal: p.tanggal,
+      qty: p.sisa,
+    })),
   ];
 }
 

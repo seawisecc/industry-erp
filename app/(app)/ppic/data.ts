@@ -1,10 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import {
+  hitungJatahPlan,
+  PLAN_TERBUKA,
   PO_BELUM_DIKIRIM,
   PO_SUDAH_DIKIRIM,
+  type EksekusiRingkas,
+  type PlanTerbukaStatus,
   type PoTerbukaStatus,
   type PpicItem,
   type PpicKarantina,
+  type PpicPlanTerbuka,
   type PpicPoTerbuka,
   type PpicProduct,
 } from "@/lib/ppic";
@@ -66,6 +71,23 @@ type PoRaw = {
   po_items: { item_id: string; qty_pesan: number; qty_diterima: number }[];
 };
 
+type PlanRaw = {
+  id: string;
+  no_batch: string;
+  status: PlanTerbukaStatus;
+  jumlah_batch: number;
+  tanggal_rencana: string | null;
+  bahan: EksekusiRingkas["bahan"];
+  kemasan: EksekusiRingkas["kemasan"];
+  adjust: EksekusiRingkas["adjust"];
+  products: {
+    nama_produk: string;
+    brand: string | null;
+    batch_size_kg: number | null;
+    product_formulas: { item_id: string; percentage: number }[];
+  } | null;
+};
+
 const HALAMAN = 1000;
 
 type Halaman = PromiseLike<{ data: unknown[] | null; error: unknown }>;
@@ -73,6 +95,8 @@ type Halaman = PromiseLike<{ data: unknown[] | null; error: unknown }>;
 export type PpicData = {
   products: PpicProduct[];
   items: PpicItem[];
+  /** Plan Produksi yang belum Input Hasil, bahannya belum terpotong. */
+  planTerbuka: PpicPlanTerbuka[];
   /** Ada query yang gagal. Layar dan kertas wajib mengatakannya. */
   gagal: boolean;
 };
@@ -96,7 +120,7 @@ export async function getPpicData(organizationId: string): Promise<PpicData> {
     return hasil;
   }
 
-  const [products, items, links, batches, karantina, pos] = await Promise.all([
+  const [products, items, links, batches, karantina, pos, plans] = await Promise.all([
     semua<ProductRaw>((a, b) =>
       supabase
         .from("products")
@@ -167,7 +191,50 @@ export async function getPpicData(organizationId: string): Promise<PpicData> {
         .order("id")
         .range(a, b)
     ),
+    // Plan yang belum Input Hasil. Dari execution_data cuma tiga bagian
+    // yang dipotong finishProduction yang diambil, bukan seluruh kolomnya:
+    // ipc dan log langkah bisa berkilo-kilobyte dan tidak dipakai di sini.
+    // Formula produk diambil tanpa syarat aktif, karena Plan untuk produk
+    // yang sudah dinonaktifkan tetap akan memotong bahan.
+    semua<PlanRaw>((a, b) =>
+      supabase
+        .from("production_plans")
+        .select(
+          "id, no_batch, status, jumlah_batch, tanggal_rencana, bahan:execution_data->bahan, kemasan:execution_data->kemasan, adjust:execution_data->adjust, products(nama_produk, brand, batch_size_kg, product_formulas(item_id, percentage))"
+        )
+        .eq("organization_id", organizationId)
+        .in("status", PLAN_TERBUKA)
+        .order("tanggal_rencana")
+        .order("id")
+        .range(a, b)
+    ),
   ]);
+
+  const planTerbuka: PpicPlanTerbuka[] = plans.map((p) => {
+    const { dariTimbangan, jatah } = hitungJatahPlan({
+      jumlahBatch: Number(p.jumlah_batch) || 0,
+      batchKg: Number(p.products?.batch_size_kg) || 0,
+      formulas: (p.products?.product_formulas || []).map((f) => ({
+        item_id: f.item_id,
+        percentage: Number(f.percentage),
+      })),
+      eksekusi:
+        p.bahan || p.kemasan || p.adjust
+          ? { bahan: p.bahan, kemasan: p.kemasan, adjust: p.adjust }
+          : null,
+    });
+    return {
+      id: p.id,
+      noBatch: p.no_batch,
+      status: p.status,
+      tanggal: p.tanggal_rencana,
+      produk: p.products?.nama_produk || "-",
+      brand: p.products?.brand?.trim() || null,
+      jumlahBatch: Number(p.jumlah_batch) || 0,
+      dariTimbangan,
+      jatah,
+    };
+  });
 
   // Stok sisa + harga terakhir per item
   const stok = new Map<string, number>();
@@ -251,5 +318,5 @@ export async function getPpicData(organizationId: string): Promise<PpicData> {
         (a.kode || "").localeCompare(b.kode || "", "id")
     );
 
-  return { products: ppicProducts, items: ppicItems, gagal };
+  return { products: ppicProducts, items: ppicItems, planTerbuka, gagal };
 }

@@ -2,10 +2,14 @@
 
 /* ============================================================
    PPIC Planner, kalkulator kebutuhan produksi.
+
    Input: daftar (produk × jumlah batch).
-   Output: kebutuhan bahan per item vs stok, status tiap bahan
-   (termasuk yang sudah di karantina QC atau PO), lalu daftar belanja
-   dengan pembulatan MOQ, supplier, dan estimasi dana.
+   Output, berurutan seperti orang membacanya:
+   1. Ringkasan      berapa bahan, berapa yang harus dibeli, berapa dana
+   2. Neraca Bahan   Stok Sisa, Plan Berjalan, Kebutuhan PPIC, Kekurangan
+   3. Rekomendasi    per supplier, dibulatkan MOQ
+   4. Dalam Proses   lot karantina & PO terbuka yang harus dikejar
+   5. Plan Berjalan  Plan Produksi yang ikut menahan bahan
    Murni kalkulasi di layar, tidak menyimpan apa pun.
 
    Rumusnya di lib/ppic.ts, dipakai bersama dokumen cetak /print/ppic.
@@ -16,20 +20,25 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Plus,
-  Trash2,
-  ShoppingCart,
+  Factory,
   PackageSearch,
+  Plus,
   Printer,
+  ShoppingCart,
+  Trash2,
+  Truck,
 } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import NumberInput from "@/components/NumberInput";
 import ProductPicker, { type ProductOption } from "@/components/ProductPicker";
 import {
+  dokumenProses,
   hitungPpic,
   rencanaKeQuery,
-  rincianProses,
+  type PpicBahan,
+  type PpicDokumenProses,
   type PpicItem,
+  type PpicPlanTerbuka,
   type PpicProduct,
   type PpicRencana,
   type PpicStatus,
@@ -43,11 +52,14 @@ const BARIS_KOSONG: Row = { productId: "", batches: "1" };
 
 const WARNA_STATUS: Record<PpicStatus, string> = {
   "Perlu Beli": "bg-clay-100 text-clay-600",
-  "PO Belum Dikirim": "bg-white/70 text-muted border border-line",
-  "Menunggu Kedatangan": "bg-white/70 text-ink border border-line",
+  "PO Belum Dikirim": "bg-white/80 text-muted border border-line",
+  "Menunggu Kedatangan": "bg-white/80 text-ink border border-line",
   "Menunggu QC": "bg-amber-100 text-amber-500",
   Cukup: "bg-botanical-100 text-botanical-700",
 };
+
+/** Kelas sel angka: rata kanan lewat `align`, digit selebar sama. */
+const ANGKA = "whitespace-nowrap tabular-nums";
 
 function parseNum(s: string) {
   return parseFloat(s.replace(",", ".")) || 0;
@@ -55,8 +67,20 @@ function parseNum(s: string) {
 function formatNum(n: number, maxDec = 3) {
   return n.toLocaleString("id-ID", { maximumFractionDigits: maxDec });
 }
+/** Angka neraca: nol ditulis "-" supaya kolom yang kosong tidak terbaca sebagai data. */
+function angkaAtauStrip(n: number) {
+  return Math.abs(n) > 1e-9 ? formatNum(n) : "-";
+}
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
+}
+function formatTanggal(iso: string | null) {
+  if (!iso) return "-";
+  return new Date(iso.slice(0, 10) + "T00:00:00").toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function keRencana(rows: Row[]): PpicRencana[] {
@@ -66,14 +90,101 @@ function keRencana(rows: Row[]): PpicRencana[] {
   }));
 }
 
+function Pil({ status }: { status: string }) {
+  const warna =
+    WARNA_STATUS[status as PpicStatus] ?? "bg-white/80 text-ink border border-line";
+  return (
+    <span
+      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${warna}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function KepalaKartu({
+  ikon,
+  warnaIkon,
+  judul,
+  keterangan,
+}: {
+  ikon: React.ReactNode;
+  warnaIkon: string;
+  judul: string;
+  keterangan: React.ReactNode;
+}) {
+  return (
+    <div className="px-6 pt-5 pb-3 flex items-start gap-2.5">
+      <div className={`rounded-lg p-2 flex-shrink-0 ${warnaIkon}`}>{ikon}</div>
+      <div className="min-w-0">
+        <h3 className="font-display text-[15px] font-semibold text-ink">{judul}</h3>
+        <p className="text-muted text-[12px] leading-snug">{keterangan}</p>
+      </div>
+    </div>
+  );
+}
+
+function Ringkasan({
+  label,
+  nilai,
+  keterangan,
+  nada = "text-ink",
+}: {
+  label: string;
+  nilai: string;
+  keterangan?: string;
+  nada?: string;
+}) {
+  return (
+    <div className="glass rounded-2xl px-4 py-3.5 min-w-0">
+      <div className="text-[11.5px] text-muted">{label}</div>
+      <div className={`font-display text-[20px] font-semibold leading-tight mt-0.5 ${nada}`}>
+        {nilai}
+      </div>
+      {keterangan && (
+        <div className="text-[11px] text-muted mt-0.5 leading-snug">{keterangan}</div>
+      )}
+    </div>
+  );
+}
+
+/** Nama bahan + kode & satuan. Satuan cukup ditulis sekali di sini. */
+function SelBahan({ c, lebar = "max-w-[240px]" }: { c: PpicBahan; lebar?: string }) {
+  return (
+    <>
+      <div className={`font-medium truncate ${lebar}`} title={c.item.nama}>
+        {c.item.nama}
+      </div>
+      <div className="text-[11px] text-muted">
+        <span className="font-mono">{c.item.kode}</span> · {c.item.satuan}
+      </div>
+    </>
+  );
+}
+function KartuBahan({ c }: { c: PpicBahan }) {
+  return (
+    <>
+      <div>{c.item.nama}</div>
+      <div className="text-[11px] text-muted font-normal">
+        <span className="font-mono">{c.item.kode}</span> · {c.item.satuan}
+      </div>
+    </>
+  );
+}
+
+type BarisProses = { c: PpicBahan; d: PpicDokumenProses; urut: number };
+
 export default function PpicPlanner({
   products,
   items,
+  planTerbuka,
   rencanaAwal,
   gagalMuat,
 }: {
   products: PpicProduct[];
   items: PpicItem[];
+  /** Plan Produksi yang belum Input Hasil, ikut menahan stok. */
+  planTerbuka: PpicPlanTerbuka[];
   /** Rencana dari URL (?r=), kosong kalau layar dibuka biasa. */
   rencanaAwal: PpicRencana[];
   /** Sebagian data stok/harga gagal dimuat. */
@@ -112,11 +223,22 @@ export default function PpicPlanner({
     service_id: null,
   }));
 
-  const hasil = hitungPpic(products, items, keRencana(rows));
-  const calcs = hasil.bahan;
-  const { perluBeli, dalamProses, totalDana, adaTanpaHarga, tanpaMoq } = hasil;
+  const hasil = hitungPpic(products, items, keRencana(rows), planTerbuka);
+  const { bahan, perluBeli, dalamProses, planTerlibat, totalDana, adaTanpaHarga, tanpaMoq } =
+    hasil;
   const batchTanpaUkuran = hasil.tanpaUkuranBatch.length > 0;
   const queryCetak = rencanaKeQuery(keRencana(rows));
+
+  // Rekomendasi dikelompokkan per supplier, karena PO dibuat per supplier.
+  const belanja = [...perluBeli].sort(
+    (a, b) =>
+      (a.item.supplier ?? "￿").localeCompare(b.item.supplier ?? "￿", "id") ||
+      a.item.nama.localeCompare(b.item.nama, "id")
+  );
+
+  const barisProses: BarisProses[] = dalamProses.flatMap((c) =>
+    dokumenProses(c.item).map((d, urut) => ({ c, d, urut }))
+  );
 
   const inputCls =
     "w-full glass-input rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-botanical-700";
@@ -125,8 +247,8 @@ export default function PpicPlanner({
     <div className="flex flex-col gap-4">
       {gagalMuat && (
         <p className="text-clay-600 text-[12.5px] bg-clay-100 rounded-lg px-3 py-2">
-          Sebagian data stok, karantina, atau PO gagal dimuat, jadi angka di
-          bawah bisa keliru. Muat ulang halaman sebelum dipakai.
+          Sebagian data stok, plan produksi, karantina, atau PO gagal dimuat, jadi
+          angka di bawah bisa keliru. Muat ulang halaman sebelum dipakai.
         </p>
       )}
 
@@ -135,9 +257,14 @@ export default function PpicPlanner({
           kartu hasil di bawahnya, `.glass` membentuk stacking context. */}
       <div className="relative z-20 glass rounded-2xl p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h3 className="font-display text-[15px] font-semibold text-ink">
-            Rencana Produksi
-          </h3>
+          <div>
+            <h3 className="font-display text-[15px] font-semibold text-ink">
+              Rencana Produksi
+            </h3>
+            <p className="text-muted text-[12px]">
+              Produk yang mau diproduksi, di luar Plan Produksi yang sudah berjalan
+            </p>
+          </div>
           <div className="flex items-center gap-3 flex-wrap">
             {/* Cuma muncul kalau ada rencana yang sah: tombol yang
                 mencetak kertas kosong lebih buruk daripada tidak ada. */}
@@ -234,130 +361,147 @@ export default function PpicPlanner({
         )}
       </div>
 
-      {/* ===== Kebutuhan vs stok ===== */}
-      {calcs.length > 0 && (
+      {/* ===== Ringkasan ===== */}
+      {bahan.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Ringkasan
+            label="Bahan di Neraca"
+            nilai={bahan.length.toLocaleString("id-ID")}
+            keterangan={`${planTerlibat.length} plan berjalan ikut dihitung`}
+          />
+          <Ringkasan
+            label="Perlu Dibeli"
+            nilai={perluBeli.length.toLocaleString("id-ID")}
+            keterangan={perluBeli.length > 0 ? "bahan, sesudah dikurangi karantina & PO" : "tidak ada"}
+            nada={perluBeli.length > 0 ? "text-clay-600" : "text-botanical-700"}
+          />
+          <Ringkasan
+            label="Sedang Diproses"
+            nilai={dalamProses.length.toLocaleString("id-ID")}
+            keterangan="bahan di karantina QC atau PO terbuka"
+          />
+          <Ringkasan
+            label="Estimasi Dana"
+            nilai={formatRupiah(totalDana)}
+            keterangan={
+              adaTanpaHarga ? "belum termasuk bahan tanpa harga" : "harga pembelian terakhir"
+            }
+            nada="text-botanical-700"
+          />
+        </div>
+      )}
+
+      {/* ===== Neraca bahan ===== */}
+      {bahan.length > 0 && (
         <div className="glass rounded-2xl overflow-hidden">
-          <div className="px-6 pt-5 pb-3 flex items-center gap-2.5">
-            <div className="bg-botanical-100 text-botanical-700 rounded-lg p-2">
-              <PackageSearch size={16} />
-            </div>
-            <div>
-              <h3 className="font-display text-[15px] font-semibold text-ink">
-                Kebutuhan Bahan vs Stok
-              </h3>
-              <p className="text-muted text-[12px]">
-                {calcs.length} bahan terlibat · {perluBeli.length} perlu dibeli ·{" "}
-                {dalamProses.length} sudah dalam proses (karantina QC / PO)
-              </p>
-            </div>
-          </div>
+          <KepalaKartu
+            ikon={<PackageSearch size={16} />}
+            warnaIkon="bg-botanical-100 text-botanical-700"
+            judul="Neraca Bahan"
+            keterangan="Angka dalam satuan masing-masing bahan (tertulis di bawah namanya)"
+          />
           <div className="px-6 pb-5">
             <DataTable
-              rows={calcs}
+              rows={bahan}
               rowKey={(c) => c.item.id}
-              minWidth={900}
+              minWidth={960}
               chrome="bare"
               empty="Belum ada kebutuhan bahan."
+              groupBy={{
+                key: (c) => c.status,
+                header: (g) => (
+                  <span className="flex items-center gap-2">
+                    <Pil status={g.key} />
+                    <span className="text-muted text-[12px]">{g.rows.length} bahan</span>
+                  </span>
+                ),
+              }}
               columns={[
                 {
                   key: "bahan",
                   header: "Bahan",
                   role: "title",
-                  cell: (c) => (
-                    <>
-                      <div className="font-medium max-w-[220px] truncate" title={c.item.nama}>
-                        {c.item.nama}
-                      </div>
-                      <div className="text-[11px] text-muted font-mono">
-                        {c.item.kode}
-                      </div>
-                    </>
-                  ),
-                  cardCell: (c) => (
-                    <>
-                      <div>{c.item.nama}</div>
-                      <div className="text-[11px] text-muted font-mono font-normal">
-                        {c.item.kode}
-                      </div>
-                    </>
-                  ),
-                },
-                {
-                  key: "butuh",
-                  header: "Kebutuhan",
-                  role: "primary",
-                  align: "right",
-                  className: "whitespace-nowrap",
-                  cell: (c) => `${formatNum(c.butuh)} ${c.item.satuan}`,
+                  cell: (c) => <SelBahan c={c} />,
+                  cardCell: (c) => <KartuBahan c={c} />,
                 },
                 {
                   key: "stok",
-                  header: "Stok Siap",
+                  header: "Stok Sisa",
                   role: "primary",
                   align: "right",
-                  className: "whitespace-nowrap",
-                  cell: (c) => `${formatNum(c.item.stok)} ${c.item.satuan}`,
+                  className: ANGKA,
+                  cell: (c) => angkaAtauStrip(c.item.stok),
+                },
+                {
+                  key: "plan",
+                  header: "Plan Berjalan",
+                  role: "primary",
+                  align: "right",
+                  className: ANGKA,
+                  cell: (c) => angkaAtauStrip(c.alokasi),
+                },
+                {
+                  key: "ppic",
+                  header: "Kebutuhan PPIC",
+                  role: "primary",
+                  align: "right",
+                  className: ANGKA,
+                  cell: (c) => angkaAtauStrip(c.butuh),
                 },
                 {
                   key: "kurang",
                   header: "Kekurangan",
                   role: "primary",
                   align: "right",
-                  className: "whitespace-nowrap font-medium",
+                  className: `${ANGKA} font-semibold`,
                   cell: (c) =>
                     c.kurang > 0 ? (
-                      <span className="text-clay-600">
-                        {formatNum(c.kurang)} {c.item.satuan}
-                      </span>
+                      <span className="text-clay-600">{formatNum(c.kurang)}</span>
                     ) : (
-                      "-"
+                      <span className="text-muted font-normal">-</span>
                     ),
                 },
                 {
                   key: "proses",
-                  header: "Dalam Proses",
+                  header: "Karantina / PO",
                   role: "secondary",
-                  className: "text-[11.5px] text-muted",
-                  // Cuma untuk bahan yang kurang: PO terbuka milik bahan
-                  // yang stoknya sudah cukup tidak mengubah keputusan apa pun.
-                  cell: (c) => {
-                    const baris = c.kurang > 0 ? rincianProses(c.item) : [];
-                    return baris.length > 0 ? (
-                      <div className="flex flex-col gap-0.5 min-w-[180px]">
-                        {baris.map((b, i) => (
-                          <div key={i} className="whitespace-nowrap">
-                            {b}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      "-"
-                    );
-                  },
+                  align: "right",
+                  className: ANGKA,
+                  // Cuma untuk bahan yang kurang: PO terbuka milik bahan yang
+                  // stoknya sudah cukup tidak mengubah keputusan apa pun.
+                  cell: (c) =>
+                    c.kurang > 0
+                      ? angkaAtauStrip(c.qtyKarantina + c.qtyPoDikirim + c.qtyPoBelumDikirim)
+                      : "-",
                 },
                 {
-                  key: "status",
-                  header: "Status",
-                  role: "badge",
-                  cell: (c) => (
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
-                        WARNA_STATUS[c.status]
-                      }`}
-                    >
-                      {c.status}
-                    </span>
-                  ),
+                  key: "beli",
+                  header: "Qty Beli",
+                  role: "primary",
+                  align: "right",
+                  className: `${ANGKA} font-semibold`,
+                  cell: (c) =>
+                    c.qtyBeli > 0 ? (
+                      <span className="text-botanical-700">{formatNum(c.qtyBeli)}</span>
+                    ) : (
+                      <span className="text-muted font-normal">-</span>
+                    ),
                 },
               ]}
             />
-            <p className="text-[11.5px] text-muted mt-3 leading-snug">
-              Kekurangan dibandingkan dengan stok siap pakai saja. Status
-              membaca barang yang sudah di jalan: <b>Menunggu QC</b> tertutup
-              kalau lot karantina lolos QC, <b>Menunggu Kedatangan</b> tertutup
-              oleh PO yang sudah dikirim ke supplier, <b>PO Belum Dikirim</b>{" "}
-              tertutup oleh PO yang masih dibuat atau disetujui.
-            </p>
+            <div className="mt-3 grid gap-1 text-[11.5px] text-muted leading-snug">
+              <p>
+                <b className="text-ink">Kekurangan</b> = Plan Berjalan + Kebutuhan PPIC,
+                dikurangi Stok Sisa. <b className="text-ink">Qty Beli</b> = Kekurangan
+                dikurangi Karantina / PO, dibulatkan ke atas mengikuti MOQ.
+              </p>
+              <p>
+                Plan Berjalan adalah jatah Plan Produksi yang belum Input Hasil: dari
+                hasil timbangan kalau sudah ditimbang, dari formula kalau belum.
+                Bahan yang cuma dipakai Plan Berjalan ikut tampil hanya kalau stoknya
+                sudah kurang.
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -365,43 +509,54 @@ export default function PpicPlanner({
       {/* ===== Rekomendasi pembelian ===== */}
       {perluBeli.length > 0 && (
         <div className="glass rounded-2xl overflow-hidden">
-          <div className="px-6 pt-5 pb-3 flex items-center gap-2.5">
-            <div className="bg-clay-100 text-clay-600 rounded-lg p-2">
-              <ShoppingCart size={16} />
-            </div>
-            <div>
-              <h3 className="font-display text-[15px] font-semibold text-ink">
-                Rekomendasi Pembelian
-              </h3>
-              <p className="text-muted text-[12px]">
-                Kekurangan dikurangi karantina & PO terbuka, lalu dibulatkan ke
-                atas mengikuti MOQ · harga = pembelian terakhir
-              </p>
-            </div>
-          </div>
+          <KepalaKartu
+            ikon={<ShoppingCart size={16} />}
+            warnaIkon="bg-clay-100 text-clay-600"
+            judul="Rekomendasi Pembelian"
+            keterangan={`${perluBeli.length} bahan dari ${
+              new Set(perluBeli.map((c) => c.item.supplier ?? "")).size
+            } supplier · dikelompokkan per supplier supaya bisa langsung dijadikan PO`}
+          />
           <div className="px-6 pb-5">
             <DataTable
-              rows={perluBeli}
+              rows={belanja}
               rowKey={(c) => c.item.id}
-              minWidth={820}
+              minWidth={900}
               chrome="bare"
               empty="Tidak ada yang perlu dibeli."
+              groupBy={{
+                key: (c) => c.item.supplier ?? "",
+                header: (g) => (
+                  <span className="flex items-center justify-between gap-3 w-full">
+                    <span>
+                      <span className="font-semibold text-ink">
+                        {g.key || "Supplier belum diketahui"}
+                      </span>
+                      <span className="text-muted text-[12px]">
+                        {" · "}
+                        {g.rows.length} bahan
+                      </span>
+                    </span>
+                    <span className="text-ink font-semibold tabular-nums whitespace-nowrap">
+                      {formatRupiah(g.rows.reduce((s, c) => s + (c.dana || 0), 0))}
+                    </span>
+                  </span>
+                ),
+              }}
               footer={{
                 row: (
                   <tr className="border-t border-line bg-white/50">
-                    <td colSpan={6} className="px-4 py-3 text-right font-semibold">
+                    <td colSpan={7} className="px-4 py-3 text-right font-semibold">
                       Total Estimasi Dana
                     </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap font-display text-[15px] font-semibold text-botanical-700">
+                    <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums font-display text-[15px] font-semibold text-botanical-700">
                       {formatRupiah(totalDana)}
                     </td>
                   </tr>
                 ),
                 card: (
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-[12px] text-muted">
-                      Total Estimasi Dana
-                    </span>
+                    <span className="text-[12px] text-muted">Total Estimasi Dana</span>
                     <span className="font-display text-[15px] font-semibold text-botanical-700">
                       {formatRupiah(totalDana)}
                     </span>
@@ -413,75 +568,45 @@ export default function PpicPlanner({
                   key: "bahan",
                   header: "Bahan",
                   role: "title",
-                  cell: (c) => (
-                    <>
-                      <div className="font-medium max-w-[200px] truncate" title={c.item.nama}>
-                        {c.item.nama}
-                      </div>
-                      <div className="text-[11px] text-muted font-mono">
-                        {c.item.kode}
-                      </div>
-                    </>
-                  ),
-                  cardCell: (c) => (
-                    <>
-                      <div>{c.item.nama}</div>
-                      <div className="text-[11px] text-muted font-mono font-normal">
-                        {c.item.kode}
-                      </div>
-                    </>
-                  ),
+                  cell: (c) => <SelBahan c={c} lebar="max-w-[220px]" />,
+                  cardCell: (c) => <KartuBahan c={c} />,
                 },
                 {
-                  key: "supplier",
-                  header: "Supplier",
-                  role: "primary",
-                  className: "whitespace-nowrap text-[12.5px]",
-                  cell: (c) => (
-                    <div
-                      className="max-w-[160px] truncate"
-                      title={c.item.supplier || undefined}
-                    >
-                      {c.item.supplier || <span className="text-muted">-</span>}
-                    </div>
-                  ),
-                  cardCell: (c) => c.item.supplier || "-",
+                  key: "kurang",
+                  header: "Kekurangan",
+                  role: "secondary",
+                  align: "right",
+                  className: ANGKA,
+                  cell: (c) => formatNum(c.kurang),
+                },
+                {
+                  key: "proses",
+                  header: "Karantina / PO",
+                  role: "secondary",
+                  align: "right",
+                  className: ANGKA,
+                  cell: (c) =>
+                    angkaAtauStrip(c.qtyKarantina + c.qtyPoDikirim + c.qtyPoBelumDikirim),
                 },
                 {
                   key: "belum",
                   header: "Belum Dipesan",
-                  role: "secondary",
+                  role: "primary",
                   align: "right",
-                  className: "whitespace-nowrap",
-                  cell: (c) => {
-                    const proses = c.qtyKarantina + c.qtyPoDikirim + c.qtyPoBelumDikirim;
-                    return (
-                      <>
-                        <div>
-                          {formatNum(c.belumDipesan)} {c.item.satuan}
-                        </div>
-                        {proses > 0 && (
-                          <div className="text-[11px] text-muted">
-                            kurang {formatNum(c.kurang)} · proses {formatNum(proses)}
-                          </div>
-                        )}
-                      </>
-                    );
-                  },
+                  className: ANGKA,
+                  cell: (c) => formatNum(c.belumDipesan),
                 },
                 {
                   key: "moq",
                   header: "MOQ",
                   role: "secondary",
                   align: "right",
-                  className: "whitespace-nowrap",
+                  className: ANGKA,
                   cell: (c) =>
                     c.tanpaMoq ? (
                       <span className="text-amber-500 text-[12px]">belum diisi</span>
-                    ) : c.item.moq ? (
-                      `${formatNum(c.item.moq)} ${c.item.satuan}`
                     ) : (
-                      "-"
+                      angkaAtauStrip(c.item.moq || 0)
                     ),
                 },
                 {
@@ -489,28 +614,23 @@ export default function PpicPlanner({
                   header: "Qty Beli",
                   role: "primary",
                   align: "right",
-                  className: "whitespace-nowrap font-semibold text-botanical-700",
-                  cell: (c) => (
-                    <span className="font-semibold text-botanical-700">
-                      {formatNum(c.qtyBeli)} {c.item.satuan}
-                    </span>
-                  ),
+                  className: `${ANGKA} font-semibold text-botanical-700`,
+                  cell: (c) => formatNum(c.qtyBeli),
                 },
                 {
                   key: "harga",
                   header: "Harga/Unit",
                   role: "secondary",
                   align: "right",
-                  className: "whitespace-nowrap",
-                  cell: (c) =>
-                    c.item.harga != null ? formatRupiah(c.item.harga) : "-",
+                  className: ANGKA,
+                  cell: (c) => (c.item.harga != null ? formatRupiah(c.item.harga) : "-"),
                 },
                 {
                   key: "dana",
                   header: "Est. Dana",
                   role: "primary",
                   align: "right",
-                  className: "whitespace-nowrap font-medium",
+                  className: `${ANGKA} font-medium`,
                   cell: (c) => (c.dana != null ? formatRupiah(c.dana) : "-"),
                 },
               ]}
@@ -518,14 +638,14 @@ export default function PpicPlanner({
           </div>
           {tanpaMoq.length > 0 && (
             <p className="text-amber-500 text-[12px] px-6 py-3 bg-amber-100/60 leading-snug">
-              ⚠ {tanpaMoq.length} bahan belum punya MOQ, jadi Qty Beli-nya sama
-              dengan yang belum dipesan, tanpa pembulatan:{" "}
+              ⚠ {tanpaMoq.length} bahan belum punya MOQ, jadi Qty Beli-nya sama dengan
+              yang belum dipesan, tanpa pembulatan:{" "}
               {tanpaMoq
                 .slice(0, 5)
                 .map((c) => c.item.nama)
                 .join(", ")}
-              {tanpaMoq.length > 5 ? `, dan ${tanpaMoq.length - 5} lainnya` : ""}.
-              Isi MOQ di menu{" "}
+              {tanpaMoq.length > 5 ? `, dan ${tanpaMoq.length - 5} lainnya` : ""}. Isi
+              MOQ di menu{" "}
               <Link href="/items" className="font-medium underline">
                 Stock Items
               </Link>{" "}
@@ -541,11 +661,156 @@ export default function PpicPlanner({
         </div>
       )}
 
-      {calcs.length > 0 && perluBeli.length === 0 && (
+      {bahan.length > 0 && perluBeli.length === 0 && (
         <div className="glass rounded-2xl p-6 text-center text-botanical-700 text-sm font-medium">
           {dalamProses.length > 0
-            ? `✓ Tidak ada yang perlu dipesan lagi. ${dalamProses.length} bahan masih menunggu QC atau kedatangan PO, lihat kolom Dalam Proses.`
-            : "✓ Stok bahan cukup untuk seluruh rencana produksi, tidak perlu belanja."}
+            ? `✓ Tidak ada yang perlu dipesan lagi. ${dalamProses.length} bahan masih menunggu QC atau kedatangan PO, lihat tabel di bawah.`
+            : "✓ Stok bahan cukup untuk Plan berjalan dan seluruh rencana produksi, tidak perlu belanja."}
+        </div>
+      )}
+
+      {/* ===== Karantina & PO terbuka ===== */}
+      {barisProses.length > 0 && (
+        <div className="glass rounded-2xl overflow-hidden">
+          <KepalaKartu
+            ikon={<Truck size={16} />}
+            warnaIkon="bg-amber-100 text-amber-500"
+            judul="Karantina QC & PO Terbuka"
+            keterangan="Barang yang sudah di jalan untuk bahan yang kurang. Tindak lanjutnya dikejar, bukan dibeli lagi."
+          />
+          <div className="px-6 pb-5">
+            <DataTable
+              rows={barisProses}
+              rowKey={(r) => `${r.c.item.id}-${r.urut}`}
+              minWidth={760}
+              chrome="bare"
+              groupBy={{
+                key: (r) => r.c.item.id,
+                header: (g) => {
+                  const c = g.rows[0].c;
+                  return (
+                    <span className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-ink">{c.item.nama}</span>
+                      <span className="text-muted text-[12px]">
+                        kekurangan {formatNum(c.kurang)} {c.item.satuan}
+                      </span>
+                      <Pil status={c.status} />
+                    </span>
+                  );
+                },
+              }}
+              columns={[
+                {
+                  key: "dokumen",
+                  header: "Dokumen",
+                  role: "title",
+                  cell: (r) => <span className="font-mono text-[12.5px]">{r.d.nomor}</span>,
+                },
+                {
+                  key: "tahap",
+                  header: "Tahap",
+                  role: "badge",
+                  cell: (r) => <Pil status={r.d.tahap} />,
+                },
+                {
+                  key: "supplier",
+                  header: "Supplier",
+                  role: "primary",
+                  cell: (r) => r.d.supplier || "-",
+                },
+                {
+                  key: "tanggal",
+                  header: "Tanggal",
+                  role: "secondary",
+                  className: "whitespace-nowrap",
+                  cell: (r) => formatTanggal(r.d.tanggal),
+                },
+                {
+                  key: "qty",
+                  header: "Sisa Qty",
+                  role: "primary",
+                  align: "right",
+                  className: `${ANGKA} font-medium`,
+                  cell: (r) => `${formatNum(r.d.qty)} ${r.c.item.satuan}`,
+                },
+              ]}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ===== Plan produksi berjalan ===== */}
+      {planTerlibat.length > 0 && (
+        <div className="glass rounded-2xl overflow-hidden">
+          <KepalaKartu
+            ikon={<Factory size={16} />}
+            warnaIkon="bg-white/80 text-ink border border-line"
+            judul="Plan Produksi Berjalan"
+            keterangan="Plan yang belum Input Hasil. Bahannya belum terpotong dari stok, tapi sudah dijatah di neraca di atas."
+          />
+          <div className="px-6 pb-5">
+            <DataTable
+              rows={planTerlibat}
+              rowKey={(p) => p.id}
+              minWidth={760}
+              chrome="bare"
+              columns={[
+                {
+                  key: "batch",
+                  header: "No. Batch",
+                  role: "subtitle",
+                  className: "whitespace-nowrap",
+                  cell: (p) => <span className="font-mono text-[12.5px]">{p.noBatch}</span>,
+                },
+                {
+                  key: "produk",
+                  header: "Produk",
+                  role: "title",
+                  cell: (p) => (
+                    <>
+                      <div className="font-medium">{p.produk}</div>
+                      {p.brand && <div className="text-[11px] text-muted">{p.brand}</div>}
+                    </>
+                  ),
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  role: "badge",
+                  cell: (p) => <Pil status={p.status} />,
+                },
+                {
+                  key: "tanggal",
+                  header: "Rencana",
+                  role: "primary",
+                  className: "whitespace-nowrap",
+                  cell: (p) => formatTanggal(p.tanggal),
+                },
+                {
+                  key: "jml",
+                  header: "Batch",
+                  role: "secondary",
+                  align: "right",
+                  className: ANGKA,
+                  cell: (p) => formatNum(p.jumlahBatch),
+                },
+                {
+                  key: "dasar",
+                  header: "Dasar Jatah",
+                  role: "primary",
+                  cell: (p) => (p.dariTimbangan ? "Hasil timbangan" : "Formula"),
+                },
+                {
+                  key: "bahan",
+                  header: "Bahan",
+                  role: "secondary",
+                  align: "right",
+                  className: ANGKA,
+                  cell: (p) => p.jatah.length,
+                },
+              ]}
+            />
+          </div>
         </div>
       )}
     </div>

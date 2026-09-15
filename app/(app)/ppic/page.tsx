@@ -11,7 +11,7 @@ export default async function PpicPage({
 }) {
   const { r } = await searchParams;
   const { organizationId } = await getEffectiveOrg();
-  const { products, items, gagal } = await getPpicData(organizationId!);
+  const { products, items, planTerbuka, gagal } = await getPpicData(organizationId!);
 
   return (
     <PembelianShell>
@@ -21,8 +21,9 @@ export default async function PpicPage({
         </h2>
         <p className="text-muted text-[12.5px] mt-0.5">
           Susun rencana produksi. Sistem menghitung kebutuhan bahan dari formula,
-          membandingkan dengan stok, lalu merekomendasikan pembelian (MOQ,
-          supplier, estimasi dana).
+          menjumlahkannya dengan Plan Produksi yang sedang berjalan, membandingkan
+          dengan stok, karantina QC, dan PO terbuka, lalu merekomendasikan
+          pembelian (MOQ, supplier, estimasi dana).
         </p>
       </div>
 
@@ -30,6 +31,7 @@ export default async function PpicPage({
         <PpicPlanner
           products={products}
           items={items}
+          planTerbuka={planTerbuka}
           rencanaAwal={rencanaDariQuery(r)}
           gagalMuat={gagal}
         />

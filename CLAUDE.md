@@ -2079,7 +2079,7 @@ Aturan yang mengikat:
   termasuk yang masih karantina, sudah masuk `po_items.qty_diterima`,
   jadi sisa PO dan karantina saling lepas. Lot yang ditolak QC
   `qty_karantina`-nya sudah nol (`decideQc`).
-- **Nomor PO dan lot karantinanya ditulis** (`rincianProses`), di layar
+- **Nomor PO dan lot karantinanya ditulis** (`dokumenProses`), di layar
   dan kertas, karena tindak lanjut bahan yang sudah dalam proses adalah
   mengejar dokumen itu, bukan membeli lagi.
 
@@ -2092,14 +2092,53 @@ MENGATAKANNYA: bahan yang perlu dibeli tanpa MOQ ditandai
 `tanpaMoq`, layar menulis "belum diisi" dan menautkan Stock Items,
 kertasnya menyebut namanya.
 
-**Yang belum: stok tidak dicadangkan per rencana.** Plan Produksi yang
-sudah disimpan tapi belum Input Hasil belum memotong apa pun
-(`create_production` baru memotong di Input Hasil), jadi PPIC membaca
-stok, karantina, dan PO itu sebagai tersedia penuh untuk rencana yang
-sedang disusun. Dua rencana bisa sama-sama bilang `Cukup` untuk bahan
-yang cuma cukup untuk salah satunya. Memperbaikinya berarti PPIC ikut
-membaca kebutuhan Plan yang masih terbuka, dan yang harus diputuskan
-lebih dulu adalah Plan mana yang dianggap masih menahan bahan.
+## Neraca bahan PPIC: Plan berjalan ikut menahan stok
+
+Plan Produksi yang sudah disimpan tapi belum Input Hasil belum memotong
+apa pun (`finishProduction` baru memanggil `create_production` di
+akhir). Versi awal PPIC membaca stok itu sebagai tersedia penuh, jadi
+dua rencana bisa sama-sama bilang `Cukup` untuk bahan yang cuma cukup
+untuk salah satunya. Sekarang tiap bahan dihitung sebagai neraca:
+
+```
+Kekurangan = Plan Berjalan + Kebutuhan PPIC - Stok Sisa
+Qty Beli   = Kekurangan - Karantina - PO terbuka, dibulatkan MOQ
+```
+
+Dan tangga status di atas membandingkan persediaan dengan
+`Plan Berjalan + Kebutuhan PPIC`, bukan kebutuhan PPIC saja.
+
+Aturan yang mengikat:
+
+- **Plan berjalan = status `Direncanakan` dan `Sedang Produksi`**
+  (`PLAN_TERBUKA`). `Selesai` sudah memotong stok, menghitungnya lagi
+  berarti dobel.
+- **Jatahnya cerminan `finishProduction`** (`hitungJatahPlan`): kalau
+  sudah ada data penimbangan, yang dihitung bahan formula (timbangan
+  real) + kemasan + adjusting, persis tiga bagian yang dipotong di
+  sana. Satu beda yang disengaja: bahan yang belum ditimbang (real 0)
+  dihitung teoritisnya, karena tetap akan dipakai. Plan yang belum
+  ditimbang dihitung dari formula yang berlaku sekarang x ukuran batch
+  x jumlah batch, sama dengan `PlanForm`; kemasannya memang belum bisa
+  diketahui di tahap itu.
+- **Formula Plan diambil tanpa syarat `aktif`.** Plan untuk produk yang
+  sudah dinonaktifkan tetap akan memotong bahan.
+- **Dari `execution_data` cuma `bahan`, `kemasan`, `adjust` yang
+  diambil** (`execution_data->bahan` di select PostgREST). `ipc` dan log
+  `langkah` bisa berkilo-kilobyte dan tidak dipakai.
+- **Yang masuk neraca: bahan rencana PPIC, ATAU bahan yang sudah kurang
+  cuma karena Plan berjalan.** Dua-duanya harus dibeli. Bahan (biasanya
+  kemasan) milik Plan berjalan yang stoknya cukup tidak ikut: tidak
+  mengubah keputusan belanja apa pun, dan cuma memenuhi tabel.
+- **Layar dan kertas menulis Plan mana yang ikut dihitung**
+  (`planTerlibat`), lengkap dengan dasar jatahnya (timbangan atau
+  formula). Angka "Plan Berjalan" yang tidak bisa ditelusuri ke plan
+  mana pun akan dicurigai, dan memang pantas dicurigai.
+
+Tampilan tabelnya satu pola untuk layar dan kertas: angka rata kanan
+dengan `tabular-nums`, nol ditulis `-`, satuan ditulis SEKALI di bawah
+nama bahan (bukan di tiap sel), neraca dikelompokkan per status dan
+rekomendasi per supplier lewat `groupBy`.
 
 `doc_type` di `doc_sign_settings` cuma teks tanpa constraint, jadi jenis
 baru TIDAK butuh migrasi. Barisnya juga tidak perlu ada: kalau belum
