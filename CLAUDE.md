@@ -828,10 +828,18 @@ harga akhir = harga dasar - (harga dasar * diskon_persen / 100)
 
 Diskon menumpuk DI ATAS harga khusus, bukan menggantikannya.
 
-**Diskon berlaku di konsinyasi saja.** Invoice penjualan langsung dan
-POS tetap memakai harga (khusus atau master) tanpa potongan. Itu
-keputusan pemakainya, bukan keterbatasan teknis: mengubahnya berarti
-tagihan penjualan langsung ikut bergerak nilainya.
+**Diskon berlaku di konsinyasi, Invoice, dan POS.** Dulu cuma di
+konsinyasi, dan itu keputusan pemakainya. Keputusan itu diubah
+(September 2026) setelah client yang sudah diberi diskon tetap ditagih
+harga penuh di Invoice tanpa ada tanda apa pun di layar: halaman Harga
+Client bilang diskonnya ada, form Invoice diam saja. Invoice yang terbit
+sebelum perubahan ini tidak disentuh, diskonnya sudah dibekukan di
+dokumennya.
+
+Di Invoice & POS, diskon dihitung atas harga baris APA ADANYA, termasuk
+harga yang diketik manual. Jasa dan pembeli walk-in tidak pernah dapat
+diskon otomatis: jasa tidak punya baris di `client_prices`, walk-in
+tidak punya client.
 
 **Pengiriman konsinyasi memakai harga dasar PENUH.** `consignment_items.
 harga_jual` menyimpan harga sebelum diskon. Potongannya baru dihitung
@@ -853,8 +861,10 @@ layar dan angka yang dihitung ulang di SQL. Konsekuensinya yang harus
 diterima: persentase yang tercetak di Proforma bisa berupa angka janggal
 (mis. 24,6239%) kalau produknya punya diskon berbeda-beda. Yang benar
 tetap totalnya. `diskonTertimbang` di `lib/clientPrice.ts` yang
-menghitungnya, dipakai dua layar: laporan laku per pengiriman
-(`ReportSaleForm`) dan catat laku per outlet (`OutletActions`).
+menghitungnya, dipakai tiga layar: laporan laku per pengiriman
+(`ReportSaleForm`), catat laku per outlet (`OutletActions`), dan form
+Invoice & POS (`InvoiceForm`). Invoice pun cuma punya satu kolom diskon
+per dokumen, jadi rumusnya sama persis.
 
 **`harga` BOLEH null, dan tiap pembacanya wajib menyaringnya.** Ini
 sudah sekali lolos ke produksi dan harus tidak terulang. Waktu kolomnya
@@ -876,7 +886,10 @@ menghasilkan angka yang masuk akal.
 **Angka diskon di layar tidak boleh menimpa yang sudah diketik user.**
 Polanya sama dengan `hargaManual` di `InvoiceForm`: begitu kolom
 Discount disentuh, `diskonManual` menyala dan angka otomatis berhenti
-mengambil alih. Jangan menaruh ini di `useEffect` yang mengawasi qty,
+mengambil alih. Berlaku di `ReportSaleForm` dan `InvoiceForm`. Selama
+mati, angka otomatisnya dihitung saat render dari baris & client yang
+sedang dipilih, bukan disimpan di state, jadi ganti client, produk, atau
+qty langsung ikut tanpa handler tambahan. Jangan menaruh ini di `useEffect` yang mengawasi qty,
 itu melanggar `react-hooks/set-state-in-effect` dan menambah satu render
 sesudah layar terlanjur dilukis.
 
@@ -1836,7 +1849,7 @@ pemilih, dan daftar sarannya diurutkan per brand dulu karena orang
 mengingat brand lebih dulu daripada kode.
 
 Layar yang sudah mengikutinya: pemilih produk (Invoice, POS, Konsinyasi,
-Harga Client), Finished Goods, Stock Opname (layar & lembar hitung),
+Harga Client, PPIC Planner), Finished Goods, Stock Opname (layar & lembar hitung),
 Konsinyasi (daftar outlet, laporan laku), QC Finished, QA Release,
 Production, dan laporan Koreksi Produk Jadi serta Product Margin.
 Dokumen cetak untuk pembeli (invoice, nota) sengaja tidak: di situ brand

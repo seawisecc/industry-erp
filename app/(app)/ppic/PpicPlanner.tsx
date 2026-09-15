@@ -13,11 +13,14 @@ import { Plus, Trash2, ShoppingCart, PackageSearch } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import { bulatkanMoq } from "@/lib/moq";
 import NumberInput from "@/components/NumberInput";
+import ProductPicker, { type ProductOption } from "@/components/ProductPicker";
 
 export type PpicProduct = {
   id: string;
   kode: string | null;
   nama: string;
+  brand: string | null;
+  kategori: string | null;
   batchKg: number;
   formulas: { item_id: string; percentage: number }[];
 };
@@ -55,6 +58,18 @@ export default function PpicPlanner({
   const [rows, setRows] = useState<Row[]>([{ productId: "", batches: "1" }]);
 
   const itemMap = new Map(items.map((it) => [it.id, it]));
+
+  // PPIC merencanakan per PRODUK, bukan per varian: formula dan ukuran
+  // batch menempel di produk. Stok produk jadi tidak relevan di sini,
+  // jadi pemilihnya dipasang tanpa info stok.
+  const pilihanProduk: ProductOption[] = products.map((p) => ({
+    key: p.id,
+    label: `${p.kode || "-"}, ${p.nama}`,
+    brand: p.brand,
+    varian: "-",
+    available: 0,
+    service_id: null,
+  }));
 
   // ===== Hitung kebutuhan per item dari semua baris rencana =====
   const kebutuhan = new Map<string, number>(); // item_id -> qty butuh
@@ -104,8 +119,10 @@ export default function PpicPlanner({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ===== Rencana produksi ===== */}
-      <div className="glass rounded-2xl p-6 flex flex-col gap-3">
+      {/* ===== Rencana produksi =====
+          relative + z-20: daftar saran pemilih produk harus tampil di atas
+          kartu hasil di bawahnya, `.glass` membentuk stacking context. */}
+      <div className="relative z-20 glass rounded-2xl p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h3 className="font-display text-[15px] font-semibold text-ink">
             Rencana Produksi
@@ -124,58 +141,66 @@ export default function PpicPlanner({
           return (
             <div
               key={idx}
-              className="grid grid-cols-1 sm:grid-cols-[1fr_130px_1fr_32px] gap-2 items-center"
+              className="flex flex-col gap-1 rounded-xl border border-line/70 bg-white/40 p-3 sm:border-0 sm:bg-transparent sm:p-0"
             >
-              <select
-                value={row.productId}
-                onChange={(e) =>
-                  setRows((rs) =>
-                    rs.map((r, i) =>
-                      i === idx ? { ...r, productId: e.target.value } : r
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px_1fr_32px] gap-2 items-center">
+                <ProductPicker
+                  options={pilihanProduk}
+                  value={row.productId}
+                  onChange={(key) =>
+                    setRows((rs) =>
+                      rs.map((r, i) => (i === idx ? { ...r, productId: key } : r))
                     )
-                  )
-                }
-                className={inputCls}
-              >
-                <option value="">Pilih produk</option>
-                {products.map((pr) => (
-                  <option key={pr.id} value={pr.id}>
-                    {pr.kode} · {pr.nama}
-                  </option>
-                ))}
-              </select>
-              <NumberInput
-                value={row.batches}
-                onChange={(nilai) =>
-                  setRows((rs) =>
-                    rs.map((r, i) =>
-                      i === idx ? { ...r, batches: nilai } : r
+                  }
+                  placeholder="Ketik kode / nama produk / brand..."
+                  showStock={false}
+                />
+                <NumberInput
+                  value={row.batches}
+                  onChange={(nilai) =>
+                    setRows((rs) =>
+                      rs.map((r, i) =>
+                        i === idx ? { ...r, batches: nilai } : r
+                      )
                     )
-                  )
-                }
-                placeholder="Jml batch"
-                className={inputCls}
-              />
-              <div className="text-[12.5px] text-muted">
-                {p
-                  ? p.batchKg > 0
-                    ? `= ${formatNum(p.batchKg * parseNum(row.batches))} kg bulk`
-                    : "⚠ produk belum punya ukuran batch (kg)"
-                  : ""}
+                  }
+                  placeholder="Jml batch"
+                  className={inputCls}
+                />
+                <div className="text-[12.5px] text-muted">
+                  {p
+                    ? p.batchKg > 0
+                      ? `= ${formatNum(p.batchKg * parseNum(row.batches))} kg bulk`
+                      : "⚠ produk belum punya ukuran batch (kg)"
+                    : ""}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRows((rs) =>
+                      rs.length > 1
+                        ? rs.filter((_, i) => i !== idx)
+                        : [{ productId: "", batches: "1" }]
+                    )
+                  }
+                  className="text-muted hover:text-clay-600 p-2 justify-self-end"
+                  aria-label="Hapus baris"
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setRows((rs) =>
-                    rs.length > 1
-                      ? rs.filter((_, i) => i !== idx)
-                      : [{ productId: "", batches: "1" }]
-                  )
-                }
-                className="text-muted hover:text-clay-600 p-2"
-              >
-                <Trash2 size={15} />
-              </button>
+              {p && (
+                <p className="text-[11.5px] text-muted">
+                  {[
+                    p.brand ? `Brand ${p.brand}` : "Tanpa brand",
+                    p.kategori,
+                    p.batchKg > 0 ? `batch ${formatNum(p.batchKg)} kg` : null,
+                    `${p.formulas.length} bahan di formula`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
             </div>
           );
         })}

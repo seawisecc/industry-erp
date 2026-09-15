@@ -10,6 +10,8 @@ type ProductRaw = {
   id: string;
   kode: string | null;
   nama_produk: string;
+  brand: string | null;
+  kategori: string | null;
   batch_size_kg: number | null;
   product_formulas: { item_id: string; percentage: number }[];
 };
@@ -42,7 +44,7 @@ export default async function PpicPage() {
       supabase
         .from("products")
         .select(
-          "id, kode, nama_produk, batch_size_kg, product_formulas(item_id, percentage)"
+          "id, kode, nama_produk, brand, kategori, batch_size_kg, product_formulas(item_id, percentage)"
         )
         .eq("organization_id", organizationId)
         .eq("aktif", true)
@@ -96,12 +98,21 @@ export default async function PpicPage() {
       id: p.id,
       kode: p.kode,
       nama: p.nama_produk,
+      brand: p.brand?.trim() || null,
+      kategori: p.kategori?.trim() || null,
       batchKg: p.batch_size_kg == null ? 0 : Number(p.batch_size_kg),
       formulas: p.product_formulas.map((f) => ({
         item_id: f.item_id,
         percentage: Number(f.percentage),
       })),
-    }));
+    }))
+    // Saran di pemilih diurutkan per brand dulu, karena orang mengingat
+    // brand lebih dulu daripada kode. Produk tanpa brand di paling bawah.
+    .sort(
+      (a, b) =>
+        (a.brand ?? "￿").localeCompare(b.brand ?? "￿", "id") ||
+        (a.kode || "").localeCompare(b.kode || "", "id")
+    );
 
   return (
     <PembelianShell>
