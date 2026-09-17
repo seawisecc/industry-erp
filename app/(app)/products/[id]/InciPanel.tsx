@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { Sparkles, Copy, Check } from "lucide-react";
 
-export type InciEntry = { name: string; pct: number };
+export type InciEntry = {
+  name: string;
+  pct: number;
+  cas: string | null;
+  fungsi: string | null;
+};
 
 export default function InciPanel({
   entries,
@@ -80,13 +85,17 @@ export default function InciPanel({
           </div>
 
           {/* Rincian persentase */}
-          <div className="border border-line rounded-xl overflow-hidden">
-            <table className="w-full text-[13px]">
+          <div className="border border-line rounded-xl overflow-x-auto">
+            <table className="w-full min-w-[640px] text-[13px]">
               <thead>
                 <tr className="text-left text-muted text-[11px] uppercase tracking-wide border-b border-line bg-white/50">
                   <th className="px-3 py-2 font-semibold w-10">#</th>
                   <th className="px-3 py-2 font-semibold">INCI Name</th>
-                  <th className="px-3 py-2 font-semibold text-right">% dalam Produk</th>
+                  <th className="px-3 py-2 font-semibold whitespace-nowrap">CAS Number</th>
+                  <th className="px-3 py-2 font-semibold">Function</th>
+                  <th className="px-3 py-2 font-semibold text-right whitespace-nowrap">
+                    % dalam Produk
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -94,6 +103,12 @@ export default function InciPanel({
                   <tr key={e.name} className="border-b border-line last:border-0">
                     <td className="px-3 py-2 text-muted">{i + 1}</td>
                     <td className="px-3 py-2">{e.name}</td>
+                    <td className="px-3 py-2 font-mono text-[12px] whitespace-nowrap">
+                      {e.cas || <span className="text-muted">-</span>}
+                    </td>
+                    <td className="px-3 py-2 text-[12.5px]">
+                      {e.fungsi || <span className="text-muted">-</span>}
+                    </td>
                     <td className="px-3 py-2 text-right font-mono text-[12px]">
                       {e.pct.toLocaleString("id-ID", {
                         maximumFractionDigits: 4,
@@ -103,7 +118,7 @@ export default function InciPanel({
                   </tr>
                 ))}
                 <tr className="bg-white/50 font-medium">
-                  <td className="px-3 py-2" colSpan={2}>
+                  <td className="px-3 py-2" colSpan={4}>
                     Total
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-[12px]">
