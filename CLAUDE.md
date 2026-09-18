@@ -158,6 +158,8 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | `20260828_po_status_urut` | (tanpa RPC) | `purchase_orders.status_urut`, kolom generated untuk urutan bawaan daftar PO |
 | `20260829_kirim_ke_hpp` | `create_receiving_tx` | Diperluas: opsi biaya kirim ikut dibebankan ke HPP batch |
 | `20260830_po_status_dibatalkan` | (tanpa RPC) | Label `Dibatalkan` di enum `po_status` + kolom `catatan_batal` |
+| `20260831_product_formula_variant_import` | `import_product_formula_tx` | Import CSV formula produk: ganti utuh formula tiap produk yang disebut, satu pasang delete/insert per produk supaya audit `log_formula_change` tetap benar |
+| | `import_product_variants_tx` | Import CSV varian: tambah & perbarui saja, TIDAK PERNAH menghapus (nama varian kunci stok). Tolak varian pertama untuk produk yang masih punya stok di kunci `-` |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 

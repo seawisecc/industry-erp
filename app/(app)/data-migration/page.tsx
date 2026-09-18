@@ -102,12 +102,36 @@ const CARDS: ImportCardConfig[] = [
   {
     kind: "products",
     title: "Products",
-    desc: "Impor data produk jadi (tanpa formula & varian).",
+    desc: "Impor data produk jadi. Formula & varian lewat dua kartu sesudahnya.",
     requiredCols: ["nama_produk"],
-    optionalCols: ["brand", "kategori", "batch_size_kg"],
-    note: "Kode PRD-XXXX dibuat otomatis. Formula %, varian, dan kemasan diisi lewat form Edit Produk setelah import.",
-    templateSample: ["Brightening Serum", "GlowLab", "Skincare", "100"],
-    previewCols: ["nama_produk", "brand", "kategori"],
+    optionalCols: ["kode", "brand", "kategori", "batch_size_kg"],
+    note: "kode dikosongkan = PRD-XXXX otomatis. Kode inilah yang dirujuk CSV Formula & Varian Produk. Kode yang sudah terdaftar ditolak: import ini cuma menambah produk baru.",
+    templateSample: ["Brightening Serum", "", "GlowLab", "Skincare", "100"],
+    previewCols: ["nama_produk", "kode", "brand"],
+  },
+  {
+    kind: "product_formula",
+    title: "Formula Produk",
+    desc: "Impor formula % tiap produk, satu baris per bahan.",
+    requiredCols: ["kode_produk", "kode_item", "percentage"],
+    optionalCols: ["fase", "nama_produk", "nama_item"],
+    note: "Import Products dan Item Stok Bahan dulu. Bahannya dirujuk lewat kode item stok (bukan kode material), dan cuma Bahan Baku. Formula produk yang disebut di file DIGANTI seluruhnya, produk yang tidak disebut tidak disentuh. nama_produk & nama_item cuma keterangan, yang dicocokkan kodenya.",
+    pesanImport:
+      "Formula tiap produk yang disebut di file diganti seluruhnya dengan isi file. Produk yang tidak disebut tidak disentuh.",
+    templateSample: ["PRD-0001", "ITM-0001", "5", "A", "Brightening Serum", "Niacinamide"],
+    previewCols: ["kode_produk", "kode_item", "percentage"],
+  },
+  {
+    kind: "product_variants",
+    title: "Varian Produk",
+    desc: "Impor ukuran & harga jual tiap produk, satu baris per varian.",
+    requiredCols: ["kode_produk", "netto", "satuan_netto"],
+    optionalCols: ["harga_jual", "nama_produk"],
+    note: "satuan_netto: g / ml. Nama varian dibentuk dari netto + satuan (mis. 30 ml), sama dengan form Produk. Varian yang sudah ada diperbarui, yang belum ada ditambahkan, TIDAK ada yang dihapus. harga_jual kosong = harga lama tidak diubah. Kemasan per varian tetap lewat form Edit Produk.",
+    pesanImport:
+      "Varian yang sudah ada diperbarui netto & harganya, varian baru ditambahkan. Tidak ada varian yang dihapus.",
+    templateSample: ["PRD-0001", "30", "ml", "125000", "Brightening Serum"],
+    previewCols: ["kode_produk", "netto", "harga_jual"],
   },
   {
     kind: "services",
@@ -186,7 +210,9 @@ export default function DataMigrationPage() {
         <p className="text-[12.5px] text-muted leading-relaxed">
           1) <b>Supplier</b> → 2) <b>INCI Master</b> → 3) <b>Material</b> → 4){" "}
           <b>Komposisi INCI Material</b> → 5) <b>Item Stok Bahan</b> → 6){" "}
-          <b>Stock Adjustment</b> (isi stok awal + harga). Simpan file sebagai <b>CSV UTF-8</b>; header harus sama persis
+          <b>Stock Adjustment</b> (isi stok awal + harga). Untuk produk jadi:{" "}
+          <b>Products</b> → <b>Formula Produk</b> (sesudah Item Stok Bahan) →{" "}
+          <b>Varian Produk</b>. Simpan file sebagai <b>CSV UTF-8</b>; header harus sama persis
           dengan template. Delimiter koma maupun titik-koma (Excel Indonesia)
           sama-sama dikenali.
         </p>

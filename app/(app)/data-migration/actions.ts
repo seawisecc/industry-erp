@@ -13,6 +13,8 @@ export type ImportKind =
   | "items"
   | "clients"
   | "products"
+  | "product_formula"
+  | "product_variants"
   | "services";
 
 const CLIENT_KATEGORI = [
@@ -438,8 +440,38 @@ export async function runImport(
       if (valid.length === 0)
         throw new Error("Tidak ada baris dengan nama_produk terisi");
 
+      // Kode adalah kunci yang dipakai CSV Formula & Varian Produk, jadi
+      // produk hasil import wajib punya kode. Kosong = PRD-XXXX otomatis,
+      // pola sama dengan nextProductKode di products/actions.ts.
+      const kodeFile = valid.map((r) => clean(r.kode)).filter((k): k is string => !!k);
+      const dobelDiFile = kodeFile.filter(
+        (k, i) => kodeFile.findIndex((x) => x.toLowerCase() === k.toLowerCase()) !== i
+      );
+      if (dobelDiFile.length > 0) {
+        throw new Error(
+          `Kode produk dobel di dalam file: ${sebutkan(new Set(dobelDiFile))}. Satu kode untuk satu produk.`
+        );
+      }
+
+      const existing = await fetchAllRows(supabase, "products", "id, kode", organizationId);
+      const sudahAda = new Set(
+        existing.map((p) => cell(p.kode).trim().toLowerCase()).filter(Boolean)
+      );
+      const bentrok = kodeFile.filter((k) => sudahAda.has(k.toLowerCase()));
+      if (bentrok.length > 0) {
+        throw new Error(
+          `Kode produk ini sudah terdaftar: ${sebutkan(bentrok)}. Import ini cuma menambah produk baru, ubah produk yang sudah ada lewat form Edit Produk.`
+        );
+      }
+
+      let seq = existing.reduce((maks, p) => {
+        const k = cell(p.kode);
+        return /^PRD-\d+$/.test(k) ? Math.max(maks, parseInt(k.slice(4))) : maks;
+      }, 0);
+
       const { error } = await supabase.from("products").insert(
         valid.map((r) => ({
+          kode: clean(r.kode) ?? "PRD-" + String(++seq).padStart(4, "0"),
           nama_produk: clean(r.nama_produk)!,
           brand: clean(r.brand),
           kategori: clean(r.kategori),
@@ -452,6 +484,225 @@ export async function runImport(
 
       revalidatePath("/products");
       return { ok: true, count: valid.length };
+    }
+
+    // ================= FORMULA PRODUK =================
+    // Satu baris CSV = satu bahan di formula satu produk. Formula tiap
+    // produk yang disebut di file DIGANTI utuh, sama dengan form Produk;
+    // yang tidak disebut tidak disentuh. Hapus-lalu-sisipnya di dalam
+    // import_product_formula_tx.
+    if (kind === "product_formula") {
+      const isi = rows
+        .map((r, i) => ({ r, baris: i + 2 }))
+        .filter(
+          ({ r }) => clean(r.kode_produk) || clean(r.kode_item) || clean(r.percentage)
+        );
+      if (isi.length === 0) throw new Error("Tidak ada baris formula yang terisi");
+
+      const tidakLengkap = isi.filter(
+        ({ r }) => !clean(r.kode_produk) || !clean(r.kode_item) || !clean(r.percentage)
+      );
+      if (tidakLengkap.length > 0) {
+        throw new Error(
+          `Baris ${sebutkan(tidakLengkap.map((x) => x.baris))} belum lengkap: kode_produk, kode_item, dan percentage wajib diisi. Produk atau item yang belum punya kode diberi kode dulu lewat form Edit-nya.`
+        );
+      }
+
+      const persenSalah = isi.filter(({ r }) => {
+        const p = persenCsv(r.percentage);
+        return p === null || !(p > 0 && p <= 100);
+      });
+      if (persenSalah.length > 0) {
+        throw new Error(
+          `Baris ${sebutkan(persenSalah.map((x) => x.baris))}: percentage harus angka lebih dari 0 sampai 100.`
+        );
+      }
+
+      const [produkMap, itemMap] = await Promise.all([
+        petaProduk(supabase, organizationId),
+        fetchAllRows(supabase, "items", "id, kode, nama, kategori", organizationId).then(
+          (items) =>
+            new Map(
+              items
+                .filter((i) => cell(i.kode).trim())
+                .map((i) => [cell(i.kode).trim().toLowerCase(), i])
+            )
+        ),
+      ]);
+
+      const produkAsing = new Set<string>();
+      const itemAsing = new Set<string>();
+      const kemasan = new Set<string>();
+      const dobel = new Set<string>();
+      const pasangan = new Set<string>();
+      const totalPersen = new Map<string, number>();
+
+      const items = isi.map(({ r }) => {
+        const kodeP = clean(r.kode_produk)!;
+        const kodeI = clean(r.kode_item)!;
+        const p = produkMap.get(kodeP.toLowerCase());
+        const it = itemMap.get(kodeI.toLowerCase());
+        if (!p) produkAsing.add(kodeP);
+        if (!it) itemAsing.add(kodeI);
+        else if (it.kategori === "Kemasan") kemasan.add(cell(it.kode));
+
+        const kunci = `${kodeP.toLowerCase()}|${kodeI.toLowerCase()}`;
+        if (pasangan.has(kunci)) dobel.add(`${kodeP} · ${kodeI}`);
+        pasangan.add(kunci);
+
+        const percentage = persenCsv(r.percentage)!;
+        const kodeResmi = p ? cell(p.kode) : kodeP;
+        totalPersen.set(kodeResmi, (totalPersen.get(kodeResmi) ?? 0) + percentage);
+
+        return {
+          product_id: p?.id,
+          item_id: it?.id,
+          percentage,
+          fase: clean(r.fase),
+        };
+      });
+
+      if (produkAsing.size > 0) {
+        throw new Error(
+          `Kode produk ini tidak ditemukan: ${sebutkan(produkAsing)}. Import Products dulu, atau samakan kodenya.`
+        );
+      }
+      if (itemAsing.size > 0) {
+        throw new Error(
+          `Kode item ini tidak ditemukan di Stock Items: ${sebutkan(itemAsing)}. Formula produk memakai item stok, jadi bahannya didaftarkan dulu lewat Item Stok Bahan.`
+        );
+      }
+      if (kemasan.size > 0) {
+        throw new Error(
+          `Item kemasan tidak masuk formula: ${sebutkan(kemasan)}. Kemasan diatur per varian di form Edit Produk.`
+        );
+      }
+      if (dobel.size > 0) {
+        throw new Error(
+          `Bahan yang sama diisi dua kali untuk satu produk: ${sebutkan(dobel)}. Sisakan satu baris.`
+        );
+      }
+
+      const { error } = await supabase.rpc("import_product_formula_tx", {
+        p_organization_id: organizationId,
+        p_items: items,
+      });
+      if (error) throw new Error(error.message);
+
+      // Diperingatkan, tidak ditolak, sama dengan komposisi INCI
+      const belum100 = Array.from(totalPersen)
+        .filter(([, total]) => Math.abs(total - 100) > 0.01)
+        .map(
+          ([kode, total]) =>
+            `${kode} (${total.toLocaleString("id-ID", { maximumFractionDigits: 4 })}%)`
+        );
+
+      revalidatePath("/products");
+      return {
+        ok: true,
+        count: items.length,
+        peringatan:
+          belum100.length > 0
+            ? `Tersimpan, tapi total formula belum 100%: ${sebutkan(belum100)}.`
+            : undefined,
+      };
+    }
+
+    // ================= VARIAN PRODUK =================
+    // Cuma menambah & memperbarui, tidak pernah menghapus: nama varian
+    // adalah kunci stok produk jadi. Lihat 20260831_product_formula_variant_import.
+    if (kind === "product_variants") {
+      const isi = rows
+        .map((r, i) => ({ r, baris: i + 2 }))
+        .filter(({ r }) => clean(r.kode_produk) || clean(r.netto));
+      if (isi.length === 0) throw new Error("Tidak ada baris varian yang terisi");
+
+      const tidakLengkap = isi.filter(
+        ({ r }) => !clean(r.kode_produk) || !clean(r.netto) || !clean(r.satuan_netto)
+      );
+      if (tidakLengkap.length > 0) {
+        throw new Error(
+          `Baris ${sebutkan(tidakLengkap.map((x) => x.baris))} belum lengkap: kode_produk, netto, dan satuan_netto wajib diisi.`
+        );
+      }
+
+      const angkaSalah: number[] = [];
+      const satuanSalah: number[] = [];
+      const parsed = isi.map(({ r, baris }) => {
+        const netto = angkaCsv(r.netto);
+        const harga = angkaCsv(r.harga_jual);
+        const satuan = clean(r.satuan_netto)!.toLowerCase();
+        if (!(netto !== null && netto > 0) || (harga !== null && !(harga >= 0))) {
+          angkaSalah.push(baris);
+        }
+        if (satuan !== "g" && satuan !== "ml") satuanSalah.push(baris);
+        return { r, baris, netto: netto ?? 0, harga, satuan };
+      });
+      if (angkaSalah.length > 0) {
+        throw new Error(
+          `Baris ${sebutkan(angkaSalah)}: netto harus lebih dari 0 dan harga_jual tidak boleh negatif. Isi angka saja, tanpa "Rp" atau satuan.`
+        );
+      }
+      if (satuanSalah.length > 0) {
+        throw new Error(
+          `Baris ${sebutkan(satuanSalah)}: satuan_netto harus g atau ml, sama dengan pilihan di form Produk.`
+        );
+      }
+
+      const produkMap = await petaProduk(supabase, organizationId);
+      const produkAsing = new Set<string>();
+      const dobel = new Set<string>();
+      const pasangan = new Set<string>();
+
+      const items = parsed.map(({ r, netto, harga, satuan }) => {
+        const kodeP = clean(r.kode_produk)!;
+        const p = produkMap.get(kodeP.toLowerCase());
+        if (!p) produkAsing.add(kodeP);
+
+        // Dibentuk persis seperti namaVarian() di ProductForm, supaya
+        // varian hasil import tidak berganti nama begitu produknya
+        // disunting lewat form.
+        const nama_varian = `${String(netto).replace(".", ",")} ${satuan}`;
+        const kunci = `${kodeP.toLowerCase()}|${nama_varian}`;
+        if (pasangan.has(kunci)) dobel.add(`${kodeP} · ${nama_varian}`);
+        pasangan.add(kunci);
+
+        return {
+          product_id: p?.id,
+          nama_varian,
+          netto,
+          satuan_netto: satuan,
+          harga_jual: harga,
+        };
+      });
+
+      if (produkAsing.size > 0) {
+        throw new Error(
+          `Kode produk ini tidak ditemukan: ${sebutkan(produkAsing)}. Import Products dulu, atau samakan kodenya.`
+        );
+      }
+      if (dobel.size > 0) {
+        throw new Error(
+          `Varian yang sama diisi dua kali untuk satu produk: ${sebutkan(dobel)}. Sisakan satu baris.`
+        );
+      }
+
+      const { data, error } = await supabase.rpc("import_product_variants_tx", {
+        p_organization_id: organizationId,
+        p_items: items,
+      });
+      if (error) throw new Error(error.message);
+
+      const hasil = (data ?? {}) as { baru?: number; diubah?: number };
+      revalidatePath("/products");
+      revalidatePath("/finished-goods");
+      return {
+        ok: true,
+        count: items.length,
+        peringatan:
+          `${hasil.baru ?? 0} varian baru, ${hasil.diubah ?? 0} varian diperbarui. ` +
+          "Kemasan per varian tetap diatur lewat form Edit Produk.",
+      };
     }
 
     // ================= LAYANAN JASA =================
@@ -578,6 +829,22 @@ async function fetchAllRows(
   return out;
 }
 
+/**
+ * Produk per kode (huruf kecil). Kode adalah kunci yang dipakai CSV
+ * Formula & Varian Produk; produk tanpa kode tidak bisa dirujuk.
+ */
+async function petaProduk(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string
+) {
+  const produk = await fetchAllRows(supabase, "products", "id, kode", organizationId);
+  return new Map(
+    produk
+      .filter((p) => cell(p.kode).trim())
+      .map((p) => [cell(p.kode).trim().toLowerCase(), p])
+  );
+}
+
 /** null/undefined jadi string kosong, sisanya apa adanya. */
 function cell(v: unknown): string {
   if (v === null || v === undefined) return "";
@@ -697,14 +964,59 @@ const EXPORT_SPEC: Record<ImportKind, ExportSpec> = {
   },
   products: {
     table: "products",
-    select: "id, nama_produk, brand, kategori, batch_size_kg",
+    select: "id, kode, nama_produk, brand, kategori, batch_size_kg",
     orderBy: "kode",
     map: (r) => ({
       nama_produk: cell(r.nama_produk),
+      kode: cell(r.kode),
       brand: cell(r.brand),
       kategori: cell(r.kategori),
       batch_size_kg: cell(r.batch_size_kg),
     }),
+  },
+  product_formula: {
+    table: "product_formulas",
+    select: "id, percentage, fase, products(kode, nama_produk), items(kode, nama)",
+    orderBy: "product_id",
+    // Kode, bukan id, alasan yang sama dengan nama_supplier. Nama produk
+    // & nama item cuma keterangan untuk yang membaca di Excel.
+    map: (r) => {
+      const p = r.products as { kode?: string; nama_produk?: string } | null;
+      const i = r.items as { kode?: string; nama?: string } | null;
+      return {
+        kode_produk: cell(p?.kode),
+        kode_item: cell(i?.kode),
+        percentage: cell(r.percentage),
+        fase: cell(r.fase),
+        nama_produk: cell(p?.nama_produk),
+        nama_item: cell(i?.nama),
+      };
+    },
+    // Urutan yang sama dengan tabel formula di detail produk: per fase,
+    // persen terbesar dulu.
+    urut: (a, b) =>
+      a.kode_produk.localeCompare(b.kode_produk, undefined, { numeric: true }) ||
+      (a.fase || "\uffff").localeCompare(b.fase || "\uffff") ||
+      Number(b.percentage) - Number(a.percentage),
+  },
+  product_variants: {
+    table: "product_variants",
+    select: "id, netto, satuan_netto, harga_jual, products(kode, nama_produk)",
+    orderBy: "product_id",
+    map: (r) => {
+      const p = r.products as { kode?: string; nama_produk?: string } | null;
+      return {
+        kode_produk: cell(p?.kode),
+        netto: angkaEkspor(r.netto),
+        satuan_netto: cell(r.satuan_netto),
+        harga_jual: angkaEkspor(r.harga_jual),
+        nama_produk: cell(p?.nama_produk),
+      };
+    },
+    urut: (a, b) =>
+      a.kode_produk.localeCompare(b.kode_produk, undefined, { numeric: true }) ||
+      a.satuan_netto.localeCompare(b.satuan_netto) ||
+      Number(a.netto) - Number(b.netto),
   },
   services: {
     table: "services",

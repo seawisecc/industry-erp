@@ -15,6 +15,8 @@ import {
   Package,
   ConciergeBell,
   Atom,
+  Beaker,
+  Ruler,
   LucideIcon,
 } from "lucide-react";
 import { runImport, exportCsvData, ImportKind } from "./actions";
@@ -30,6 +32,8 @@ const ICONS: Record<ImportKind, LucideIcon> = {
   items: Boxes,
   clients: Contact,
   products: Package,
+  product_formula: Beaker,
+  product_variants: Ruler,
   services: ConciergeBell,
 };
 
