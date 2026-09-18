@@ -206,7 +206,7 @@ export default async function PrintInvoicePage({
             <div className="text-[11.5px] leading-relaxed text-right">
               <div>
                 <span className="text-neutral-500">Type : </span>
-                <b>{inv.tipe === "Proforma" ? "Performa Invoice" : "Invoice"}</b>
+                <b>{inv.tipe === "Proforma" ? "Proforma Invoice" : "Invoice"}</b>
               </div>
               <div>
                 <span className="text-neutral-500">Issue Date : </span>

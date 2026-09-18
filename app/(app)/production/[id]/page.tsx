@@ -156,7 +156,7 @@ export default async function ProductionDetailPage({
         <span className="inline-flex px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-botanical-100 text-botanical-700">
           {batch.status}
         </span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
           <CancelTxButton
             id={batch.id}
             action={cancelProduction}

@@ -3,12 +3,7 @@
 import { useState } from "react";
 import { Sparkles, Copy, Check } from "lucide-react";
 
-export type InciEntry = {
-  name: string;
-  pct: number;
-  cas: string | null;
-  fungsi: string | null;
-};
+import type { InciEntry } from "@/lib/inciAgregat";
 
 export default function InciPanel({
   entries,
@@ -60,7 +55,7 @@ export default function InciPanel({
 
       {entries.length === 0 && (
         <p className="text-muted text-[13px]">
-          Tidak ada data INCI, pastikan item formula ter-link ke Material dan
+          Tidak ada data INCI, pastikan bahan formula ter-link ke Material dan
           material punya komposisi INCI.
         </p>
       )}
@@ -103,7 +98,7 @@ export default function InciPanel({
                   <tr key={e.name} className="border-b border-line last:border-0">
                     <td className="px-3 py-2 text-muted">{i + 1}</td>
                     <td className="px-3 py-2">{e.name}</td>
-                    <td className="px-3 py-2 font-mono text-[12px] whitespace-nowrap">
+                    <td className="px-3 py-2 font-mono text-[12px] min-w-[110px] max-w-[200px] break-words">
                       {e.cas || <span className="text-muted">-</span>}
                     </td>
                     <td className="px-3 py-2 text-[12.5px]">

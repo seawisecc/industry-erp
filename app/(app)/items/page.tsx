@@ -232,7 +232,8 @@ export default async function ItemsPage({
                 <div className="font-medium max-w-[260px] truncate" title={i.nama}>
                   {i.nama}
                 </div>
-                {i.materials?.[0] && (
+                {i.materials?.[0] &&
+                  i.materials[0].material_code !== i.kode && (
                   <div className="text-[11.5px] text-muted font-mono">
                     {i.materials[0].material_code}
                   </div>
@@ -242,7 +243,8 @@ export default async function ItemsPage({
             cardCell: (i) => (
               <>
                 <div>{i.nama}</div>
-                {i.materials?.[0] && (
+                {i.materials?.[0] &&
+                  i.materials[0].material_code !== i.kode && (
                   <div className="text-[11.5px] text-muted font-mono font-normal">
                     {i.materials[0].material_code}
                   </div>

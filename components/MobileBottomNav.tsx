@@ -106,8 +106,12 @@ export default function MobileBottomNav({
           onClick={() => setOpen(false)}
         >
           <div className="absolute inset-0 bg-botanical-900/50 backdrop-blur-[2px] animate-[fadeIn_.15s_ease-out]" />
+          {/* Latar PEKAT, bukan .glass: lembar ini menumpuk di atas
+              halaman, dan .glass yang 0.55 membuat isi halaman terbaca
+              menembus di balik ikon. Warnanya sama dengan sel sticky
+              DataTable, perkiraan panel .glass di atas latar aplikasi. */}
           <div
-            className="relative glass rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl animate-[sheetUp_.22s_cubic-bezier(0.22,1,0.36,1)]"
+            className="relative bg-[#F7F5F1] border border-white/60 rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl animate-[sheetUp_.22s_cubic-bezier(0.22,1,0.36,1)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="h-1 w-10 rounded-full bg-ink/15 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />

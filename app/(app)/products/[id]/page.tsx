@@ -4,7 +4,8 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, Calculator } from "lucide-react";
-import InciPanel, { InciEntry } from "./InciPanel";
+import InciPanel from "@/components/InciPanel";
+import { agregatInci } from "@/lib/inciAgregat";
 import DataTable from "@/components/DataTable";
 import { urutkanFormula, kelompokkanFase } from "@/lib/formulaOrder";
 
@@ -151,108 +152,16 @@ export default async function ProductDetailPage({
   );
 
   // ===== INCI aggregation =====
-  const formulaItemIds = product.product_formulas.map((f) => f.item_id);
-  const inciWarnings: string[] = [];
-  const inciMapAgg = new Map<string, number>();
-  // Master INCI per nama: CAS & function dibaca dari inci_master saat dipakai,
-  // lewat inci_master_id kalau ada, kalau tidak dicocokkan lewat namanya.
-  const inciMasterIdByName = new Map<string, string>();
-  const inciInfo = new Map<string, { cas: string | null; fungsi: string | null }>();
-
-  if (formulaItemIds.length > 0) {
-    const { data: materials } = await supabase
-      .from("materials")
-      .select(
-        "item_id, tradename, material_inci(inci_master_id, inci_name, percentage)"
-      )
-      .eq("organization_id", organizationId)
-      .in("item_id", formulaItemIds);
-
-    const matByItem = new Map(
-      (
-        (materials || []) as unknown as {
-          item_id: string;
-          tradename: string;
-          material_inci: {
-            inci_master_id: string | null;
-            inci_name: string;
-            percentage: number;
-          }[];
-        }[]
-      ).map((m) => [m.item_id, m])
-    );
-
-    for (const f of product.product_formulas) {
-      const mat = matByItem.get(f.item_id);
-      const itemNama = itemMap.get(f.item_id)?.nama || "item";
-      if (!mat) {
-        inciWarnings.push(`"${itemNama}" belum ter-link ke Material`);
-        continue;
-      }
-      if (mat.material_inci.length === 0) {
-        inciWarnings.push(`Material "${mat.tradename}" belum punya komposisi INCI`);
-        continue;
-      }
-      for (const inci of mat.material_inci) {
-        const contribution = (Number(f.percentage) * Number(inci.percentage)) / 100;
-        inciMapAgg.set(
-          inci.inci_name,
-          (inciMapAgg.get(inci.inci_name) || 0) + contribution
-        );
-        if (inci.inci_master_id && !inciMasterIdByName.has(inci.inci_name)) {
-          inciMasterIdByName.set(inci.inci_name, inci.inci_master_id);
-        }
-      }
-    }
-
-    if (inciMapAgg.size > 0) {
-      const ids = [...new Set(inciMasterIdByName.values())];
-      const names = [...inciMapAgg.keys()];
-      const [byId, byName] = await Promise.all([
-        ids.length > 0
-          ? supabase
-              .from("inci_master")
-              .select("id, inci_name, cas_number, function")
-              .eq("organization_id", organizationId)
-              .in("id", ids)
-          : Promise.resolve({ data: [] }),
-        supabase
-          .from("inci_master")
-          .select("id, inci_name, cas_number, function")
-          .eq("organization_id", organizationId)
-          .in("inci_name", names),
-      ]);
-      type Master = {
-        id: string;
-        inci_name: string;
-        cas_number: string | null;
-        function: string | null;
-      };
-      const masterById = new Map(
-        ((byId.data || []) as Master[]).map((m) => [m.id, m])
-      );
-      const masterByName = new Map(
-        ((byName.data || []) as Master[]).map((m) => [m.inci_name, m])
-      );
-      for (const name of names) {
-        const idMaster = inciMasterIdByName.get(name);
-        const m =
-          (idMaster ? masterById.get(idMaster) : undefined) ??
-          masterByName.get(name);
-        inciInfo.set(name, {
-          cas: m?.cas_number?.trim() || null,
-          fungsi: m?.function?.trim() || null,
-        });
-      }
-    }
-  }
-
-  const inciEntries: InciEntry[] = Array.from(inciMapAgg, ([name, pct]) => ({
-    name,
-    pct,
-    cas: inciInfo.get(name)?.cas ?? null,
-    fungsi: inciInfo.get(name)?.fungsi ?? null,
-  })).sort((a, b) => b.pct - a.pct);
+  const { entries: inciEntries, warnings: inciWarnings } = await agregatInci(
+    supabase,
+    organizationId!,
+    product.product_formulas.map((f) => ({
+      material_id: null,
+      item_id: f.item_id,
+      percentage: Number(f.percentage),
+      label: itemMap.get(f.item_id)?.nama || "item",
+    }))
+  );
 
   return (
     <div className="max-w-5xl">

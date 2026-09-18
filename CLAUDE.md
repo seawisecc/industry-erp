@@ -777,6 +777,21 @@ berhak menyatakan formulanya sudah jadi. Menambah izin sendiri berarti
 satu checklist lagi di form Pengguna yang harus diingat Admin, untuk
 keputusan yang pemegangnya sama persis. Penghapusan pakai `can_cancel`.
 
+## INCI Names formula: rumusnya cuma di `lib/inciAgregat.ts`
+
+Detail Products dan detail R&D sama-sama punya panel Generate INCI
+Names, dan keduanya memanggil `agregatInci`: komposisi INCI tiap material
+dikali persen bahannya, komponen yang sama dijumlahkan, urut dari
+kandungan terbesar, CAS & function dibaca dari `inci_master`. Dua salinan
+berarti formula yang sama bisa menghasilkan daftar ingredients yang
+berbeda tergantung layar tempat orang menyalinnya ke label kemasan.
+
+Baris masukannya menunjuk `material_id` ATAU `item_id`, cerminan
+aturan baris formula R&D: bahan dari master material dibaca langsung,
+baris item dicari materialnya lewat `materials.item_id`. Itu yang
+membuat INCI bisa di-generate untuk formula yang bahannya belum pernah
+diadakan. Di R&D panelnya cuma dihitung di tab Formula, tempat dia tampil.
+
 ## Lembar kerja lab mencetak takaran, opname sengaja tidak
 
 `/print/rnd/[id]` mencetak takaran TEORITIS tiap bahan untuk satu batch
@@ -2032,6 +2047,15 @@ pelajaran yang sama persis dengan sel sticky di DataTable. Warnanya bukan
 supaya pekat 100% tapi terlihat identik dengan sidebar yang menempel;
 warna yang melompat saat kursor masuk lebih mengganggu daripada
 transparansinya.
+
+**Drawer dan lembar sub-menu HP juga wajib pekat, tanpa syarat.** Aturan
+di atas awalnya cuma dipasang untuk layar 640px ke atas, padahal drawer HP
+SELALU menumpuk di atas halaman: angka dashboard terbaca menembus di balik
+nama menu setiap kali drawer dibuka. Drawer memakai komposit yang sama
+lewat media query HP di `globals.css`, dan lembar sub-menu
+(`MobileBottomNav`) memakai `#F7F5F1`, warna yang sama dengan sel sticky,
+bukan `.glass`. Panel apa pun yang menumpuk di atas halaman kerja tunduk
+pada aturan ini.
 
 **Lebar desktop lewat custom property `--sb-w`, bukan kelas Tailwind.**
 Di bawah 640px sidebar adalah drawer selebar 250px, jadi inline style

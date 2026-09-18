@@ -20,12 +20,17 @@ import HBarList from "@/components/charts/HBarList";
 import { sisaHutang } from "@/lib/purchaseReturn";
 import type { ExecutionData } from "@/app/(app)/production/actions";
 
+// Disingkat menurut besarnya, bukan tandanya: arus bersih yang minus
+// dulu tertulis penuh ("Rp -125.500.000") dan melebihi kolom sepertiga
+// di kartu Arus Kas pada layar HP.
 function formatRupiah(n: number) {
-  if (n >= 1_000_000_000)
-    return "Rp " + (n / 1_000_000_000).toLocaleString("id-ID", { maximumFractionDigits: 2 }) + " M";
-  if (n >= 1_000_000)
-    return "Rp " + (n / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 }) + " jt";
-  return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
+  const tanda = n < 0 ? "-" : "";
+  const a = Math.abs(n);
+  if (a >= 1_000_000_000)
+    return "Rp " + tanda + (a / 1_000_000_000).toLocaleString("id-ID", { maximumFractionDigits: 2 }) + " M";
+  if (a >= 1_000_000)
+    return "Rp " + tanda + (a / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 }) + " jt";
+  return "Rp " + tanda + a.toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
 
 export default async function DashboardPage() {

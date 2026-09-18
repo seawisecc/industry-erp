@@ -15,6 +15,8 @@ import {
   kunciBahan,
   takaranTrial,
 } from "@/lib/rndCost";
+import InciPanel from "@/components/InciPanel";
+import { agregatInci } from "@/lib/inciAgregat";
 import BahanStatus from "../BahanStatus";
 import { getRndOptions } from "../data";
 import { deleteRndFormula } from "../actions";
@@ -189,6 +191,23 @@ export default async function RndDetailPage({
   );
 
   const totalPct = barisBahan.reduce((s, b) => s + b.percentage, 0);
+
+  // Rumus INCI yang sama dengan detail Products. Cuma dihitung di tab
+  // Formula, tempat panelnya tampil.
+  const inci =
+    aktif === "formula"
+      ? await agregatInci(
+          supabase,
+          organizationId!,
+          (f.rnd_formula_items || []).map((r) => ({
+            material_id: r.material_id,
+            item_id: r.item_id,
+            percentage: Number(r.percentage),
+            label:
+              bahanOf(kunciBahan(r.material_id, r.item_id))?.nama || "bahan",
+          }))
+        )
+      : null;
   const belumDimiliki = barisBahan.filter(
     (b) => ketersediaanBahan(b) === "belum-dimiliki"
   ).length;
@@ -529,6 +548,10 @@ export default async function RndDetailPage({
                 }}
               />
             </div>
+
+            {inci && (
+              <InciPanel entries={inci.entries} warnings={inci.warnings} />
+            )}
 
             <div className="glass rounded-2xl p-6">
               <div className="flex items-baseline justify-between gap-3 flex-wrap mb-3">

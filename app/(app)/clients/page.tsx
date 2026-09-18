@@ -198,6 +198,13 @@ export default async function ClientsPage({
             cell: (c) => (
               <span className="font-mono text-[12.5px]">{c.phone || "-"}</span>
             ),
+            // Kolom ini kadang berisi email, dan di kartu HP separuh lebar
+            // teks sepanjang itu melewati tepi layar kalau tidak boleh pecah.
+            cardCell: (c) => (
+              <span className="font-mono text-[12.5px] whitespace-normal break-all">
+                {c.phone || "-"}
+              </span>
+            ),
           },
           {
             key: "kategori",

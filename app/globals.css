@@ -121,6 +121,17 @@ body {
   }
 }
 
+/* Drawer HP SELALU menumpuk di atas halaman, jadi alasan yang sama
+   berlaku tanpa syarat data-overlay. Sempat terlewat: angka dashboard
+   terbaca menembus di balik nama menu setiap kali drawer dibuka. */
+@media (max-width: 639px) {
+  .sidebar-panel {
+    background:
+      linear-gradient(rgba(22, 38, 29, 0.72), rgba(22, 38, 29, 0.72)),
+      var(--background);
+  }
+}
+
 @utility glass-input {
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(28, 28, 26, 0.1);
