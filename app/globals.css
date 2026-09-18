@@ -312,6 +312,32 @@ tbody > tr:hover > .sticky-col {
   box-shadow: 0 0 8px rgba(47, 77, 58, 0.5);
 }
 
+/* ---------- iOS: jangan zoom sendiri waktu kotak isian disentuh ----------
+   Safari iOS memperbesar layar begitu field bertulisan < 16px mendapat
+   fokus, lalu tidak pernah mengecilkannya lagi. Kotak isian di sini
+   text-sm (14px), jadi tiap tap di form menggeser & memperbesar halaman.
+
+   Obatnya menaikkan tulisan field ke 16px, BUKAN maximum-scale=1 di
+   viewport: di Android itu ikut mematikan cubit-zoom, padahal orang yang
+   butuh memperbesar angka kecil harus tetap bisa.
+
+   Dibatasi @supports (-webkit-touch-callout) supaya cuma kena WebKit iOS
+   (semua browser di iPhone/iPad); desktop & Android tidak berubah.
+   Aturan biasa tanpa layer, jadi menang atas utility text-sm/text-xs. */
+@supports (-webkit-touch-callout: none) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Teks jangan ikut membesar sendiri waktu HP diputar ke landscape */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* ---------- Input tanggal/angka jangan tembus ke kanan di HP ---------- */
 input[type="date"],
 input[type="datetime-local"],
