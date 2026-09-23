@@ -80,6 +80,22 @@ function barisDariPO(po: POOption): Row[] {
     .filter((r) => r.sisa > 0);
 }
 
+/**
+ * Isi PO yang belum datang, untuk ekor pilihan di dropdown dan
+ * keterangan di bawahnya. Dua PO ke supplier yang sama cuma beda di
+ * isinya, dan tanpa ini keduanya terbaca persis sama di daftar.
+ */
+function isiBelumDatang(po: POOption, maks?: number): string {
+  const sisa = po.items.filter((it) => it.qty_pesan - it.qty_diterima > 0);
+  const tampil = maks == null ? sisa : sisa.slice(0, maks);
+  const teks = tampil.map(
+    (it) =>
+      `${it.nama || "Item terhapus"} ${(it.qty_pesan - it.qty_diterima).toLocaleString("id-ID", { maximumFractionDigits: 2 })}${it.satuan ? " " + it.satuan : ""}`
+  );
+  const lebih = sisa.length - tampil.length;
+  return teks.join(", ") + (lebih > 0 ? `, +${lebih} item lain` : "");
+}
+
 function topDariPO(po: POOption): string {
   return po.top_days == null ? "" : String(po.top_days);
 }
@@ -286,10 +302,15 @@ export default function ReceivingForm({
               <option value="">Pilih PO yang barangnya datang</option>
               {pos.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.no_po} · {p.supplier_nama} ({p.status})
+                  {p.no_po} · {p.supplier_nama} ({p.status}) · {isiBelumDatang(p, 2)}
                 </option>
               ))}
             </select>
+            {selectedPO && (
+              <p className="text-[11.5px] text-muted mt-1.5 leading-snug">
+                Belum datang: {isiBelumDatang(selectedPO) || "semua sudah diterima"}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-[12.5px] font-medium text-muted mb-1.5">

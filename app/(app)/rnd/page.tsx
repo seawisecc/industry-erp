@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import Link from "next/link";
-import { Plus, Eye, FlaskConical } from "lucide-react";
+import { Plus, Eye, FlaskConical, Coins } from "lucide-react";
 import TableToolbar from "@/components/TableToolbar";
 import Pagination from "@/components/Pagination";
 import DataTable from "@/components/DataTable";
@@ -87,12 +87,20 @@ export default async function RndPage({
             revisi, sampai formulanya diputuskan
           </p>
         </div>
-        <Link
-          href="/rnd/new"
-          className="inline-flex items-center gap-1.5 h-9 bg-botanical-700 text-white text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-botanical-800 transition-colors shadow-sm whitespace-nowrap"
-        >
-          <Plus size={14} /> Develop Baru
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/rnd/ppic"
+            className="inline-flex items-center gap-1.5 h-9 bg-white/70 border border-line text-ink text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-white transition-colors whitespace-nowrap"
+          >
+            <Coins size={14} /> PPIC R&amp;D
+          </Link>
+          <Link
+            href="/rnd/new"
+            className="inline-flex items-center gap-1.5 h-9 bg-botanical-700 text-white text-[12.5px] font-medium px-3.5 rounded-lg hover:bg-botanical-800 transition-colors shadow-sm whitespace-nowrap"
+          >
+            <Plus size={14} /> Develop Baru
+          </Link>
+        </div>
       </div>
 
       <div className="mt-5">

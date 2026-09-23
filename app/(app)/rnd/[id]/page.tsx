@@ -627,6 +627,7 @@ export default async function RndDetailPage({
 
         {aktif === "biaya" && (
           <ProduksiCek
+            formulaId={f.id}
             formula={barisFormula}
             kemasan={barisKemasan}
             nettoGram={nettoGram}

@@ -794,6 +794,26 @@ baris item dicari materialnya lewat `materials.item_id`. Itu yang
 membuat INCI bisa di-generate untuk formula yang bahannya belum pernah
 diadakan. Di R&D panelnya cuma dihitung di tab Formula, tempat dia tampil.
 
+## PPIC R&D: dana launching dari formula, tangganya dipinjam dari PPIC
+
+`/rnd/ppic` menjawab "kalau formula-formula ini di-launching sekian
+pcs, berapa dana yang harus disiapkan". Input formula R&D x PCS, bukan
+produk x batch seperti PPIC Planner, karena bahannya boleh belum pernah
+diadakan dan yang diputuskan saat launching memang jumlah pcs.
+
+- **Tangga persediaan TIDAK disalin.** `neracaBahan` di `lib/ppic.ts`
+  dipisah dari `hitungPpic` justru untuk dipakai `lib/rndPpic.ts`, jadi
+  stok, Plan berjalan, karantina, PO terbuka, dan MOQ dihitung sama
+  persis dengan PPIC Planner.
+- **Tiga kelompok bahan:** yang punya item stok lewat neraca; yang
+  belum dimiliki dibeli penuh, dibulatkan MOQ material, dinilai harga
+  referensi; kemasan ketikan cuma `qty x harga_estimasi`.
+- **Dua angka rupiah dipisah:** Dana Pembelian (Qty Beli x harga, uang
+  yang keluar sekarang) dan Biaya Bahan Produksi (nilai terpakai, stok
+  sendiri ikut). Keduanya tanpa PPN, dan layarnya mengatakan itu.
+- Formula `Arsip` tidak bisa dipilih. Tidak menulis apa pun, rencananya
+  cuma di URL `?r=<formula_id>:<pcs>`.
+
 ## Lembar kerja lab mencetak takaran, opname sengaja tidak
 
 `/print/rnd/[id]` mencetak takaran TEORITIS tiap bahan untuk satu batch
@@ -1417,6 +1437,12 @@ Tiga aturan yang menentukan, semuanya di `lib/poPipeline.ts`:
 Kartunya tidak ikut kotak cari maupun filter: angkanya ringkasan tetap,
 dan mengkliknya justru yang memasang filter status. Ringkasan yang gagal
 dimuat menulis kalimatnya sendiri, bukan ikut menjatuhkan tabel di bawahnya.
+
+Daftar Menunggu Kedatangan di Receiving ikut menulis catatan isi PO di
+bawah nama supplier, polanya sama dengan daftar Purchase Orders, dengan
+satu beda: yang ditulis SISA yang belum datang, bukan qty pesan
+(`PipelinePO.rincianSisa`). Pilihan PO di form Terima Barang juga
+dibuntuti isinya, karena dua PO ke supplier yang sama terbaca kembar.
 
 Umur tunggu dihitung dari `tanggal_po`, karena tanggal disetujui dan
 tanggal dikirim tidak disimpan di `purchase_orders` (jejaknya cuma ada

@@ -39,6 +39,43 @@ function formatTanggal(iso: string) {
   });
 }
 
+function formatAngka(n: number) {
+  return n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
+
+/* ============================================================
+   Catatan kecil barang yang BELUM datang, di bawah nama supplier.
+
+   Pola yang sama dengan catatan isi PO di daftar Purchase Orders,
+   dengan satu beda yang disengaja: yang ditulis di sini SISA-nya,
+   bukan qty pesan. Orang gudang membaca daftar ini untuk mencocokkan
+   barang yang sedang diturunkan dari truk, dan baris yang sudah
+   diterima penuh cuma jadi pengecoh.
+
+   Tiga baris pertama, sisanya "+n item lain" BESERTA nilainya, supaya
+   rupiah di catatan tetap menutup kolom Nilai Belum Datang.
+   ============================================================ */
+
+const RINCIAN_TAMPIL = 3;
+
+function rincianTunggu(po: PipelinePO) {
+  const teks = (r: PipelinePO["rincianSisa"][number]) =>
+    `${r.nama} ${formatAngka(r.qty)}${r.satuan ? " " + r.satuan : ""} (${formatRupiah(r.nilai)})`;
+
+  const baris = po.rincianSisa.map(teks);
+  if (baris.length === 0) return { ringkas: "", lengkap: "" };
+
+  const sisa = po.rincianSisa.slice(RINCIAN_TAMPIL);
+  const nilaiSisa = sisa.reduce((s, r) => s + r.nilai, 0);
+  const ringkas =
+    sisa.length === 0
+      ? baris.join(" · ")
+      : baris.slice(0, RINCIAN_TAMPIL).join(" · ") +
+        ` · +${sisa.length} item lain (${formatRupiah(nilaiSisa)})`;
+
+  return { ringkas, lengkap: baris.join(" · ") };
+}
+
 /** Baris PO yang ditampilkan di panel menunggu kedatangan. */
 const DAFTAR_TUNGGU = 5;
 
@@ -281,7 +318,7 @@ function MenungguKedatangan({
           <DataTable
             rows={tampil}
             rowKey={(p) => p.id}
-            minWidth={760}
+            minWidth={860}
             maxHeight={false}
             columns={[
               {
@@ -296,12 +333,30 @@ function MenungguKedatangan({
                 key: "supplier",
                 header: "Supplier",
                 role: "title",
-                cell: (p) => (
-                  <div className="max-w-[200px] truncate font-medium">
+                cell: (p) => {
+                  const rincian = rincianTunggu(p);
+                  return (
+                    <div className="max-w-[300px]">
+                      <div className="truncate font-medium">{p.supplier_nama}</div>
+                      {rincian.ringkas && (
+                        <div
+                          className="text-[11px] text-muted leading-snug mt-0.5 line-clamp-2"
+                          title={rincian.lengkap}
+                        >
+                          {rincian.ringkas}
+                        </div>
+                      )}
+                    </div>
+                  );
+                },
+                cardCell: (p) => (
+                  <>
                     {p.supplier_nama}
-                  </div>
+                    <div className="text-[11.5px] font-normal text-muted leading-snug mt-0.5">
+                      {rincianTunggu(p).ringkas}
+                    </div>
+                  </>
                 ),
-                cardCell: (p) => p.supplier_nama,
               },
               {
                 key: "tanggal",

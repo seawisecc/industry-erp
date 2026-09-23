@@ -251,6 +251,79 @@ export type PpicHasil = {
   tidakDitemukan: number;
 };
 
+/** Hasil tangga persediaan satu bahan. */
+export type PpicNeraca = Pick<
+  PpicBahan,
+  | "totalButuh"
+  | "tersedia"
+  | "kurang"
+  | "qtyKarantina"
+  | "qtyPoDikirim"
+  | "qtyPoBelumDikirim"
+  | "belumDipesan"
+  | "qtyBeli"
+  | "status"
+  | "tanpaMoq"
+>;
+
+/**
+ * Neraca SATU bahan: tangga persediaan, status, dan Qty Beli.
+ *
+ * Dipisah dari hitungPpic supaya PPIC R&D (lib/rndPpic.ts) memakai
+ * tangga yang sama persis. Dua salinan tangga berarti dua jawaban
+ * "perlu beli berapa" untuk bahan yang sama, tergantung layar mana
+ * yang dibuka.
+ */
+export function neracaBahan(
+  item: PpicItem,
+  butuh: number,
+  alokasi: number
+): PpicNeraca {
+  const totalButuh = alokasi + butuh;
+
+  const qtyKarantina = item.karantina.reduce((s, k) => s + k.qty, 0);
+  const qtyPoDikirim = item.poTerbuka
+    .filter((p) => PO_SUDAH_DIKIRIM.includes(p.status))
+    .reduce((s, p) => s + p.sisa, 0);
+  const qtyPoBelumDikirim = item.poTerbuka
+    .filter((p) => PO_BELUM_DIKIRIM.includes(p.status))
+    .reduce((s, p) => s + p.sisa, 0);
+
+  // Tangga persediaan, dari yang paling pasti. Statusnya adalah anak
+  // tangga pertama yang sudah menutup SELURUH kebutuhan (Plan berjalan
+  // + rencana).
+  const siap = item.stok;
+  const plusQc = siap + qtyKarantina;
+  const plusDikirim = plusQc + qtyPoDikirim;
+  const plusSemuaPo = plusDikirim + qtyPoBelumDikirim;
+  const tertutup = (n: number) => n >= totalButuh - TOLERANSI;
+  const status: PpicStatus = tertutup(siap)
+    ? "Cukup"
+    : tertutup(plusQc)
+      ? "Menunggu QC"
+      : tertutup(plusDikirim)
+        ? "Menunggu Kedatangan"
+        : tertutup(plusSemuaPo)
+          ? "PO Belum Dikirim"
+          : "Perlu Beli";
+
+  const kurang = status === "Cukup" ? 0 : totalButuh - siap;
+  const belumDipesan = status === "Perlu Beli" ? totalButuh - plusSemuaPo : 0;
+
+  return {
+    totalButuh,
+    tersedia: siap - alokasi,
+    kurang,
+    qtyKarantina,
+    qtyPoDikirim,
+    qtyPoBelumDikirim,
+    belumDipesan,
+    qtyBeli: bulatkanMoq(belumDipesan, item.moq),
+    status,
+    tanpaMoq: belumDipesan > 0 && !adaMoq(item.moq),
+  };
+}
+
 export function hitungPpic(
   products: PpicProduct[],
   items: PpicItem[],
@@ -328,53 +401,13 @@ export function hitungPpic(
     );
     const alokasi = alokasiPlan.reduce((s, a) => s + a.qty, 0);
     for (const a of alokasiPlan) planDipakai.add(a.plan.id);
-    const totalButuh = alokasi + butuh;
-
-    const qtyKarantina = item.karantina.reduce((s, k) => s + k.qty, 0);
-    const qtyPoDikirim = item.poTerbuka
-      .filter((p) => PO_SUDAH_DIKIRIM.includes(p.status))
-      .reduce((s, p) => s + p.sisa, 0);
-    const qtyPoBelumDikirim = item.poTerbuka
-      .filter((p) => PO_BELUM_DIKIRIM.includes(p.status))
-      .reduce((s, p) => s + p.sisa, 0);
-
-    // Tangga persediaan, dari yang paling pasti. Statusnya adalah anak
-    // tangga pertama yang sudah menutup SELURUH kebutuhan (Plan berjalan
-    // + rencana PPIC).
-    const siap = item.stok;
-    const plusQc = siap + qtyKarantina;
-    const plusDikirim = plusQc + qtyPoDikirim;
-    const plusSemuaPo = plusDikirim + qtyPoBelumDikirim;
-    const tertutup = (n: number) => n >= totalButuh - TOLERANSI;
-    const status: PpicStatus = tertutup(siap)
-      ? "Cukup"
-      : tertutup(plusQc)
-        ? "Menunggu QC"
-        : tertutup(plusDikirim)
-          ? "Menunggu Kedatangan"
-          : tertutup(plusSemuaPo)
-            ? "PO Belum Dikirim"
-            : "Perlu Beli";
-
-    const kurang = status === "Cukup" ? 0 : totalButuh - siap;
-    const belumDipesan = status === "Perlu Beli" ? totalButuh - plusSemuaPo : 0;
-    const qtyBeli = bulatkanMoq(belumDipesan, item.moq);
-
+    const n = neracaBahan(item, butuh, alokasi);
     bahan.push({
       item,
       butuh,
       alokasi,
-      totalButuh,
-      tersedia: siap - alokasi,
-      kurang,
-      qtyKarantina,
-      qtyPoDikirim,
-      qtyPoBelumDikirim,
-      belumDipesan,
-      qtyBeli,
-      dana: item.harga != null ? qtyBeli * item.harga : null,
-      status,
-      tanpaMoq: belumDipesan > 0 && !adaMoq(item.moq),
+      ...n,
+      dana: item.harga != null ? n.qtyBeli * item.harga : null,
       untuk,
       alokasiPlan,
     });

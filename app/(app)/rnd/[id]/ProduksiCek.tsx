@@ -27,7 +27,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { PackagePlus, ShoppingCart } from "lucide-react";
+import { Coins, PackagePlus, ShoppingCart } from "lucide-react";
 import NumberInput from "@/components/NumberInput";
 import DataTable from "@/components/DataTable";
 import StokKurangAlert from "@/components/StokKurangAlert";
@@ -70,12 +70,14 @@ function angka(n: number, desimal = 3) {
 }
 
 export default function ProduksiCek({
+  formulaId,
   formula,
   kemasan,
   nettoGram,
   bahan,
   ppicHref,
 }: {
+  formulaId: string;
   formula: BarisFormula[];
   kemasan: BarisKemasan[];
   nettoGram: number | null;
@@ -213,6 +215,15 @@ export default function ProduksiCek({
             ))}
           </div>
         </div>
+
+        {pcs > 0 && (
+          <Link
+            href={`/rnd/ppic?r=${formulaId}:${pcs}`}
+            className="inline-flex items-center gap-1.5 text-botanical-700 text-[12.5px] font-medium hover:underline mt-3"
+          >
+            <Coins size={14} /> Rencanakan dana launching di PPIC R&amp;D
+          </Link>
+        )}
 
         {(!nettoGram || nettoGram <= 0) && (
           <p className="text-clay-600 text-[12px] mt-3">

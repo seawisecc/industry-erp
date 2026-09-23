@@ -31,6 +31,13 @@ export type PipelinePO = {
   sisa: number;
   /** jumlah baris item yang qty-nya belum datang semua */
   itemSisa: number;
+  /**
+   * Baris yang barangnya belum datang semua, urutan apa adanya di PO.
+   * `nilai` = qty sisa x harga seperti tertulis di PO (pada PO Include
+   * sudah memuat pajak), konvensi yang sama dengan catatan isi PO di
+   * daftar Purchase Orders.
+   */
+  rincianSisa: { nama: string; satuan: string; qty: number; nilai: number }[];
 };
 
 type Raw = {
@@ -42,7 +49,12 @@ type Raw = {
   tax_mode: string | null;
   tax_dpp_nilai_lain: boolean | null;
   suppliers: { nama: string } | null;
-  po_items: { qty_pesan: number; qty_diterima: number; harga_per_unit: number }[];
+  po_items: {
+    qty_pesan: number;
+    qty_diterima: number;
+    harga_per_unit: number;
+    items: { nama: string; satuan: string } | null;
+  }[];
 };
 
 // PostgREST memotong hasil di max-rows (bawaan 1000) tanpa error apa
@@ -60,7 +72,7 @@ export async function getPoPipeline(
     const { data, error } = await supabase
       .from("purchase_orders")
       .select(
-        "id, no_po, tanggal_po, status, ppn_percent, tax_mode, tax_dpp_nilai_lain, suppliers(nama), po_items(qty_pesan, qty_diterima, harga_per_unit)"
+        "id, no_po, tanggal_po, status, ppn_percent, tax_mode, tax_dpp_nilai_lain, suppliers(nama), po_items(qty_pesan, qty_diterima, harga_per_unit, items(nama, satuan))"
       )
       .eq("organization_id", organizationId)
       .in("status", statuses)
@@ -80,6 +92,7 @@ export async function getPoPipeline(
       let subtotal = 0;
       let subtotalSisa = 0;
       let itemSisa = 0;
+      const rincianSisa: PipelinePO["rincianSisa"] = [];
       for (const it of po.po_items) {
         const harga = Number(it.harga_per_unit);
         const qtySisa = Math.max(
@@ -88,7 +101,15 @@ export async function getPoPipeline(
         );
         subtotal += Number(it.qty_pesan) * harga;
         subtotalSisa += qtySisa * harga;
-        if (qtySisa > 0) itemSisa++;
+        if (qtySisa > 0) {
+          itemSisa++;
+          rincianSisa.push({
+            nama: it.items?.nama || "Item terhapus",
+            satuan: it.items?.satuan || "",
+            qty: qtySisa,
+            nilai: qtySisa * harga,
+          });
+        }
       }
 
       hasil.push({
@@ -100,6 +121,7 @@ export async function getPoPipeline(
         total: hitungTotalPembelian(subtotal, mode, tarif, dpp).total,
         sisa: hitungTotalPembelian(subtotalSisa, mode, tarif, dpp).total,
         itemSisa,
+        rincianSisa,
       });
     }
 
