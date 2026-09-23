@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getFinishedStock } from "@/lib/salesStock";
 import {
   clientPriceKey,
+  clientPriceKeyJasa,
   type ClientDiscountMap,
   type ClientPriceMap,
 } from "@/lib/clientPrice";
@@ -73,7 +74,7 @@ export async function getSalesOptions(
       // round-trip dan tanpa state loading yang bisa balapan.
       supabase
         .from("client_prices")
-        .select("client_id, product_id, varian, harga")
+        .select("client_id, product_id, service_id, varian, harga")
         .not("harga", "is", null)
         .eq("organization_id", organizationId),
     ]);
@@ -179,7 +180,8 @@ export async function getSalesOptions(
   const clientPrices: ClientPriceMap = {};
   for (const h of (hargaKhusus || []) as {
     client_id: string;
-    product_id: string;
+    product_id: string | null;
+    service_id: string | null;
     varian: string | null;
     harga: number | null;
   }[]) {
@@ -189,9 +191,10 @@ export async function getSalesOptions(
     // membuat form penjualan mengisi harga 0 untuk client yang sebenarnya
     // cuma punya diskon.
     if (h.harga == null) continue;
-    clientPrices[clientPriceKey(h.client_id, h.product_id, h.varian)] = Number(
-      h.harga
-    );
+    const key = h.service_id
+      ? clientPriceKeyJasa(h.client_id, h.service_id)
+      : clientPriceKey(h.client_id, h.product_id!, h.varian);
+    clientPrices[key] = Number(h.harga);
   }
 
   return { clients: (clients || []) as ClientOpt[], options, clientPrices };
@@ -211,21 +214,23 @@ export async function getClientDiscounts(
   const supabase = await createClient();
   const { data } = await supabase
     .from("client_prices")
-    .select("client_id, product_id, varian, diskon_persen")
+    .select("client_id, product_id, service_id, varian, diskon_persen")
     .eq("organization_id", organizationId)
     .not("diskon_persen", "is", null);
 
   const map: ClientDiscountMap = {};
   for (const r of (data || []) as {
     client_id: string;
-    product_id: string;
+    product_id: string | null;
+    service_id: string | null;
     varian: string | null;
     diskon_persen: number | null;
   }[]) {
     if (r.diskon_persen == null) continue;
-    map[clientPriceKey(r.client_id, r.product_id, r.varian)] = Number(
-      r.diskon_persen
-    );
+    const key = r.service_id
+      ? clientPriceKeyJasa(r.client_id, r.service_id)
+      : clientPriceKey(r.client_id, r.product_id!, r.varian);
+    map[key] = Number(r.diskon_persen);
   }
   return map;
 }

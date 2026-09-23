@@ -15,6 +15,14 @@ type ProductRaw = {
   product_variants: { nama_varian: string; harga_jual: number | null }[];
 };
 
+type ServiceRaw = {
+  id: string;
+  kode: string | null;
+  nama_jasa: string;
+  biaya: number | null;
+  aktif: boolean;
+};
+
 export default async function ClientPricesPage({
   params,
 }: {
@@ -24,7 +32,7 @@ export default async function ClientPricesPage({
   const supabase = await createClient();
   const { organizationId } = await getEffectiveOrg();
 
-  const [{ data: client }, { data: products }, { data: prices }] =
+  const [{ data: client }, { data: products }, { data: services }, { data: prices }] =
     await Promise.all([
       supabase
         .from("clients")
@@ -47,9 +55,16 @@ export default async function ClientPricesPage({
         )
         .eq("organization_id", organizationId)
         .order("kode"),
+      // Jasa ikut ditarik SELURUHNYA (termasuk nonaktif), alasan yang
+      // sama dengan produk di atas.
+      supabase
+        .from("services")
+        .select("id, kode, nama_jasa, biaya, aktif")
+        .eq("organization_id", organizationId)
+        .order("kode"),
       supabase
         .from("client_prices")
-        .select("product_id, varian, harga, diskon_persen")
+        .select("product_id, service_id, varian, harga, diskon_persen")
         .eq("organization_id", organizationId)
         .eq("client_id", id),
     ]);
@@ -92,13 +107,32 @@ export default async function ClientPricesPage({
       (a.brand || "").localeCompare(b.brand || "") || a.label.localeCompare(b.label)
   );
 
+  // Jasa (tanpa varian, tanpa stok), tampil sesudah produk. Pola sama
+  // dengan getSalesOptions di lib/salesOptions.ts.
+  for (const s of (services || []) as ServiceRaw[]) {
+    const suffix = s.aktif ? "" : " · nonaktif";
+    options.push({
+      key: `svc|${s.id}`,
+      product_id: "",
+      varian: "-",
+      label: `${s.kode || "JASA"}, ${s.nama_jasa} (Jasa)${suffix}`,
+      brand: null,
+      available: 0,
+      service_id: s.id,
+      harga_master: s.biaya == null ? null : Number(s.biaya),
+    });
+  }
+
   const awal = ((prices || []) as {
-    product_id: string;
+    product_id: string | null;
+    service_id: string | null;
     varian: string | null;
     harga: number | null;
     diskon_persen: number | null;
   }[]).map((r) => ({
-    key: `${r.product_id}|${varianKey(r.varian)}`,
+    key: r.service_id
+      ? `svc|${r.service_id}`
+      : `${r.product_id}|${varianKey(r.varian)}`,
     harga: r.harga == null ? null : Number(r.harga),
     diskon: r.diskon_persen == null ? null : Number(r.diskon_persen),
   }));
@@ -135,8 +169,8 @@ export default async function ClientPricesPage({
       {options.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center">
           <p className="text-muted text-[13px]">
-            Belum ada produk terdaftar. Tambahkan produk &amp; varian dulu di
-            menu Products.
+            Belum ada produk maupun jasa terdaftar. Tambahkan dulu di menu
+            Products atau Services.
           </p>
         </div>
       ) : (

@@ -144,7 +144,10 @@ export async function updateClientData(
 export async function saveClientPrices(
   clientId: string,
   items: {
-    product_id: string;
+    /** null bila baris ini jasa (lihat service_id) */
+    product_id: string | null;
+    /** null bila baris ini produk (lihat product_id) */
+    service_id: string | null;
     varian: string | null;
     /** null = tidak ada harga khusus, pakai harga master sebagai dasar */
     harga: number | null;
@@ -162,7 +165,7 @@ export async function saveClientPrices(
     // menolaknya, tapi lebih baik tidak dikirim sama sekali.
     const bersih = items.filter(
       (i) =>
-        i.product_id &&
+        (i.product_id || i.service_id) &&
         (i.harga != null || i.diskon_persen != null) &&
         (i.harga == null || i.harga >= 0) &&
         (i.diskon_persen == null ||

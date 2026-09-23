@@ -10,8 +10,9 @@ import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
 
 export type HargaOption = ProductOption & {
+  /** "" untuk jasa, lihat service_id */
   product_id: string;
-  /** harga di master produk, jadi pembanding */
+  /** harga di master produk, atau biaya di master Services untuk jasa */
   harga_master: number | null;
 };
 
@@ -128,8 +129,9 @@ export default function ClientPriceForm({
         isian.map((r) => {
           const o = optOf(r.key)!;
           return {
-            product_id: o.product_id,
-            varian: o.varian === "-" ? null : o.varian,
+            product_id: o.service_id ? null : o.product_id,
+            service_id: o.service_id,
+            varian: o.service_id || o.varian === "-" ? null : o.varian,
             harga: r.harga.trim() === "" ? null : parseNum(r.harga),
             diskon_persen: r.diskon.trim() === "" ? null : parseNum(r.diskon),
           };

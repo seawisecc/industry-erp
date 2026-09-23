@@ -10,6 +10,7 @@ import ClientPicker from "@/components/ClientPicker";
 import ProductPicker from "@/components/ProductPicker";
 import {
   clientPriceKey,
+  clientPriceKeyJasa,
   diskonTertimbang,
   type ClientDiscountMap,
   type ClientPriceMap,
@@ -100,13 +101,19 @@ export default function InvoiceForm({
 
   const optOf = (key: string) => options.find((o) => o.key === key);
 
-  /** Harga khusus client kalau ada, kalau tidak harga master produk. */
+  /** Kunci harga/diskon khusus, jasa dan produk memakai bentuk yang berbeda. */
+  function keyKhusus(o: ProductVariantOpt, cid: string): string {
+    return o.service_id
+      ? clientPriceKeyJasa(cid, o.service_id)
+      : clientPriceKey(cid, o.product_id, o.varian);
+  }
+
+  /** Harga khusus client kalau ada, kalau tidak harga master produk/jasa. */
   function hargaUntuk(key: string, cid: string): number | null {
     const o = optOf(key);
     if (!o) return null;
-    // Jasa tidak punya harga per client, tarifnya dari master Services
-    if (cid && !o.service_id) {
-      const khusus = clientPrices[clientPriceKey(cid, o.product_id, o.varian)];
+    if (cid) {
+      const khusus = clientPrices[keyKhusus(o, cid)];
       if (khusus != null) return khusus;
     }
     return o.harga_jual;
@@ -114,16 +121,16 @@ export default function InvoiceForm({
 
   const punyaHargaKhusus = (key: string) => {
     const o = optOf(key);
-    if (!o || !clientId || o.service_id) return false;
-    return clientPrices[clientPriceKey(clientId, o.product_id, o.varian)] != null;
+    if (!o || !clientId) return false;
+    return clientPrices[keyKhusus(o, clientId)] != null;
   };
 
   /** Diskon khusus client untuk satu baris, 0 kalau tidak ada. */
   function diskonUntuk(key: string, cid: string): number {
     const o = optOf(key);
-    // Jasa tidak punya kesepakatan per client, walk-in tidak punya client
-    if (!o || !cid || o.service_id) return 0;
-    return clientDiscounts[clientPriceKey(cid, o.product_id, o.varian)] ?? 0;
+    // walk-in tidak punya client
+    if (!o || !cid) return 0;
+    return clientDiscounts[keyKhusus(o, cid)] ?? 0;
   }
 
   /**

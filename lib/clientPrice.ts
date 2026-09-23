@@ -68,3 +68,12 @@ export function clientPriceKey(
 ): string {
   return `${clientId}|${productId}|${varianKey(varian)}`;
 }
+
+/**
+ * Kunci harga/diskon khusus untuk baris JASA, bukan produk. Jasa tidak
+ * punya varian, dan `svc:` di depan id-nya memastikan kuncinya tidak
+ * pernah bentrok dengan uuid produk asli.
+ */
+export function clientPriceKeyJasa(clientId: string, serviceId: string): string {
+  return clientPriceKey(clientId, `svc:${serviceId}`, null);
+}
