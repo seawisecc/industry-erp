@@ -48,6 +48,14 @@ create index if not exists idx_csl_org
 
 alter table public.consignment_sale_lines enable row level security;
 
+-- Grant Data API eksplisit. Sejak 30 Oktober 2026 Supabase tidak lagi
+-- memberi grant otomatis ke tabel baru di schema public, jadi tanpa
+-- baris ini tabelnya tidak terjangkau supabase-js di project baru,
+-- preview branch, maupun `supabase db reset`. `anon` sengaja tidak
+-- diberi apa pun: seluruh aplikasi ada di balik login.
+grant select, insert, update, delete on public.consignment_sale_lines to authenticated;
+grant select, insert, update, delete on public.consignment_sale_lines to service_role;
+
 do $$
 begin
   create policy consignment_sale_lines_rw on public.consignment_sale_lines

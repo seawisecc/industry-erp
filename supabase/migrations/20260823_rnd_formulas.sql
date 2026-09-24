@@ -157,6 +157,20 @@ alter table public.rnd_formula_items     enable row level security;
 alter table public.rnd_formula_specs     enable row level security;
 alter table public.rnd_formula_packaging enable row level security;
 
+-- Grant Data API eksplisit. Sejak 30 Oktober 2026 Supabase tidak lagi
+-- memberi grant otomatis ke tabel baru di schema public, jadi tanpa
+-- baris ini tabelnya tidak terjangkau supabase-js di project baru,
+-- preview branch, maupun `supabase db reset`. `anon` sengaja tidak
+-- diberi apa pun: seluruh aplikasi ada di balik login.
+grant select, insert, update, delete on public.rnd_formulas to authenticated;
+grant select, insert, update, delete on public.rnd_formulas to service_role;
+grant select, insert, update, delete on public.rnd_formula_items to authenticated;
+grant select, insert, update, delete on public.rnd_formula_items to service_role;
+grant select, insert, update, delete on public.rnd_formula_specs to authenticated;
+grant select, insert, update, delete on public.rnd_formula_specs to service_role;
+grant select, insert, update, delete on public.rnd_formula_packaging to authenticated;
+grant select, insert, update, delete on public.rnd_formula_packaging to service_role;
+
 drop policy if exists rnd_formulas_org on public.rnd_formulas;
 create policy rnd_formulas_org on public.rnd_formulas
   for all to authenticated

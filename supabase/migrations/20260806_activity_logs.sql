@@ -87,6 +87,16 @@ create index if not exists activity_logs_dokumen_idx
 
 alter table public.activity_logs enable row level security;
 
+-- Grant Data API eksplisit. Sejak 30 Oktober 2026 Supabase tidak lagi
+-- memberi grant otomatis ke tabel baru di schema public, jadi tanpa
+-- baris ini tabelnya tidak terjangkau supabase-js di project baru,
+-- preview branch, maupun `supabase db reset`. `anon` sengaja tidak
+-- diberi apa pun: seluruh aplikasi ada di balik login.
+-- Baca saja untuk `authenticated`, alasan yang sama dengan tidak
+-- adanya policy tulis: penulisannya cuma lewat fungsi security definer.
+grant select on public.activity_logs to authenticated;
+grant select, insert, update, delete on public.activity_logs to service_role;
+
 drop policy if exists activity_logs_read on public.activity_logs;
 create policy activity_logs_read on public.activity_logs
   for select to authenticated

@@ -69,6 +69,29 @@ inline memang jalan, tapi bikin policy tabel baru beda bentuk dengan
 puluhan tabel lain, dan itu yang harus disamakan manual sebelum skripnya
 bisa dipakai. Tabel baru: pakai ketiga helper itu sejak awal.
 
+## Tabel baru wajib `grant` di migrasi yang sama
+
+Sejak 30 Oktober 2026 Supabase berhenti memberi grant Data API otomatis
+ke tabel baru di schema `public`. Tabel yang lahir tanpa grant tidak
+terjangkau supabase-js (error `permission denied`), dan itu berlaku juga
+untuk project baru, preview branch, dan `supabase db reset`. Tabel lama
+tidak terpengaruh.
+
+Pasang tepat sesudah `enable row level security`:
+
+```sql
+grant select, insert, update, delete on public.nama_tabel to authenticated;
+grant select, insert, update, delete on public.nama_tabel to service_role;
+```
+
+- **`anon` tidak diberi apa pun.** Seluruh aplikasi di balik login, dan
+  halaman publik (`/verify`) membaca lewat `createAdminClient`.
+- **Tabel yang penulisannya cuma lewat fungsi security definer**
+  (`activity_logs`, `organization_storage`) dapat `select` saja untuk
+  `authenticated`. Grant tulis di situ tidak dipakai siapa pun dan cuma
+  menyisakan satu lapis pertahanan (RLS) untuk log yang tidak boleh
+  disunting.
+
 ## Daftar RPC
 
 Sudah ada sebelumnya (definisinya hanya di project Supabase, tidak

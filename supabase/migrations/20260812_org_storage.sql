@@ -47,6 +47,16 @@ create table if not exists organization_storage (
 
 alter table organization_storage enable row level security;
 
+-- Grant Data API eksplisit. Sejak 30 Oktober 2026 Supabase tidak lagi
+-- memberi grant otomatis ke tabel baru di schema public, jadi tanpa
+-- baris ini tabelnya tidak terjangkau supabase-js di project baru,
+-- preview branch, maupun `supabase db reset`. `anon` sengaja tidak
+-- diberi apa pun: seluruh aplikasi ada di balik login.
+-- Baca saja untuk `authenticated`, alasan yang sama dengan tidak
+-- adanya policy tulis: penulisannya cuma lewat fungsi security definer.
+grant select on public.organization_storage to authenticated;
+grant select, insert, update, delete on public.organization_storage to service_role;
+
 -- Baca saja. Penulisannya HANYA lewat refresh_org_storage()
 -- yang security definer, sama seperti activity_logs, angka
 -- tagihan tidak boleh bisa disunting dari client.

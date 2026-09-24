@@ -86,6 +86,16 @@ create index if not exists material_issue_items_org_item_idx
 alter table public.material_issues       enable row level security;
 alter table public.material_issue_items  enable row level security;
 
+-- Grant Data API eksplisit. Sejak 30 Oktober 2026 Supabase tidak lagi
+-- memberi grant otomatis ke tabel baru di schema public, jadi tanpa
+-- baris ini tabelnya tidak terjangkau supabase-js di project baru,
+-- preview branch, maupun `supabase db reset`. `anon` sengaja tidak
+-- diberi apa pun: seluruh aplikasi ada di balik login.
+grant select, insert, update, delete on public.material_issues to authenticated;
+grant select, insert, update, delete on public.material_issues to service_role;
+grant select, insert, update, delete on public.material_issue_items to authenticated;
+grant select, insert, update, delete on public.material_issue_items to service_role;
+
 drop policy if exists material_issues_org on public.material_issues;
 create policy material_issues_org on public.material_issues
   for all to authenticated

@@ -54,6 +54,14 @@ create index if not exists client_prices_org_client_idx
 
 alter table public.client_prices enable row level security;
 
+-- Grant Data API eksplisit. Sejak 30 Oktober 2026 Supabase tidak lagi
+-- memberi grant otomatis ke tabel baru di schema public, jadi tanpa
+-- baris ini tabelnya tidak terjangkau supabase-js di project baru,
+-- preview branch, maupun `supabase db reset`. `anon` sengaja tidak
+-- diberi apa pun: seluruh aplikasi ada di balik login.
+grant select, insert, update, delete on public.client_prices to authenticated;
+grant select, insert, update, delete on public.client_prices to service_role;
+
 drop policy if exists client_prices_org on public.client_prices;
 create policy client_prices_org on public.client_prices
   for all to authenticated

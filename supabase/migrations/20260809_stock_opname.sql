@@ -85,6 +85,16 @@ create index if not exists stock_opname_items_org_idx
 alter table public.stock_opnames      enable row level security;
 alter table public.stock_opname_items enable row level security;
 
+-- Grant Data API eksplisit. Sejak 30 Oktober 2026 Supabase tidak lagi
+-- memberi grant otomatis ke tabel baru di schema public, jadi tanpa
+-- baris ini tabelnya tidak terjangkau supabase-js di project baru,
+-- preview branch, maupun `supabase db reset`. `anon` sengaja tidak
+-- diberi apa pun: seluruh aplikasi ada di balik login.
+grant select, insert, update, delete on public.stock_opnames to authenticated;
+grant select, insert, update, delete on public.stock_opnames to service_role;
+grant select, insert, update, delete on public.stock_opname_items to authenticated;
+grant select, insert, update, delete on public.stock_opname_items to service_role;
+
 drop policy if exists stock_opnames_org on public.stock_opnames;
 create policy stock_opnames_org on public.stock_opnames
   for all to authenticated

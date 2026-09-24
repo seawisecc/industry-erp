@@ -107,6 +107,16 @@ create index if not exists purchase_return_items_org_item_idx
 alter table public.purchase_returns      enable row level security;
 alter table public.purchase_return_items enable row level security;
 
+-- Grant Data API eksplisit. Sejak 30 Oktober 2026 Supabase tidak lagi
+-- memberi grant otomatis ke tabel baru di schema public, jadi tanpa
+-- baris ini tabelnya tidak terjangkau supabase-js di project baru,
+-- preview branch, maupun `supabase db reset`. `anon` sengaja tidak
+-- diberi apa pun: seluruh aplikasi ada di balik login.
+grant select, insert, update, delete on public.purchase_returns to authenticated;
+grant select, insert, update, delete on public.purchase_returns to service_role;
+grant select, insert, update, delete on public.purchase_return_items to authenticated;
+grant select, insert, update, delete on public.purchase_return_items to service_role;
+
 drop policy if exists purchase_returns_org on public.purchase_returns;
 create policy purchase_returns_org on public.purchase_returns
   for all to authenticated

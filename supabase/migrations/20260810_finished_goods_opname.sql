@@ -67,6 +67,14 @@ create index if not exists fga_opname_idx
 
 alter table public.finished_goods_adjustments enable row level security;
 
+-- Grant Data API eksplisit. Sejak 30 Oktober 2026 Supabase tidak lagi
+-- memberi grant otomatis ke tabel baru di schema public, jadi tanpa
+-- baris ini tabelnya tidak terjangkau supabase-js di project baru,
+-- preview branch, maupun `supabase db reset`. `anon` sengaja tidak
+-- diberi apa pun: seluruh aplikasi ada di balik login.
+grant select, insert, update, delete on public.finished_goods_adjustments to authenticated;
+grant select, insert, update, delete on public.finished_goods_adjustments to service_role;
+
 drop policy if exists finished_goods_adjustments_org on public.finished_goods_adjustments;
 create policy finished_goods_adjustments_org on public.finished_goods_adjustments
   for all to authenticated
