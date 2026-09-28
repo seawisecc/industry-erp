@@ -69,6 +69,15 @@ inline memang jalan, tapi bikin policy tabel baru beda bentuk dengan
 puluhan tabel lain, dan itu yang harus disamakan manual sebelum skripnya
 bisa dipakai. Tabel baru: pakai ketiga helper itu sejak awal.
 
+**`profiles` cuma bisa DIBACA lewat sesi user** (`20260928_profiles_tanpa_tulis`).
+Policy tulisnya dulu mengizinkan Admin company mengubah baris profil
+organisasinya tanpa batas kolom, termasuk `is_super_admin` miliknya
+sendiri, dan itu artinya satu Admin bisa membuka data semua company
+lewat konsol browser. Seluruh penulisan profil di aplikasi lewat
+`createAdminClient` dengan pemeriksaan peran di server, jadi jalur baru
+yang perlu mengubah profil ikut cara itu. Jangan menambah policy
+insert/update/delete di `profiles`.
+
 ## Tabel baru wajib `grant` di migrasi yang sama
 
 Sejak 30 Oktober 2026 Supabase berhenti memberi grant Data API otomatis
