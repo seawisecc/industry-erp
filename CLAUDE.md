@@ -183,6 +183,8 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | `20260830_po_status_dibatalkan` | (tanpa RPC) | Label `Dibatalkan` di enum `po_status` + kolom `catatan_batal` |
 | `20260831_product_formula_variant_import` | `import_product_formula_tx` | Import CSV formula produk: ganti utuh formula tiap produk yang disebut, satu pasang delete/insert per produk supaya audit `log_formula_change` tetap benar |
 | | `import_product_variants_tx` | Import CSV varian: tambah & perbarui saja, TIDAK PERNAH menghapus (nama varian kunci stok). Tolak varian pertama untuk produk yang masih punya stok di kunci `-` |
+| `20260928_production_output_edit` | `update_production_result_tx` | Betulkan no. batch (dua tabel) + qty hasil per varian batch yang sudah jadi, satu transaksi. Tolak qty yang turun di bawah yang sudah keluar |
+| | `log_production_output_change` | Trigger `UPDATE OF qty_hasil`: audit perubahan hasil dicatat atas nama BATCH-nya |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -2823,7 +2825,8 @@ memang itu:
 | Aksi | Izin | Kenapa |
 | --- | --- | --- |
 | Hapus baris pembayaran (`deleteSalesPayment`) | `can_cancel` | Menurunkan jumlah yang sudah dibayar, bisa menurunkan status Lunas jadi Belum Lunas, dan itu mengubah tagihan yang sudah diakui ke client |
-| Ubah no. batch produksi (`updatePlanNoBatch` / `updateBatchNoBatch`) | `can_plan_production` | Nomor batch lahir di layar Plan, jadi yang berhak menulisnya juga yang berhak membetulkan salah ketiknya |
+| Ubah no. batch produksi (`updatePlanNoBatch` / `updateBatchResult`) | `can_plan_production` | Nomor batch lahir di layar Plan, jadi yang berhak menulisnya juga yang berhak membetulkan salah ketiknya |
+| Ubah qty hasil produksi (`updateBatchResult`) | `can_plan_production` | Dialognya sama dengan no. batch; yang salah ketik di Input Hasil dibetulkan oleh pemilik instruksi produksinya |
 
 **Nomor batch tersimpan di dua tabel**, `production_plans.no_batch`
 dan `production_batches.no_batch_produksi` (yang kedua disalin dari
@@ -2833,6 +2836,22 @@ record yang nomornya beda dengan instruksi produksinya, kesalahan
 yang jauh lebih sulit dilacak daripada salah ketik yang mau
 dibetulkan. Jejaknya tidak perlu ditulis dari aplikasi, trigger
 `log_activity` sudah memantau kedua kolom itu.
+
+**Qty hasil boleh dibetulkan tanpa Batal Produksi**, karena tidak ada
+angka turunan yang disimpan: stok produk jadi (`fg_stock_calc`) dan HPP
+per pcs (`total_cost_bahan / qty_hasil`, `lib/margin.ts`) dihitung saat
+dibaca. `update_production_result_tx` cuma mengubah
+`production_outputs.qty_hasil`, bahan yang sudah terpotong FEFO tidak
+disentuh; takaran bahan yang salah tetap lewat Batal Produksi. Tiga
+batasnya: cuma varian yang memang ada di batch itu (menambah varian
+berarti stok lahir di nama yang tidak pernah diproduksi), qty yang
+diturunkan tidak boleh membuat stok minus (dicek `fg_stock_calc` di
+bawah lock organisasi, dilewati untuk batch QA Hold/Rejected yang
+memang belum masuk stok jual), dan nomor batch ikut ditulis di
+transaksi yang sama. `production_outputs` adalah tabel baris anak,
+jadi audit qty-nya ditulis trigger khusus atas nama batch-nya, bukan
+lewat `log_activity`: di alur ini header-nya bisa sama sekali tidak
+berubah.
 
 # Hak akses modul: jangan pernah menuju halaman tetap
 

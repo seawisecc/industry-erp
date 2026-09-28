@@ -7,7 +7,7 @@ import CancelTxButton from "@/components/CancelTxButton";
 import EditNoBatchButton from "../EditNoBatchButton";
 import DataTable from "@/components/DataTable";
 import { hitungEstimasiProduksi } from "@/lib/productionEstimate";
-import { cancelProduction, updateBatchNoBatch } from "../actions";
+import { cancelProduction, updateBatchResult } from "../actions";
 import { localTimeStr } from "@/lib/dates";
 
 type BatchDetail = {
@@ -169,8 +169,9 @@ export default async function ProductionDetailPage({
           <EditNoBatchButton
             id={batch.id}
             noSekarang={batch.no_batch_produksi}
-            action={updateBatchNoBatch}
+            action={updateBatchResult}
             canEdit={canPlan}
+            hasil={batch.production_outputs}
             variant="button"
           />
           <Link

@@ -8,7 +8,7 @@ import Pagination from "@/components/Pagination";
 import DataTable from "@/components/DataTable";
 import RowActions, { IconAction } from "@/components/RowActions";
 import EditNoBatchButton from "./EditNoBatchButton";
-import { updatePlanNoBatch, updateBatchNoBatch } from "./actions";
+import { updatePlanNoBatch, updateBatchResult } from "./actions";
 import { namaBrand } from "@/lib/produkLabel";
 import {
   ilikeOrWithIds,
@@ -376,8 +376,9 @@ export default async function ProductionPage({
                   <EditNoBatchButton
                     id={b.id}
                     noSekarang={b.no_batch_produksi}
-                    action={updateBatchNoBatch}
+                    action={updateBatchResult}
                     canEdit={canPlan}
+                    hasil={b.production_outputs}
                   />
                   <IconAction
                     icon={Eye}

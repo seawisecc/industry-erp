@@ -187,14 +187,27 @@ export async function updatePlanNoBatch(
   }, "Gagal mengubah no. batch");
 }
 
+export type HasilKoreksi = { varian_ukuran: string | null; qty_hasil: number };
+
 /**
  * Sisi sebaliknya: dipanggil dari batch yang sudah jadi (termasuk
- * produksi langsung yang tidak lahir dari plan). Plan yang menunjuk
- * batch ini ikut disamakan, alasannya sama dengan di atas.
+ * produksi langsung yang tidak lahir dari plan). Selain nomor batch,
+ * di sini qty hasil per varian juga bisa dibetulkan.
+ *
+ * Semuanya satu RPC (`update_production_result_tx`), bukan tulisan
+ * berurutan dari sini: nomor batch di dua tabel dan qty hasil harus
+ * berubah bersama atau tidak sama sekali. Penjaga "qty tidak boleh
+ * turun di bawah yang sudah terjual" juga di sana, di bawah lock
+ * organisasi yang sama dengan penjualan, dan jejak auditnya ditulis
+ * trigger (lihat 20260928_production_output_edit.sql).
+ *
+ * Stok produk jadi dan HPP per pcs tidak perlu ditulis ulang: dua-duanya
+ * dihitung dari qty_hasil saat dibaca.
  */
-export async function updateBatchNoBatch(
+export async function updateBatchResult(
   batchId: string,
-  noBaru: string
+  noBaru: string,
+  hasil?: HasilKoreksi[]
 ): Promise<ActionResult> {
   return toResult(async () => {
     const supabase = await createClient();
@@ -203,23 +216,37 @@ export async function updateBatchNoBatch(
     const no = noBaru.trim();
     if (!no) throw new Error("No. batch wajib diisi");
 
-    const { error } = await supabase
-      .from("production_batches")
-      .update({ no_batch_produksi: no })
-      .eq("id", batchId)
-      .eq("organization_id", organizationId);
-    if (error) throw new Error(error.message);
+    let outputs = hasil;
+    if (!outputs || outputs.length === 0) {
+      // Cuma nomor batch yang diubah: kirim qty apa adanya
+      const { data } = await supabase
+        .from("production_outputs")
+        .select("varian_ukuran, qty_hasil")
+        .eq("production_batch_id", batchId)
+        .eq("organization_id", organizationId);
+      outputs = (data || []).map((o) => ({
+        varian_ukuran: o.varian_ukuran as string | null,
+        qty_hasil: Number(o.qty_hasil),
+      }));
+    }
+    for (const o of outputs) {
+      if (!Number.isFinite(o.qty_hasil) || o.qty_hasil < 0)
+        throw new Error("Qty hasil tidak boleh kosong atau negatif");
+    }
 
-    const { error: e2 } = await supabase
-      .from("production_plans")
-      .update({ no_batch: no })
-      .eq("production_batch_id", batchId)
-      .eq("organization_id", organizationId);
-    if (e2) throw new Error(e2.message);
+    const { error } = await supabase.rpc("update_production_result_tx", {
+      p_organization_id: organizationId,
+      p_batch_id: batchId,
+      p_no_batch: no,
+      p_outputs: outputs,
+    });
+    if (error) throw new Error(error.message);
 
     revalidatePath("/production");
     revalidatePath(`/production/${batchId}`);
-  }, "Gagal mengubah no. batch");
+    revalidatePath("/finished-goods");
+    revalidatePath("/dashboard");
+  }, "Gagal menyimpan perubahan batch");
 }
 
 export async function saveExecution(
