@@ -35,11 +35,15 @@ export default function QcProdukForm({
   info,
   parameters,
   boleh,
+  terkunci = null,
 }: {
   info: QcProdukInfo;
   parameters: QcProdukHasil[];
   boleh: boolean;
+  /** Status QA kalau batch sudah diputuskan (Released / Rejected): lembar jadi baca saja. */
+  terkunci?: string | null;
 }) {
+  const kunci = !!terkunci;
   const router = useRouter();
   const konfirmasi = useConfirmSave();
 
@@ -224,6 +228,7 @@ export default function QcProdukForm({
           <div>
             <label className={labelCls}>Jumlah Sampel</label>
             <input
+              readOnly={kunci}
               value={jumlahSampel}
               onChange={(e) => {
                 setJumlahSampel(e.target.value);
@@ -236,6 +241,7 @@ export default function QcProdukForm({
           <div>
             <label className={labelCls}>Tanggal Ambil Sampel</label>
             <input
+              readOnly={kunci}
               type="date"
               value={tglSampling}
               onChange={(e) => {
@@ -248,6 +254,7 @@ export default function QcProdukForm({
           <div>
             <label className={labelCls}>Tanggal Uji</label>
             <input
+              readOnly={kunci}
               type="date"
               value={tglUji}
               onChange={(e) => {
@@ -332,6 +339,7 @@ export default function QcProdukForm({
                         </td>
                         <td className="px-4 py-2">
                           <input
+              readOnly={kunci}
                             value={rows[i].spesifikasi || ""}
                             onChange={(e) => {
                               const v = e.target.value;
@@ -348,6 +356,7 @@ export default function QcProdukForm({
                         </td>
                         <td className="px-4 py-2">
                           <input
+              readOnly={kunci}
                             value={rows[i].hasil}
                             onChange={(e) => {
                               const v = e.target.value;
@@ -380,6 +389,7 @@ export default function QcProdukForm({
             </span>
           </label>
           <textarea
+              readOnly={kunci}
             value={note}
             onChange={(e) => {
               setNote(e.target.value);
@@ -398,7 +408,14 @@ export default function QcProdukForm({
           </p>
         )}
 
-        {boleh ? (
+        {kunci ? (
+          <p className="text-muted text-[12.5px] bg-white/50 rounded-lg px-3 py-2.5">
+            Batch ini sudah{" "}
+            {terkunci === "Released" ? "diluluskan" : terkunci === "Rejected" ? "ditolak" : "diputuskan"}{" "}
+            QA, jadi lembar uji ini cuma bisa dibaca. Hasil uji adalah dasar
+            keputusan itu dan tidak diubah lagi sesudahnya.
+          </p>
+        ) : boleh ? (
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"

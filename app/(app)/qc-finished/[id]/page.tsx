@@ -61,7 +61,9 @@ export default async function QaSheetPage({
 
   if (!data) notFound();
   const batch = data as unknown as BatchRaw;
-  if (batch.qa_status !== "Hold") notFound();
+  // Batch yang sudah diputuskan QA tetap bisa dibuka dari Riwayat
+  // Pengujian, tapi cuma untuk dibaca (penjaganya juga di saveQcProduk).
+  const terkunci = batch.qa_status !== "Hold" ? batch.qa_status : null;
 
   const produk = batch.production_outputs?.[0]?.products || null;
 
@@ -128,11 +130,18 @@ export default async function QaSheetPage({
       </h1>
       <p className="text-muted text-sm mb-6">
         {info.produkNama} · batch{" "}
-        <span className="font-mono">{info.noBatch}</span>, isi hasil uji produk
-        jadi, lalu kirim ke QA untuk pelulusan.
+        <span className="font-mono">{info.noBatch}</span>
+        {terkunci
+          ? `, sudah ${terkunci === "Released" ? "diluluskan" : terkunci === "Rejected" ? "ditolak" : "diputuskan"} QA.`
+          : ", isi hasil uji produk jadi, lalu kirim ke QA untuk pelulusan."}
       </p>
 
-      <QcProdukForm info={info} parameters={parameters} boleh={boleh} />
+      <QcProdukForm
+        info={info}
+        parameters={parameters}
+        boleh={boleh}
+        terkunci={terkunci}
+      />
     </div>
   );
 }

@@ -68,6 +68,23 @@ export async function saveQcProduk(
       throw new Error("Hanya petugas dengan izin QC yang bisa melakukan ini");
     if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
 
+    // Lembar uji cuma boleh berubah selama batch masih menunggu QA.
+    // Sesudah diluluskan / ditolak, hasil uji adalah dasar keputusan
+    // itu, dan mengubahnya belakangan membuat keputusan QA menunjuk
+    // angka yang tidak pernah dilihatnya. Halaman detail tetap bisa
+    // dibuka untuk dibaca, jadi penjaganya harus di sini.
+    const { data: batch } = await supabase
+      .from("production_batches")
+      .select("qa_status")
+      .eq("id", batchId)
+      .eq("organization_id", organizationId)
+      .single();
+    if (!batch) throw new Error("Batch tidak ditemukan");
+    if (batch.qa_status !== "Hold")
+      throw new Error(
+        "Batch ini sudah diputuskan QA, lembar uji produknya tidak bisa diubah lagi"
+      );
+
     const { error } = await supabase
       .from("production_batches")
       .update({
