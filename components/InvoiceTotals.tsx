@@ -28,6 +28,8 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
+export type ModeDiskon = "persen" | "nominal";
+
 export type InvoiceTotalsProps = {
   totals: Totals;
   taxSettings: TaxSettings;
@@ -39,6 +41,19 @@ export type InvoiceTotalsProps = {
   pakaiTax: boolean;
   onPakaiTaxChange: (aktif: boolean) => void;
 
+  /**
+   * Diisi = kolom Discount punya pilihan % / Rp. Dokumen tetap cuma
+   * menyimpan persen (sales_invoices.diskon_percent), jadi nominal
+   * dikonversi pemanggil jadi persen UTUH tanpa pembulatan: rupiah yang
+   * dihitung ulang dari persen itu sama dengan yang diketik.
+   */
+  nominal?: {
+    mode: ModeDiskon;
+    onModeChange: (mode: ModeDiskon) => void;
+    /** Rupiah diskon sebagai string (bentuk NILAI). */
+    rupiah: string;
+    onRupiahChange: (nilai: string) => void;
+  };
   /** Keterangan kecil di bawah baris Discount (mis. diskon khusus outlet). */
   diskonHint?: React.ReactNode;
   /** Baris tambahan sebelum TOTAL, mis. kolom TOP di layar konsinyasi. */
@@ -57,9 +72,11 @@ export default function InvoiceTotals({
   diskonHint,
   extraRows,
   judul,
+  nominal,
 }: InvoiceTotalsProps) {
   const include = taxSettings.taxMode === "Include";
   const adaDiskon = totals.diskon !== 0;
+  const modeRp = nominal?.mode === "nominal";
 
   return (
     <div className="flex flex-col gap-2 text-[13.5px]">
@@ -79,13 +96,46 @@ export default function InvoiceTotals({
       <div className="flex justify-between items-center">
         <span className="text-muted flex items-center gap-1.5">
           Discount
-          <NumberInput
-            aria-label="Diskon persen"
-            value={diskon}
-            onChange={onDiskonChange}
-            className="w-16 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
-          />
-          %
+          {modeRp ? (
+            <NumberInput
+              aria-label="Diskon rupiah"
+              value={nominal!.rupiah}
+              onChange={nominal!.onRupiahChange}
+              className="w-24 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
+            />
+          ) : (
+            <NumberInput
+              aria-label="Diskon persen"
+              value={diskon}
+              onChange={onDiskonChange}
+              className="w-16 glass-input rounded-md px-2 py-1 text-[12.5px] text-right focus:outline-none focus:ring-2 focus:ring-botanical-700"
+            />
+          )}
+          {nominal ? (
+            <span
+              role="group"
+              aria-label="Satuan diskon"
+              className="inline-flex rounded-md border border-line overflow-hidden text-[11.5px] font-medium"
+            >
+              {(["persen", "nominal"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={nominal.mode === m}
+                  onClick={() => nominal.mode !== m && nominal.onModeChange(m)}
+                  className={`px-1.5 py-0.5 transition-colors ${
+                    nominal.mode === m
+                      ? "bg-botanical-700 text-white"
+                      : "bg-white/60 text-muted hover:text-ink"
+                  }`}
+                >
+                  {m === "persen" ? "%" : "Rp"}
+                </button>
+              ))}
+            </span>
+          ) : (
+            "%"
+          )}
         </span>
         <span className="text-clay-600">
           {totals.diskon > 0
@@ -93,6 +143,15 @@ export default function InvoiceTotals({
             : formatRupiah(0)}
         </span>
       </div>
+      {modeRp && totals.diskon > 0 && totals.subtotal > 0 && (
+        <p className="text-[11.5px] text-muted -mt-1">
+          Setara{" "}
+          {((totals.diskon / totals.subtotal) * 100).toLocaleString("id-ID", {
+            maximumFractionDigits: 2,
+          })}
+          % dari Sub-Total.
+        </p>
+      )}
       {diskonHint}
 
       {/* Nilai setelah diskon cuma berarti kalau memang ada potongan. */}

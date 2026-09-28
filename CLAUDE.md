@@ -971,6 +971,20 @@ penulisnya.** Sebelum mengirimnya, telusuri dulu siapa saja yang membaca
 kolom itu. Yang berbahaya bukan pembaca yang meledak, tapi yang diam-diam
 menghasilkan angka yang masuk akal.
 
+**Di Invoice & POS diskon boleh diketik dalam RUPIAH** (pilihan `%` /
+`Rp` di `InvoiceTotals`, prop `nominal`). Tidak ada kolom baru:
+dokumen tetap cuma menyimpan `diskon_percent`, dan rupiahnya dikonversi
+jadi persen UTUH (`rupiah / subtotal x 100`), aturan yang sama dengan
+persen tertimbang di atas. Karena tidak dibulatkan, rupiah yang dihitung
+ulang dari persen itu di server dan di halaman cetak sama dengan yang
+diketik kasir. Dua akibat yang disengaja: waktu qty diubah, RUPIAHNYA
+yang tetap dan persennya yang bergeser (itu arti diskon nominal), dan
+nota 58 mm cuma menulis persen di label Diskon kalau angkanya bulat dua
+desimal (`persenRapi`), supaya "Diskon (3,33%)" tidak tercetak di
+sebelah potongan Rp 10.000 yang tepat. Mode nominal selalu berarti
+`diskonManual`, dan "Pakai diskon khusus lagi" mengembalikannya ke
+persen.
+
 **Angka diskon di layar tidak boleh menimpa yang sudah diketik user.**
 Polanya sama dengan `hargaManual` di `InvoiceForm`: begitu kolom
 Discount disentuh, `diskonManual` menyala dan angka otomatis berhenti

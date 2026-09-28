@@ -50,6 +50,10 @@ function rp(n: number) {
   return n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
+function persenRapi(p: number) {
+  return Math.abs(p * 100 - Math.round(p * 100)) < 1e-6;
+}
+
 /** Qty boleh pecahan (mis. jasa 0,5 jam), jangan dipaksa bulat. */
 function qtyStr(n: number) {
   return n.toLocaleString("id-ID", { maximumFractionDigits: 3 });
@@ -234,7 +238,14 @@ export default async function PrintNotaPage({
             <>
               <div className={baris}>
                 <span className={kiri}>
-                  Diskon ({rp(Number(inv.diskon_percent))}%)
+                  {/* Diskon yang diketik dalam rupiah tersimpan sebagai
+                      persen utuh (mis. 3,3333...%). Mencetak persen
+                      bulatannya di sebelah rupiah yang tepat cuma
+                      memunculkan pertanyaan, jadi persennya ditulis
+                      hanya kalau memang angka bulat dua desimal. */}
+                  {persenRapi(Number(inv.diskon_percent))
+                    ? `Diskon (${rp(Number(inv.diskon_percent))}%)`
+                    : "Diskon"}
                 </span>
                 <span className={kanan}>-{rp(rincian.diskon)}</span>
               </div>

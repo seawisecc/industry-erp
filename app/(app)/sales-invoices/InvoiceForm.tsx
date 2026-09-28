@@ -18,7 +18,7 @@ import {
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
-import InvoiceTotals from "@/components/InvoiceTotals";
+import InvoiceTotals, { type ModeDiskon } from "@/components/InvoiceTotals";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -91,6 +91,13 @@ export default function InvoiceForm({
    * ikut tanpa handler tambahan dan tanpa useEffect.
    */
   const [diskonManual, setDiskonManual] = useState(false);
+  /**
+   * Diskon boleh diketik dalam rupiah. Dokumen tetap cuma menyimpan
+   * persen, jadi rupiahnya dikonversi jadi persen UTUH (lihat
+   * diskonPersen di bawah). Mode nominal selalu berarti manual.
+   */
+  const [modeDiskon, setModeDiskon] = useState<ModeDiskon>("persen");
+  const [diskonRp, setDiskonRp] = useState("0");
   const [pakaiTax, setPakaiTax] = useState(false);
   const [top, setTop] = useState(isPos ? "0" : "");
   const [catatan, setCatatan] = useState("");
@@ -172,7 +179,21 @@ export default function InvoiceForm({
   // server; pembulatan cuma untuk kotak Discount. Membulatkannya lebih
   // dulu memunculkan sen yang tidak ada: 24,1438% x 2.920.000 =
   // 704.998,96, padahal potongan per barisnya tepat Rp 705.000.
-  const diskonPersen = diskonManual ? parseNum(diskon) : diskonOtomatis;
+  //
+  // Nominal dikonversi dengan cara yang sama: persennya tidak dibulatkan,
+  // jadi rupiah yang dihitung ulang dari persen itu (di server, di
+  // halaman cetak) sama dengan yang diketik kasir. Sisa galat float
+  // ditelan toleransi Rp 0,5 di recompute_invoice_status. Rupiahnya yang
+  // tetap waktu qty diubah, persennya yang ikut bergeser.
+  const subtotalBaris = calcItems.reduce((s, it) => s + it.qty * it.harga, 0);
+  const diskonRpAngka = parseNum(diskonRp);
+  const diskonPersen = !diskonManual
+    ? diskonOtomatis
+    : modeDiskon === "nominal"
+      ? subtotalBaris > 0
+        ? (diskonRpAngka / subtotalBaris) * 100
+        : 0
+      : parseNum(diskon);
   const diskonTampil = diskonManual
     ? diskon
     : String(Math.round(diskonOtomatis * 100) / 100);
@@ -186,6 +207,18 @@ export default function InvoiceForm({
     taxSettings.dppNilaiLain
   );
 
+  function gantiModeDiskon(mode: ModeDiskon) {
+    // Angka yang sedang berlaku dibawa ke satuan barunya, supaya
+    // berpindah satuan tidak diam-diam mengubah potongannya.
+    if (mode === "nominal") {
+      setDiskonRp(String(Math.round(totals.diskon * 100) / 100));
+    } else {
+      setDiskon(String(Math.round(diskonPersen * 100) / 100));
+    }
+    setDiskonManual(true);
+    setModeDiskon(mode);
+  }
+
   function updateRow(idx: number, patch: Partial<Row>) {
     setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
@@ -193,6 +226,15 @@ export default function InvoiceForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    if (diskonManual && modeDiskon === "nominal" && diskonRpAngka > subtotalBaris) {
+      setError("Diskon melebihi Sub-Total");
+      return;
+    }
+    if (diskonPersen < 0 || diskonPersen > 100) {
+      setError("Diskon harus di antara 0 dan 100%");
+      return;
+    }
 
     const pembeli =
       clients.find((c) => c.id === clientId)?.company_brand ||
@@ -296,6 +338,8 @@ export default function InvoiceForm({
     setNamaPembeli("");
     setDiskon("0");
     setDiskonManual(false);
+    setModeDiskon("persen");
+    setDiskonRp("0");
     setPakaiTax(false);
     setCatatan("");
     setRows([{ ...BARIS_KOSONG }]);
@@ -564,6 +608,15 @@ export default function InvoiceForm({
             setDiskonManual(true);
             setDiskon(nilai);
           }}
+          nominal={{
+            mode: modeDiskon,
+            onModeChange: gantiModeDiskon,
+            rupiah: diskonRp,
+            onRupiahChange: (nilai) => {
+              setDiskonManual(true);
+              setDiskonRp(nilai);
+            },
+          }}
           pakaiTax={pakaiTax}
           onPakaiTaxChange={setPakaiTax}
           diskonHint={
@@ -578,7 +631,10 @@ export default function InvoiceForm({
                   Diikat manual.{" "}
                   <button
                     type="button"
-                    onClick={() => setDiskonManual(false)}
+                    onClick={() => {
+                      setDiskonManual(false);
+                      setModeDiskon("persen");
+                    }}
                     className="text-botanical-700 font-medium hover:underline"
                   >
                     Pakai diskon khusus lagi
