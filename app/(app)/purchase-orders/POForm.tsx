@@ -18,6 +18,7 @@ import {
   type PurchaseTaxMode,
 } from "@/lib/purchaseTax";
 import type { TaxSettings } from "@/lib/invoiceMath";
+import { localDateStr } from "@/lib/dates";
 
 export type SupplierOption = {
   id: string;
@@ -104,7 +105,7 @@ export default function POForm({ suppliers, items, taxSettings, po }: Props) {
   const [supSorot, setSupSorot] = useState(0);
   const [itemSorot, setItemSorot] = useState(0);
   const [tanggal, setTanggal] = useState(
-    po?.tanggal_po || new Date().toLocaleDateString("sv-SE")
+    po?.tanggal_po || localDateStr()
   );
   // PO baru selalu mulai dari bawaan, isian aslinya datang begitu
   // suppliernya dipilih (handleSupplierChange).
@@ -259,7 +260,19 @@ export default function POForm({ suppliers, items, taxSettings, po }: Props) {
 
   async function handleDelete() {
     if (!po || loading || deleting) return;
-    if (!confirm(`Hapus PO ini? Tindakan tidak bisa dibatalkan.`)) return;
+    const lanjut = await konfirmasi.minta({
+      judul: "Hapus PO ini?",
+      pesan: "Tindakan ini tidak bisa dibatalkan.",
+      ringkasan: [
+        ...(selectedSupplier
+          ? [{ label: "Supplier", nilai: selectedSupplier.nama }]
+          : []),
+        { label: "Tanggal PO", nilai: tanggal },
+      ],
+      tombol: "Ya, Hapus",
+      nada: "bahaya",
+    });
+    if (!lanjut) return;
     setDeleting(true);
     setError("");
     try {

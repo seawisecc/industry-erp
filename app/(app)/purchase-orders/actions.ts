@@ -5,6 +5,7 @@ import { getEffectiveOrg } from "@/lib/getEffectiveOrg";
 import { revalidatePath } from "next/cache";
 import { toResult, type ActionResult } from "@/lib/actionResult";
 import { periksaMoq } from "@/lib/moq";
+import { canAccessModule } from "@/lib/modules";
 import { getTaxSettings } from "@/lib/taxServer";
 import {
   parseSupplierTaxMode,
@@ -230,16 +231,40 @@ export async function approvePO(
   }
 }
 
+/**
+ * Penjaga untuk aksi kecil di daftar PO yang tidak punya izin per aksi
+ * sendiri (tandai terkirim, TOP). Menyembunyikan tombolnya di layar
+ * bukan pembatasan: server action punya URL sendiri dan bisa dipanggil
+ * dari mana saja, jadi yang memanggilnya minimal harus boleh membuka
+ * modul Purchase Orders.
+ */
+async function requirePurchasing() {
+  const { profile, organizationId, isSuperAdmin } = await getEffectiveOrg();
+  if (!organizationId) throw new Error("Organisasi tidak terdeteksi");
+  const boleh = canAccessModule(
+    {
+      isSuperAdmin,
+      role: profile?.role || "",
+      allowedModules: profile?.allowed_modules ?? null,
+    },
+    "purchase-orders"
+  );
+  if (!boleh) throw new Error("Kamu tidak punya akses ke modul Purchase Orders");
+  return { organizationId };
+}
+
 export async function markPOSent(
   id: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient();
+    const { organizationId } = await requirePurchasing();
 
     const { data: po } = await supabase
       .from("purchase_orders")
       .select("id, status")
       .eq("id", id)
+      .eq("organization_id", organizationId)
       .single();
     if (!po) throw new Error("PO tidak ditemukan");
     if (po.status !== "Disetujui")
@@ -250,7 +275,8 @@ export async function markPOSent(
     const { error } = await supabase
       .from("purchase_orders")
       .update({ status: "Dikirim" })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("organization_id", organizationId);
     if (error) throw new Error(error.message);
 
     revalidatePath("/purchase-orders");
@@ -266,6 +292,7 @@ export async function setPOTop(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient();
+    const { organizationId } = await requirePurchasing();
 
     if (topDays !== null && (topDays < 0 || topDays > 365)) {
       throw new Error("TOP harus antara 0-365 hari");
@@ -274,7 +301,8 @@ export async function setPOTop(
     const { error } = await supabase
       .from("purchase_orders")
       .update({ top_days: topDays })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("organization_id", organizationId);
     if (error) throw new Error(error.message);
 
     revalidatePath("/purchase-orders");

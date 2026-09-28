@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Banknote, Trash2, X } from "lucide-react";
 import { recordSalesPayment, deleteSalesPayment } from "./actions";
 import NumberInput from "@/components/NumberInput";
+import { localDateStr } from "@/lib/dates";
 
 export type PaymentRow = {
   id: string;
@@ -45,7 +46,7 @@ export default function PaymentPanel({
   const [open, setOpen] = useState(false);
   const [jumlah, setJumlah] = useState("");
 
-  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [tanggal, setTanggal] = useState(localDateStr());
   const [catatan, setCatatan] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

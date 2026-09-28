@@ -2824,6 +2824,32 @@ dilihat semua orang, termasuk yang belum pernah masuk sama sekali.
 di dev service worker justru dicabut (lihat aturan di atas), dan tanpa
 service worker aktif Chrome tidak pernah memicu event-nya.
 
+# Badge notifikasi: diambil klien, di belakang
+
+Menu Notifications punya badge jumlah (`components/NotifBadge.tsx`):
+pil angka di baris menu, titik di pojok ikon saat sidebar rail dan di
+bar bawah HP. Merah kalau ada yang kritis, kuning kalau cuma
+peringatan, dan tidak ada apa pun kalau nol.
+
+Angkanya TIDAK dihitung di layout. Sidebar dirender di tiap halaman,
+dan menjalankan query `lib/notifikasi.ts` di jalur render berarti tiap
+navigasi menunggu query demi satu angka di pojok. Jadi klien yang
+mengambilnya lewat `GET /api/notif-count`, setelah halaman tampil:
+
+- **Satu store untuk semua badge** (`lib/notifBadge.ts`, dibaca lewat
+  `useSyncExternalStore`). Sidebar dan bar bawah berbagi pengambilan
+  yang sama, dan store berhenti mengambil begitu tidak ada yang
+  berlangganan.
+- **Diambil ulang** tiap 3 menit, saat tab kembali difokus, dan saat
+  pindah halaman (dibatasi 30 detik). Menyetujui PO atau meluluskan QC
+  hampir selalu diikuti navigasi, jadi badge ikut turun tanpa menunggu.
+- **Isinya dari `getNotifikasi` yang sama** dengan halaman
+  Notifications, dengan hak akses user yang sama. Badge yang angkanya
+  beda dengan isi halamannya membuat orang berhenti percaya pada
+  dua-duanya.
+- **Gagal mengambil tidak menghapus badge.** Sesi yang habis membuat
+  proxy mengembalikan redirect HTML, bukan JSON; angka lama dibiarkan.
+
 # Izin per aksi: satu kolom, dua sisi penjaga
 
 Selain `allowed_modules`, ada izin per aksi di `profiles`:
@@ -2911,12 +2937,6 @@ Aturan turunannya:
   membaca daftar yang sama.
 
 # Known issue
-
-**Menu Notifications tidak punya badge jumlah.** Itu yang biasanya membuat
-notification center dipakai, tapi sidebar dirender di setiap halaman.
-Badge berarti menjalankan tujuh query `lib/notifikasi.ts` di tiap navigasi.
-Perbaikan sebenarnya: hitungan yang di-cache (materialized view atau cache
-ber-TTL pendek), bukan query langsung. Belum dikerjakan.
 
 **Retur atas faktur yang sudah Lunas belum jadi piutang balik.** Secara
 akuntansi supplier jadi berhutang, tapi `receivings.total_retur` cuma

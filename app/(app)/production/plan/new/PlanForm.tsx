@@ -10,6 +10,7 @@ import { useConfirmSave } from "@/components/ConfirmSave";
 import { keTampilan } from "@/lib/angka";
 import NumberInput from "@/components/NumberInput";
 import ProductPicker, { type ProductOption } from "@/components/ProductPicker";
+import { localDateStr } from "@/lib/dates";
 
 export type ProductOpt = {
   id: string;
@@ -39,7 +40,7 @@ export default function PlanForm({
   const [productId, setProductId] = useState("");
   const [noBatch, setNoBatch] = useState("");
   const [jumlahBatch, setJumlahBatch] = useState("1");
-  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [tanggal, setTanggal] = useState(localDateStr());
   const [catatan, setCatatan] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

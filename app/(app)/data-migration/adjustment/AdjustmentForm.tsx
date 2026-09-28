@@ -8,6 +8,7 @@ import DataTable from "@/components/DataTable";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
+import { localDateStr } from "@/lib/dates";
 
 export type AdjustItem = {
   id: string;
@@ -40,7 +41,7 @@ export default function AdjustmentForm({ items }: { items: AdjustItem[] }) {
   const router = useRouter();
   const konfirmasi = useConfirmSave();
 
-  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [tanggal, setTanggal] = useState(localDateStr());
   const [catatan, setCatatan] = useState("");
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<Record<string, Row>>(() =>

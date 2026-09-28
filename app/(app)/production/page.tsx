@@ -16,6 +16,7 @@ import {
   parseListQuery,
   type SearchParams,
   orderFor,
+  ilikeOr,
 } from "@/lib/pagination";
 
 type PlanRow = {
@@ -88,7 +89,7 @@ export default async function ProductionPage({
       .from("products")
       .select("id")
       .eq("organization_id", organizationId)
-      .or(`kode.ilike."%${sp.q}%",nama_produk.ilike."%${sp.q}%"`)
+      .or(ilikeOr(["kode", "nama_produk"], sp.q))
       .limit(500);
     productIds = (prods || []).map((p) => p.id as string);
   }

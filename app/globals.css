@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================================
-   DESIGN TOKENS — Industry Cosmetic ERP (Liquid Glass)
+   DESIGN TOKENS: Industry Cosmetic ERP (Liquid Glass)
    Konsep: permukaan kaca buram di atas latar bergradasi lembut.
    Elemen UI (sidebar, card, modal) transparan + blur, dengan
    tepi cahaya tipis supaya kelihatan seperti panel kaca.
@@ -57,7 +57,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   min-height: 100vh;
-  /* Latar bergradasi — ini yang "terlihat" di balik panel kaca */
+  /* Latar bergradasi, ini yang "terlihat" di balik panel kaca */
   background:
     radial-gradient(900px 500px at 5% 0%, rgba(120, 170, 130, 0.35) 0%, transparent 55%),
     radial-gradient(800px 600px at 95% 5%, rgba(220, 150, 110, 0.28) 0%, transparent 50%),
@@ -140,7 +140,7 @@ body {
 /* Seragamkan tinggi kontrol form.
    Native <select> & <input type=date> di Safari mengabaikan padding vertikal
    sehingga tampak lebih pendek dari text input (py-2.5 + text-sm = 42px).
-   Rule di @layer base — utility eksplisit (mis. h-10) tetap bisa override. */
+   Rule di @layer base, utility eksplisit (mis. h-10) tetap bisa override. */
 @layer base {
   select.glass-input,
   input.glass-input[type="date"] {
@@ -154,7 +154,7 @@ body {
    Latarnya PEKAT, tidak mengikuti .glass yang 0.55. Panel kaca itu
    tembus pandang; kalau sel sticky ikut transparan, teks kolom lain
    terbaca menembus di baliknya waktu tabel digeser. Pernah dicoba
-   0.94 + blur — sisa 6% itu tetap terbaca sebagai bayangan angka yang
+   0.94 + blur: sisa 6% itu tetap terbaca sebagai bayangan angka yang
    ikut bergerak, dan blur tidak menolong karena backdrop-filter pada
    sel tabel tidak menghasilkan backdrop root di Chrome.
 
@@ -178,7 +178,7 @@ body {
    punya overflow-x-auto (dan begitu satu sumbu bukan `visible`,
    sumbu satunya ikut jadi `auto`), jadi container itulah jangkarnya.
    Selama tinggi container mengikuti isi, dia tidak pernah ter-scroll
-   sendiri — header akan ikut hanyut bersama halaman dan `sticky`
+   sendiri, header akan ikut hanyut bersama halaman dan `sticky`
    tidak terasa apa-apa.
 
    Maka `.dt-table` diberi batas tinggi (lihat prop `maxHeight` di
@@ -187,7 +187,7 @@ body {
 
    Garis bawahnya pakai inset shadow, bukan `border`. Preflight
    Tailwind menyetel `border-collapse: collapse`, dan di mode itu
-   border sel jadi milik "border grid" tabel — tidak ikut menempel
+   border sel jadi milik "border grid" tabel, tidak ikut menempel
    bersama selnya, sehingga garisnya putus begitu header digeser.
 
    #F7F5F1 = perkiraan warna panel .glass (putih 0.55) di atas latar
@@ -206,7 +206,7 @@ body {
   z-index: 4;
 }
 
-/* Baris total (<tfoot>) menempel di dasar area scroll — tanpa ini,
+/* Baris total (<tfoot>) menempel di dasar area scroll, tanpa ini,
    membatasi tinggi tabel justru menyembunyikan angka totalnya.
    Sama seperti header: pekat penuh, karena baris data lewat di baliknya. */
 .dt-foot > tr > td {
@@ -245,7 +245,7 @@ tbody > tr:hover > .sticky-col {
   background: #fbfaf7;
 }
 
-/* Saat dicetak tidak ada scroll — sticky cuma bikin kolom/baris melayang,
+/* Saat dicetak tidak ada scroll, sticky cuma bikin kolom/baris melayang,
    dan batas tinggi akan memotong isi tabel jadi satu layar saja.
    Cetak juga selalu memakai bentuk tabel, tidak peduli lebar layar
    perangkat yang mencetak: kartu boros kertas dan sulit dibandingkan. */
@@ -283,7 +283,7 @@ tbody > tr:hover > .sticky-col {
 }
 
 /* ---------- Mode cetak halaman aplikasi (mis. Reports) ----------
-   Sembunyikan sidebar/topbar/tombol saat print — konten jadi dokumen bersih */
+   Sembunyikan sidebar/topbar/tombol saat print, konten jadi dokumen bersih */
 @media print {
   aside,
   .print-hide {
@@ -454,7 +454,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ---------- Transisi antar halaman ----------
-   Dipakai app/(app)/template.tsx — animasi masuk halus tiap navigasi */
+   Dipakai app/(app)/template.tsx: animasi masuk halus tiap navigasi */
 @keyframes page-enter {
   from {
     opacity: 0;

@@ -13,6 +13,7 @@ import {
   parseListQuery,
   type SearchParams,
   orderFor,
+  ilikeOr,
 } from "@/lib/pagination";
 import { localDateStr } from "@/lib/dates";
 
@@ -73,7 +74,7 @@ export default async function SalesPaymentsPage({
       .from("clients")
       .select("id")
       .eq("organization_id", organizationId)
-      .or(`kode.ilike."%${sp.q}%",company_brand.ilike."%${sp.q}%"`)
+      .or(ilikeOr(["kode", "company_brand"], sp.q))
       .limit(500);
     clientIds = (cs || []).map((c) => c.id as string);
   }

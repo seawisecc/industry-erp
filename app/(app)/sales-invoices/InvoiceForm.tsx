@@ -19,6 +19,7 @@ import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
 import InvoiceTotals, { type ModeDiskon } from "@/components/InvoiceTotals";
+import { localDateStr } from "@/lib/dates";
 
 export type ClientOpt = { id: string; kode: string | null; company_brand: string };
 
@@ -82,7 +83,7 @@ export default function InvoiceForm({
   const tipe: "Proforma" | "Invoice" = isPos ? "Invoice" : "Proforma";
   const [clientId, setClientId] = useState("");
   const [namaPembeli, setNamaPembeli] = useState("");
-  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [tanggal, setTanggal] = useState(localDateStr());
   const [diskon, setDiskon] = useState("0");
   /**
    * Diskon yang sudah diketik user tidak boleh tertimpa angka otomatis.

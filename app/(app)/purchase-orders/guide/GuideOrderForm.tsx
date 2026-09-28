@@ -15,6 +15,7 @@ import DataTable from "@/components/DataTable";
 import { adaMoq, bulatkanMoq, periksaMoq } from "@/lib/moq";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import NumberInput from "@/components/NumberInput";
+import { localDateStr } from "@/lib/dates";
 
 export type GuideItem = {
   id: string;
@@ -55,7 +56,7 @@ export default function GuideOrderForm({ items }: { items: GuideItem[] }) {
     for (const it of items) init[it.id] = String(saranQty(it));
     return init;
   });
-  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [tanggal, setTanggal] = useState(localDateStr());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<string>("");

@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { NotifTitik } from "./NotifBadge";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, X } from "lucide-react";
 import { canAccessModule } from "@/lib/modules";
@@ -172,7 +173,12 @@ export default function MobileBottomNav({
                   }`}
                   style={{ color: active ? "#ffffff" : "#55655B" }}
                 >
-                  <Icon size={21} strokeWidth={2} />
+                  <span className="relative">
+                    <Icon size={21} strokeWidth={2} />
+                    {item.href === "/notifications" && (
+                      <NotifTitik className="ring-white" />
+                    )}
+                  </span>
                   {active && (
                     <span className="text-[12.5px] font-semibold whitespace-nowrap">
                       {shortLabel(item.label)}

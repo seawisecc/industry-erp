@@ -11,6 +11,7 @@ import {
   parseListQuery,
   type SearchParams,
   orderFor,
+  ilikeOr,
 } from "@/lib/pagination";
 import { localDateStr } from "@/lib/dates";
 import StorageBar from "@/components/StorageBar";
@@ -63,7 +64,7 @@ export default async function CompaniesPage({
     const { data: ps } = await admin
       .from("profiles")
       .select("organization_id")
-      .or(`nama.ilike."%${sp.q}%",email.ilike."%${sp.q}%"`)
+      .or(ilikeOr(["nama", "email"], sp.q))
       .limit(500);
     orgIdsByAdmin = [
       ...new Set(

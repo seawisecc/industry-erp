@@ -9,8 +9,11 @@
    Semua tanggal "hari ini" di sisi server WAJIB lewat localDateStr()
    supaya dihitung eksplisit di zona operasional, tidak ikut zona server.
 
-   Di komponen client ("use client") hal ini tidak berlaku, di sana
-   `new Date()` sudah memakai zona browser user, yang memang benar.
+   Komponen client ("use client") JUGA dirender di server lebih dulu,
+   jadi initial state seperti `useState(new Date()...)` ikut dihitung
+   di UTC pada HTML pertama. Nilai awal tanggal di form pakai
+   localDateStr() juga: hasilnya sama di server dan di browser.
+   Yang dihitung saat diklik (nama file export, dsb.) tidak kena.
    ============================================================ */
 
 // Bisa dioverride lewat env kalau perusahaan beroperasi di zona lain

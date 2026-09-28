@@ -17,6 +17,7 @@ import {
   type PurchaseTaxMode,
 } from "@/lib/purchaseTax";
 import type { TaxSettings } from "@/lib/invoiceMath";
+import { localDateStr } from "@/lib/dates";
 
 export type POOption = {
   id: string;
@@ -130,7 +131,7 @@ export default function ReceivingForm({
   const poAwal = pos.find((p) => p.id === initialPoId) || null;
 
   const [poId, setPoId] = useState(poAwal?.id ?? "");
-  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [tanggal, setTanggal] = useState(localDateStr());
   const [noInvoice, setNoInvoice] = useState("");
   const [taxMode, setTaxMode] = useState<PurchaseTaxMode>(
     poAwal?.tax_mode ?? PURCHASE_TAX_MODE_DEFAULT

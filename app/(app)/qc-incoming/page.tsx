@@ -13,6 +13,7 @@ import {
   parseListQuery,
   type SearchParams,
   orderFor,
+  ilikeOr,
 } from "@/lib/pagination";
 import Link from "next/link";
 import { ClipboardList, Printer, Eye, Tags } from "lucide-react";
@@ -77,7 +78,7 @@ export default async function QcIncomingPage({
       .from("items")
       .select("id")
       .eq("organization_id", organizationId)
-      .or(`kode.ilike."%${sp.q}%",nama.ilike."%${sp.q}%"`)
+      .or(ilikeOr(["kode", "nama"], sp.q))
       .limit(500);
     itemIds = (its || []).map((i) => i.id as string);
   }

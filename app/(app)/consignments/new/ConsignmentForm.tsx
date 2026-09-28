@@ -11,6 +11,7 @@ import { clientPriceKey, type ClientPriceMap } from "@/lib/clientPrice";
 import { useConfirmSave } from "@/components/ConfirmSave";
 import { enterKeFieldBerikutnya } from "@/lib/keyboard";
 import NumberInput from "@/components/NumberInput";
+import { localDateStr } from "@/lib/dates";
 
 /**
  * `hargaManual` menandai baris yang harganya sudah diketik user, supaya
@@ -37,7 +38,7 @@ export default function ConsignmentForm({
   const router = useRouter();
   const konfirmasi = useConfirmSave();
   const [clientId, setClientId] = useState("");
-  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [tanggal, setTanggal] = useState(localDateStr());
   const [catatan, setCatatan] = useState("");
   const [rows, setRows] = useState<Row[]>([{ ...BARIS_KOSONG }]);
   const [loading, setLoading] = useState(false);

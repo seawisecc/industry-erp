@@ -10,6 +10,7 @@ import NumberInput from "@/components/NumberInput";
 import ProductPicker, {
   type ProductOption as PilihanProduk,
 } from "@/components/ProductPicker";
+import { localDateStr } from "@/lib/dates";
 
 export type ProductOption = {
   id: string;
@@ -67,7 +68,7 @@ export default function ProductionForm({
 
   const [productId, setProductId] = useState("");
   const [noBatch, setNoBatch] = useState("");
-  const [tanggal, setTanggal] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [tanggal, setTanggal] = useState(localDateStr());
   const [jumlahBatch, setJumlahBatch] = useState("1");
   const [variantQty, setVariantQty] = useState<Record<string, string>>({});
   const [bahanRows, setBahanRows] = useState<Row[]>([]);

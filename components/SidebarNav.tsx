@@ -11,6 +11,8 @@ import { Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { canAccessModule } from "@/lib/modules";
 import { NAV, NAV_GRUP, HUBS } from "@/lib/navConfig";
 import { SIDEBAR_KEY_LAMA, tulisRail } from "@/lib/sidebarPref";
+import { segarkan as segarkanNotif } from "@/lib/notifBadge";
+import { NotifPill, NotifTitik } from "./NotifBadge";
 
 type OrgOption = { id: string; nama: string; slug: string; aktif: boolean };
 
@@ -80,6 +82,13 @@ export default function SidebarNav({
   railAwal: boolean;
 }) {
   const pathname = usePathname();
+
+  // Badge notifikasi diambil ulang tiap pindah halaman (dibatasi di
+  // store-nya): aksi yang mengurangi notifikasi, mis. menyetujui PO,
+  // hampir selalu diikuti navigasi. Tidak ada setState di sini.
+  useEffect(() => {
+    segarkanNotif();
+  }, [pathname]);
   const [open, setOpen] = useState(false); // drawer HP
   const [rail, setRail] = useState(railAwal);
   const [dijelajah, setDijelajah] = useState(false);
@@ -337,10 +346,20 @@ export default function SidebarNav({
                         : "text-white/65 hover:bg-white/8 hover:text-white border border-transparent"
                     }`}
                   >
-                    <Icon size={17} strokeWidth={2} className="shrink-0" />
+                    <span className="relative shrink-0">
+                      <Icon size={17} strokeWidth={2} />
+                      {/* Titik cuma saat rail diam; saat lebar angkanya
+                          tampil sebagai pil di ujung baris. */}
+                      {item.href === "/notifications" && !luas && (
+                        <NotifTitik className="hidden sm:block ring-[#1E3327]" />
+                      )}
+                    </span>
                     <span className={`truncate ${luas ? "" : "sm:hidden"}`}>
                       {item.label}
                     </span>
+                    {item.href === "/notifications" && (
+                      <NotifPill className={luas ? "" : "sm:hidden"} />
+                    )}
                   </Link>
                 );
               })}
