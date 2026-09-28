@@ -208,6 +208,17 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
   SQL. Server berjalan di UTC; `lib/dates.ts` yang menghitung tanggal
   kalender di zona operasional.
 
+# Tanggal awal form: `localDateStr()`, juga di komponen klien
+
+Komponen `"use client"` tetap dirender di server lebih dulu, jadi
+`useState(new Date().toLocaleDateString("sv-SE"))` menghitung tanggal
+UTC di HTML pertama: form yang dibuka jam 00.00 s/d 08.00 WITA
+menampilkan tanggal kemarin. Sembilan form (Invoice & POS, PO, Guide
+Order, Receiving, Konsinyasi, Produksi, Plan, Penyesuaian, Pembayaran)
+sempat begitu. Nilai awal tanggal ditulis `localDateStr()`, yang
+hasilnya sama di server dan browser. Yang dihitung saat diklik (nama
+file export) tidak kena.
+
 # Jam di layar & di kertas: `lib/dates.ts`, bukan `toLocaleTimeString`
 
 Aturannya perpanjangan dari `localDateStr`, tapi jamnya jauh lebih
@@ -1963,6 +1974,17 @@ sudutnya ditulis sebagai CSS biasa (bukan `@utility`) supaya tidak
 bergantung urutan emit Tailwind: aturan tanpa layer selalu menang atas
 utility ber-layer.
 
+## Kata cari TIDAK PERNAH ditulis mentah ke `.or()`
+
+`.or()` menerima SINTAKS filter PostgREST, bukan nilai. Kata cari yang
+disisipkan apa adanya (`` .or(`kode.ilike."%${sp.q}%"`) ``) bisa keluar
+dari kutipnya lewat `"` dan menambahkan filter sendiri. RLS tetap
+mengurung ke satu organisasi, tapi isi daftarnya jadi ditentukan
+pengetik. Empat halaman (QC Incoming, Production, Sales Payments,
+Companies) sempat begitu. Yang benar selalu `ilikeOr` / `ilikeOrWithIds`
+di `lib/pagination.ts`, yang membuang kutip ganda dan backslash.
+`.ilike(kolom, nilai)` biasa aman karena nilainya dikirim sebagai nilai.
+
 ## Urutan tabel: lewat URL, bukan state komponen
 
 `Column.sort` diisi = judul kolomnya jadi tombol urut
@@ -2877,6 +2899,24 @@ action (menolak).** Menyembunyikan tombol saja bukan pembatasan
 akses: server action punya URL sendiri dan bisa dipanggil dari mana
 saja.
 
+**Aksi yang tidak punya izin per aksi tetap memeriksa akses MODUL di
+server.** Contohnya `markPOSent` dan `setPOTop` (tandai PO terkirim,
+ubah TOP): dulu tidak memeriksa apa pun, jadi siapa saja yang login
+di organisasi itu bisa memanggilnya. Sekarang lewat `requirePurchasing`
+(`canAccessModule(..., "purchase-orders")`). Pola itu yang ditiru untuk
+aksi kecil lain yang belum punya penjaga.
+
+**Dokumen yang sudah diputuskan dikunci di server, bukan cuma dengan
+menyembunyikan halamannya.** Lembar uji QC produk jadi
+(`saveQcProduk`) cuma boleh berubah selama batch `Hold`. Penjaganya
+dulu cuma `notFound()` di halaman, dan akibatnya dua sekaligus: tombol
+"Lihat detail pengujian" di Riwayat Pengujian menunjuk ke halaman 404
+untuk setiap batch Released/Rejected, dan server action-nya sendiri
+tetap menerima perubahan. Sekarang halamannya terbuka baca saja
+(`terkunci`, kolom `readOnly`, kalimat keterangannya), dan server yang
+menolak. Hasil uji adalah dasar keputusan QA; mengubahnya sesudah itu
+membuat keputusan menunjuk angka yang tidak pernah dilihatnya.
+
 Dua aksi yang tidak kelihatan seperti "batal transaksi" tapi izinnya
 memang itu:
 
@@ -2946,6 +2986,19 @@ Aturan turunannya:
   membaca daftar yang sama.
 
 # Known issue
+
+**Izin per aksi dan izin modul cuma dijaga di aplikasi, tidak di
+database.** RLS memisahkan ORGANISASI (`current_user_org()`), bukan
+peran. Staf yang login bisa memakai token sesinya dan anon key (yang
+memang publik) untuk menulis langsung ke tabel organisasinya lewat
+PostgREST, melewati `can_cancel`, `can_approve_po`, dan pemeriksaan
+modul di server action. Tidak bisa menyeberang ke company lain. Celah
+yang BISA menyeberang (`profiles_write`, Admin menjadikan dirinya
+super admin) sudah ditutup di `20260928_profiles_tanpa_tulis`.
+Perbaikan sebenarnya proyek tersendiri: izin sensitif masuk ke policy
+atau penulisannya dipindah ke RPC `security definer` yang memeriksa
+perannya, satu tabel per langkah. Sebagian besar server action juga
+belum memeriksa `allowed_modules` sama sekali.
 
 **Retur atas faktur yang sudah Lunas belum jadi piutang balik.** Secara
 akuntansi supplier jadi berhutang, tapi `receivings.total_retur` cuma
