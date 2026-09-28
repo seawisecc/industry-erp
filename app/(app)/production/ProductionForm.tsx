@@ -275,7 +275,7 @@ export default function ProductionForm({
     const options = row.source === "adjust" ? adjustOptions(row) : [];
     return (
       <div key={`${row.source}-${idx}`} className="flex flex-col gap-1">
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_32px] gap-2 items-start">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_140px_32px] gap-2 items-start">
           <div className="relative">
             {row.item ? (
               <div className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 text-sm">

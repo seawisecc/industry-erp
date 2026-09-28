@@ -1898,6 +1898,15 @@ Formula per fase di `products/[id]` dan lembar uji parameter QC/QA punya
 angka subtotal di baris headernya, dan `groupBy` cuma menyediakan satu sel
 melintang penuh. Yang itu cukup diberi `sticky-col` pada kolom pertamanya.
 
+**Kolom lentur di grid baris form ditulis `minmax(0,1fr)`, bukan
+`1fr`.** `1fr` sebenarnya `minmax(auto, 1fr)`: lebar minimalnya
+selebar ISI, jadi satu nama produk yang panjang mendorong kolom qty,
+harga, dan subtotal di baris itu ke kanan, dan barisnya tidak lagi
+sejajar dengan baris lain. Pemilih ketik-cari sudah memotong teksnya
+sendiri dengan elipsis, tapi elipsis itu tidak pernah terjadi selama
+kolomnya boleh melebar. Pernah terlihat di form Invoice, dan pola yang
+sama ada di sepuluh form bertabel item lain.
+
 **Jangan taruh combobox di dalam DataTable.** Pembungkusnya
 `overflow-auto`, jadi daftar saran yang muncul di bawah input akan
 terpotong. Baris form yang butuh ketik-cari pakai grid biasa. Lihat

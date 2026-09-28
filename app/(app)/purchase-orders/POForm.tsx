@@ -424,7 +424,7 @@ export default function POForm({ suppliers, items, taxSettings, po }: Props) {
             return (
               <div
                 key={idx}
-                className="grid grid-cols-1 sm:grid-cols-[1fr_110px_150px_130px_32px] gap-2 items-start border-b border-line last:border-0 pb-3 last:pb-0"
+                className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_110px_150px_130px_32px] gap-2 items-start border-b border-line last:border-0 pb-3 last:pb-0"
               >
                 <div className="relative">
                   {idx === 0 && (

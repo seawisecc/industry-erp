@@ -430,7 +430,7 @@ export default function ProductForm({ items, product, stokVarian = {} }: Props) 
           return (
             <div
               key={idx}
-              className="grid grid-cols-1 sm:grid-cols-[1fr_70px_110px_32px] gap-2 items-start"
+              className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_70px_110px_32px] gap-2 items-start"
             >
               <div className="relative">
                 {row.item ? (
@@ -810,7 +810,7 @@ export default function ProductForm({ items, product, stokVarian = {} }: Props) 
               return (
                 <div
                   key={pIdx}
-                  className="grid grid-cols-1 sm:grid-cols-[1fr_110px_32px] gap-2 items-start"
+                  className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_110px_32px] gap-2 items-start"
                 >
                   <div className="relative">
                     {p.item ? (

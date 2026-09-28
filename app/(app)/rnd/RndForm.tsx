@@ -528,7 +528,7 @@ export default function RndForm({
           </div>
         </div>
 
-        <div className="hidden sm:grid grid-cols-[1fr_56px_96px_110px_140px_32px] gap-2 text-[11px] uppercase tracking-wide text-muted px-0.5">
+        <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_56px_96px_110px_140px_32px] gap-2 text-[11px] uppercase tracking-wide text-muted px-0.5">
           <span>Bahan</span>
           <span className="text-center">Fase</span>
           <span className="text-right">Persen</span>
@@ -542,7 +542,7 @@ export default function RndForm({
           const gram = row.bahan ? takaran.get(row.bahan.key) : undefined;
           return (
             <div key={idx} className="flex flex-col gap-1">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_56px_96px_110px_140px_32px] gap-2 items-start">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_56px_96px_110px_140px_32px] gap-2 items-start">
                 <div className="relative">
                   {row.bahan ? (
                     <div className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 text-sm">
@@ -861,7 +861,7 @@ export default function RndForm({
           return (
             <div
               key={idx}
-              className="grid grid-cols-1 sm:grid-cols-[1fr_90px_140px_32px] gap-2 items-start"
+              className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_90px_140px_32px] gap-2 items-start"
             >
               <div className="relative">
                 {row.bahan ? (

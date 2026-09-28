@@ -293,7 +293,7 @@ export default function PpicPlanner({
               key={idx}
               className="flex flex-col gap-1 rounded-xl border border-line/70 bg-white/40 p-3 sm:border-0 sm:bg-transparent sm:p-0"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px_1fr_32px] gap-2 items-center">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_130px_1fr_32px] gap-2 items-center">
                 <ProductPicker
                   options={pilihanProduk}
                   value={row.productId}

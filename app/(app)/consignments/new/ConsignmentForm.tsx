@@ -217,7 +217,7 @@ export default function ConsignmentForm({
           const over = o && parseNum(row.qty) > o.available;
           return (
             <div key={idx} className="flex flex-col gap-1">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px_160px_32px] gap-2 items-center">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_110px_160px_32px] gap-2 items-center">
                 <ProductPicker
                   options={options}
                   value={row.key}

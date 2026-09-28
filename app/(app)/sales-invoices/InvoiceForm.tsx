@@ -513,7 +513,7 @@ export default function InvoiceForm({
               key={idx}
               className="flex flex-col gap-1 rounded-xl border border-line/70 bg-white/40 p-3 sm:border-0 sm:bg-transparent sm:p-0"
             >
-              <div className="grid grid-cols-2 sm:grid-cols-[1fr_100px_150px_120px_32px] gap-2 items-center">
+              <div className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_100px_150px_120px_32px] gap-2 items-center">
                 <div className="col-span-2 sm:col-span-1">
                   <ProductPicker
                     options={options}

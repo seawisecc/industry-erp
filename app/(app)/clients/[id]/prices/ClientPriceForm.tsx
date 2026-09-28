@@ -191,7 +191,7 @@ export default function ClientPriceForm({
             (parseNum(row.diskon) < 0 || parseNum(row.diskon) > 100);
           return (
             <div key={idx} className="flex flex-col gap-1">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_150px_120px_32px] gap-2 items-start">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_150px_120px_32px] gap-2 items-start">
                 <ProductPicker
                   options={options}
                   value={row.key}
