@@ -109,7 +109,7 @@ di-track di repo):
 | Fungsi | Guna |
 | --- | --- |
 | `create_consignment_tx` | Cek stok + penomoran CSG + insert pengiriman |
-| `create_sales_invoice_tx` | Cek stok + penomoran INV + insert invoice & itemnya |
+| `create_sales_invoice_tx` | Cek stok + penomoran INV + insert invoice & itemnya (sejak `20261001` di-track di repo) |
 | `create_production` | Potong bahan FEFO + hitung HPP real + insert batch |
 | `cancel_production` | Kembalikan bahan ke batch asal, hapus batch |
 | `create_stock_adjustment` | Stok awal & opname, tambah batch / potong FEFO |
@@ -194,6 +194,9 @@ Modul yang ditambahkan sesudahnya, satu migrasi per modul:
 | | `import_product_variants_tx` | Import CSV varian: tambah & perbarui saja, TIDAK PERNAH menghapus (nama varian kunci stok). Tolak varian pertama untuk produk yang masih punya stok di kunci `-` |
 | `20260928_production_output_edit` | `update_production_result_tx` | Betulkan no. batch (dua tabel) + qty hasil per varian batch yang sudah jadi, satu transaksi. Tolak qty yang turun di bawah yang sudah keluar |
 | | `log_production_output_change` | Trigger `UPDATE OF qty_hasil`: audit perubahan hasil dicatat atas nama BATCH-nya |
+| `20261001_quotations` | `create_sales_invoice_tx` | Diperluas: baris boleh tanpa produk & jasa, cukup `deskripsi` (definisinya kini di-track di repo) |
+| | `save_quotation_tx` | Buat quotation baru (+ penomoran QUO) atau ganti header & seluruh barisnya, total dihitung ulang lewat `invoice_tax_calc` |
+| | `issue_quotation_proforma_tx` | Quotation jadi Proforma lewat `create_sales_invoice_tx`, ditautkan & ditandai Diterima, satu transaksi |
 
 ## Aturan yang tertanam di RPC, jangan dilanggar dari aplikasi
 
@@ -893,6 +896,48 @@ Dokumen ini TIDAK terdaftar di `DOC_TYPES` / `JUDUL_DOKUMEN` /
 `SUMBER_DOKUMEN`, sama seperti lembar hitung opname. Dia lembar kerja
 internal yang diisi tangan, bukan dokumen yang diterbitkan ke pihak
 luar, jadi tidak butuh pengesahan QR.
+
+# Quotation: baris bebas, tidak menyentuh stok
+
+`/quotations` (sub-menu Sales, modul akses `quotations`) membuat
+penawaran harga untuk barang yang hampir selalu BARU: maklon, sample
+kit, layanan lain. Karena itu barisnya diketik bebas (deskripsi,
+rincian, qty, satuan, harga), tanpa ProductPicker, tanpa harga master,
+tanpa cek stok. Rekap & pajaknya tetap `InvoiceTotals` + `computeTotals`,
+dan aturan pajaknya dibekukan di dokumen seperti invoice.
+
+Aturan yang mengikat:
+
+- **Quotation tidak pernah memotong stok dan tidak pernah jadi
+  piutang.** Piutang baru lahir di `issue_quotation_proforma_tx`, yang
+  memanggil `create_sales_invoice_tx` (penomoran INV tidak disalin) dan
+  menautkan `quotations.invoice_id` dalam transaksi yang sama.
+- **Baris invoice boleh tanpa produk & jasa** (`sales_invoice_items.
+  deskripsi`, constraint `sales_invoice_items_ada_isi`). Satuannya
+  ditulis ke `varian_ukuran`, kolom yang dicetak sebagai "Pack". Aman
+  karena kolom itu cuma jadi kunci stok bila `product_id` terisi, dan
+  pembaca stok, margin, serta dashboard sudah menyaring `product_id` /
+  `service_id`. Pembaca baru yang menampilkan nama baris invoice WAJIB
+  jatuh ke `deskripsi` (lihat cetak invoice & nota).
+- **Isinya dikunci begitu Diterima, Ditolak, atau sudah jadi
+  Proforma.** Penjaganya di `save_quotation_tx` DAN halaman edit.
+  Membatalkan Proforma-nya (`cancel_invoice_tx`) mengosongkan
+  `invoice_id` lewat FK `on delete set null`, jadi quotation bisa
+  diterbitkan ulang.
+- **Aturan pajak saat terbit harus sama dengan saat disimpan.** Invoice
+  membekukan model pajak perusahaan saat itu (trigger
+  `set_invoice_tax_mode`), jadi kalau Settings sudah berubah, RPC
+  menolak dan menyuruh menyimpan ulang quotation-nya. Totalnya tidak
+  boleh diam-diam bergeser dari angka yang sudah ditawarkan.
+- **Kedaluwarsa dihitung, tidak disimpan** (`kedaluwarsa()` di
+  `lib/quotation.ts`, dari `berlaku_sampai`). Status yang tersimpan
+  cuma Draft, Terkirim, Diterima, Ditolak.
+- Rincian per baris (`keterangan`) tidak ikut turun ke Proforma: di
+  invoice barisnya cuma satu kalimat.
+
+Dokumen cetaknya terdaftar di `DOC_TYPES` / `JUDUL_DOKUMEN` /
+`SUMBER_DOKUMEN` (kunci `quotation`): dia dikirim ke pihak luar, jadi
+bisa disahkan lewat QR. Bentuknya kembaran invoice, bukan `PrintKop`.
 
 # Harga & diskon khusus client
 

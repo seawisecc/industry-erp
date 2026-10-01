@@ -25,6 +25,7 @@ export const MODULES = [
   { key: "qa-release", label: "QA Release" },
   { key: "clients", label: "Clients" },
   { key: "consignments", label: "Consignment" },
+  { key: "quotations", label: "Quotations" },
   { key: "sales-invoices", label: "Sales Invoices" },
   { key: "pos", label: "POS" },
   { key: "sales-payments", label: "Sales Payments" },

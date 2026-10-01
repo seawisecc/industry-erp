@@ -53,6 +53,7 @@ export const SUMBER_DOKUMEN: Record<
     nomor: "no_batch_produksi",
     tanggal: "tanggal_produksi",
   },
+  quotation: { tabel: "quotations", nomor: "no_quotation", tanggal: "tanggal" },
   invoice: { tabel: "sales_invoices", nomor: "no_invoice", tanggal: "tanggal" },
   konsinyasi: {
     tabel: "consignments",

@@ -40,6 +40,7 @@ type NotaData = {
     harga: number;
     subtotal: number;
     varian_ukuran: string | null;
+    deskripsi: string | null;
     products: { nama_produk: string } | null;
     services: { nama_jasa: string } | null;
   }[];
@@ -92,7 +93,7 @@ export default async function PrintNotaPage({
         `id, no_invoice, tipe, tanggal, created_at, diskon_percent, pakai_tax, tax_percent, tax_mode, tax_dpp_nilai_lain,
          subtotal, total, catatan, nama_pembeli, status_bayar, dibuat_oleh,
          clients(company_brand),
-         sales_invoice_items(qty, harga, subtotal, varian_ukuran, products(nama_produk), services(nama_jasa))`
+         sales_invoice_items(qty, harga, subtotal, varian_ukuran, deskripsi, products(nama_produk), services(nama_jasa))`
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -210,7 +211,10 @@ export default async function PrintNotaPage({
               angka di baris bawahnya. Dua kolom sejajar tidak muat di 48 mm. */}
           {inv.sales_invoice_items.map((it, i) => {
             const nama =
-              it.products?.nama_produk || it.services?.nama_jasa || "-";
+              it.products?.nama_produk ||
+              it.services?.nama_jasa ||
+              it.deskripsi ||
+              "-";
             return (
               <div key={i} className="mb-1 last:mb-0">
                 <div className="break-words">

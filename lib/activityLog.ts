@@ -38,6 +38,7 @@ export const MODUL_TERPANTAU = [
   "receivings",
   "qc-incoming",
   "production",
+  "quotations",
   "sales-invoices",
   "sales-payments",
   "consignments",

@@ -24,6 +24,7 @@ import {
   Contact,
   Store,
   FileText,
+  FilePenLine,
   ShoppingCart,
   IdCard,
   PenLine,
@@ -89,6 +90,7 @@ export const HUBS: Record<string, string[]> = {
   "/clients": [
     "/clients",
     "/consignments",
+    "/quotations",
     "/sales-invoices",
     "/pos",
     "/sales-payments",
@@ -162,6 +164,7 @@ export const SUBMENUS: Record<string, SubItem[]> = {
   "/clients": [
     { href: "/clients", label: "Clients", icon: Contact },
     { href: "/consignments", label: "Consignment", icon: Store },
+    { href: "/quotations", label: "Quotations", icon: FilePenLine },
     { href: "/sales-invoices", label: "Invoices", icon: FileText },
     { href: "/pos", label: "POS", icon: ShoppingCart },
     { href: "/sales-payments", label: "Payments", icon: Banknote },

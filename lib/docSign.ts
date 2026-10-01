@@ -11,6 +11,7 @@ export const DOC_TYPES = [
   { key: "receiving", label: "Penerimaan Barang" },
   { key: "purchase-return", label: "Retur Pembelian" },
   { key: "production", label: "Produksi" },
+  { key: "quotation", label: "Quotation" },
   { key: "invoice", label: "Invoice Penjualan" },
   { key: "konsinyasi", label: "Tanda Terima Konsinyasi" },
   { key: "qc", label: "Lembar Pengujian QC" },

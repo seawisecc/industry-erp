@@ -36,6 +36,8 @@ type InvPrint = {
     harga: number;
     subtotal: number;
     varian_ukuran: string | null;
+    /** Baris bebas (mis. dari quotation): tanpa produk maupun jasa. */
+    deskripsi: string | null;
     products: { nama_produk: string } | null;
     services: { nama_jasa: string } | null;
   }[];
@@ -72,7 +74,7 @@ export default async function PrintInvoicePage({
         `id, no_invoice, tipe, tanggal, jatuh_tempo, diskon_percent, pakai_tax, tax_percent, tax_mode, tax_dpp_nilai_lain,
          subtotal, total, catatan, nama_pembeli,
          clients(company_brand, cp, phone, npwp, alamat),
-         sales_invoice_items(qty, harga, subtotal, varian_ukuran, products(nama_produk), services(nama_jasa))`
+         sales_invoice_items(qty, harga, subtotal, varian_ukuran, deskripsi, products(nama_produk), services(nama_jasa))`
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
@@ -245,7 +247,10 @@ export default async function PrintInvoicePage({
                   className={i % 2 === 1 ? "bg-neutral-50" : undefined}
                 >
                   <td className="py-2 px-2">
-                    {it.products?.nama_produk || it.services?.nama_jasa || "-"}
+                    {it.products?.nama_produk ||
+                      it.services?.nama_jasa ||
+                      it.deskripsi ||
+                      "-"}
                   </td>
                   <td className="py-2 px-2 text-center">{it.varian_ukuran || "-"}</td>
                   <td className="py-2 px-2 text-center">

@@ -14,6 +14,11 @@ const CARDS: SettingsCard[] = [
     subtitle: "Kirim barang, stok konsinyasi, laporan laku",
   },
   {
+    href: "/quotations",
+    title: "Quotations",
+    subtitle: "Penawaran harga maklon, sample kit, dan layanan",
+  },
+  {
     href: "/sales-invoices",
     title: "Invoices",
     subtitle: "Proforma & invoice, dengan/tanpa tax",
@@ -51,7 +56,7 @@ export default async function SalesShell({
     <div>
       <h1 className="font-display text-2xl font-semibold text-ink">Sales</h1>
       <p className="text-muted text-sm mt-1">
-        Client, konsinyasi, invoice, POS, dan pembayaran penjualan
+        Client, konsinyasi, quotation, invoice, POS, dan pembayaran penjualan
       </p>
 
       <div className="mt-6 flex flex-col lg:flex-row gap-5 items-start">

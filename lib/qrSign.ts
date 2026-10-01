@@ -47,6 +47,7 @@ export const JUDUL_DOKUMEN: Record<VerifyKey, string> = {
   receiving: "Bukti Penerimaan Barang",
   "purchase-return": "Nota Retur Pembelian",
   production: "Batch Record Produksi",
+  quotation: "Quotation (Penawaran Harga)",
   invoice: "Invoice Penjualan",
   konsinyasi: "Tanda Terima Konsinyasi",
   qc: "Lembar Pengujian QC",
